@@ -7,6 +7,8 @@ procedure details and complications, and discharge — and gets a structured rec
 like a cath report. The data model is designed to export as FHIR R4 and to plug into India's
 Ayushman Bharat Digital Mission (ABDM).
 
+**Live demo:** <https://hrudaya.vercel.app> — demo login available on request.
+
 > ⚠️ **Synthetic data only.** This project must never hold real patient information. Every name,
 > MRN, operator and device lot number in it is fictional, every patient row is marked
 > `is_synthetic` (the database refuses anything else), and no part of it has been assessed for
@@ -65,9 +67,21 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `lib/validation/` | Zod schemas for each form step |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
+## Week 1 definition of done
+
+From [docs/week1-spec.md §7](docs/week1-spec.md):
+
+- [x] Schema migration runs clean on a fresh Supabase project
+- [x] Seed loads 20 cases without error
+- [ ] New procedure can be entered start to finish on a phone in under 8 minutes — not yet timed
+- [ ] Detail page reads like a real cath report — awaiting review
+- [x] Deployed on Vercel behind Supabase email login
+- [x] README has the scope statement and a "synthetic data only" notice
+- [ ] 60-second Friday progress video recorded
+
 ## Roadmap
 
-- **Week 1 — done:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases.
+- **Week 1 — built and deployed:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases. Remaining checks above.
 - **Week 2 — FHIR R4 export** of a completed procedure.
 - **Week 3 — ABDM:** ABHA number and address, Health Information Provider (HIP) integration.
 - **Week 4 — AI discharge summary**, design polish, and tighter row-level security.

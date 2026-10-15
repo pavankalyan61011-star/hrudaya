@@ -219,12 +219,12 @@ Pages: `/procedures` (list: case code, date, patient, indication, status), `/pro
 
 ## 7. Definition of done (Week 1)
 
-- [ ] Schema migration runs clean on a fresh Supabase project
-- [ ] Seed loads 20 cases without error
+- [x] Schema migration runs clean on a fresh Supabase project
+- [x] Seed loads 20 cases without error
 - [ ] New procedure can be entered start to finish on a phone in under 8 minutes
 - [ ] Detail page reads like a real cath report
-- [ ] Deployed on Vercel behind Supabase email login
-- [ ] README has the scope statement and a "synthetic data only" notice
+- [x] Deployed on Vercel behind Supabase email login
+- [x] README has the scope statement and a "synthetic data only" notice
 - [ ] 60-second Friday progress video recorded
 
 ---
