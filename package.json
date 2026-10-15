@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:types": "supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > lib/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
