@@ -122,7 +122,7 @@ type SeedCase = {
   communication_notes?: string;
   /** null = patient remains admitted; no discharge row. */
   discharge: {
-    /** The stay stated in the case file: discharged_at = admitted_at + this (owner, 0005). */
+    /** The stay stated in the case file; discharged_at is 10:00 IST on the day it lands (see dischargeTime). */
     length_of_stay_hours: number;
     clinical_status: string;
     /** Days after the PROCEDURE date. */
@@ -877,6 +877,18 @@ function timeline(c: SeedCase) {
   return { admitted, started, ended };
 }
 
+/**
+ * Owner (2026-10-15): wards discharge at 10:00 IST on the day the stated stay lands — never at
+ * 04:00. If 10:00 that day is earlier than the stated time (same-day cases: 14:00, after the
+ * procedure), the stated time stands, since 10:00 would be before the procedure ended.
+ */
+function dischargeTime(c: SeedCase, t: ReturnType<typeof timeline>) {
+  if (!c.discharge) return null;
+  const lands = plusMin(t.admitted, c.discharge.length_of_stay_hours * 60);
+  const tenAm = at(istDate(lands), 10);
+  return tenAm > lands ? tenAm : lands;
+}
+
 /** ASSUMPTION: authored synthetic baseline, haemodynamics and radiation — plausible, not from the case files. */
 function authored(c: SeedCase) {
   const n = caseNo(c);
@@ -1036,7 +1048,8 @@ function validate(cases: SeedCase[]): string[] {
     // Owner: never imply LVEF came from the angiogram. LVEF lives in its own fields with its source.
     if (/LVEF/i.test(c.procedure.outcome_summary)) problems.push(`${c.case_code}: final impression mentions LVEF`);
     if (istDate(t.started) !== c.procedure.procedure_date) problems.push(`${c.case_code}: start is not on the procedure date (IST)`);
-    if (c.discharge && plusMin(t.admitted, c.discharge.length_of_stay_hours * 60) <= t.ended) problems.push(`${c.case_code}: discharged before the procedure ended`);
+    const dis = dischargeTime(c, t);
+    if (dis && dis <= t.ended) problems.push(`${c.case_code}: discharged before the procedure ended`);
     const meds = c.discharge?.medications ?? [];
     const hasP2y12 = meds.some((m) => /ticagrelor|clopidogrel|prasugrel/i.test(m.drug_name));
     for (const m of meds) {
@@ -1187,7 +1200,7 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
 
   if (c.discharge) {
     const dis = c.discharge;
-    const dischargedAt = plusMin(t.admitted, dis.length_of_stay_hours * 60);
+    const dischargedAt = dischargeTime(c, t) as Date;
     const dischargeDate = istDate(dischargedAt);
     const p2y12 = dis.medications.find((m) => m.is_dapt && !/aspirin/i.test(m.drug_name));
     const months = p2y12?.duration ? Number(/^(\d+)\s*month/.exec(p2y12.duration)?.[1]) || null : null;

@@ -29,3 +29,10 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   spec §3.12); the reviewing clinician is chosen from operators, not tied to the login.
 - **Case-file gaps** — guidewire and discharge clinical status are "Not recorded" for 002–020, and
   PCI-2026-001 has no stated DAPT duration; the seed does not invent them.
+
+## Process
+
+- **Migrations that drop or rename a column ship in three steps:** first deploy code that works
+  with both the old and the new shape, then apply the migration, then deploy the clean-up that
+  drops support for the old shape. On 2026-10-15, migrating 0005–0007 before the matching code was
+  live gave 3–4 minutes of errors on the live site; with a pilot site that would matter.
