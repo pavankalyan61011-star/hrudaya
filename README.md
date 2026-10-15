@@ -76,6 +76,9 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `lib/summary/` | AI discharge summary: input builder, prompt, audit, generator, API logic |
 | `docs/ai-summary.md` | The guards, prompt, audit rules, eval and cost |
 | `scripts/summary-eval.ts` | The six-language eval (`npm run summary:eval`) |
+| `lib/summary/sections.ts`, `flag-locations.ts` | Week 5: draft ⇄ sections (lossless), flag placement |
+| `components/report/summary-editor.tsx`, `record-panel.tsx`, `compare-sheet.tsx` | Week 5: the reviewer's editor and record panel |
+| `docs/reviewer-ux.md` | Week 5: reviewer experience — ideas, rules, screenshots, tests |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
 ## Week 1 definition of done
@@ -268,13 +271,81 @@ From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
 - [ ] Native-reader check for Hindi, Tamil, Kannada and Malayalam
 - [x] v6 eval: 114/114, 0 flags
 
+## Week 5 — Reviewer experience
+
+A clinician reviews an AI draft **section by section, against the record it came from**, on a
+phone, without touching Markdown. Generation, the audit rules, approval and the database are
+unchanged. Write-up: [docs/reviewer-ux.md](docs/reviewer-ux.md).
+
+- **Structured editor.** One block per section, with headings read-only. The medicines table is
+  rendered **from the record**, so it can't be edited: to change a dose, reopen the procedure. Only
+  the wording is editable. View Markdown shows exactly what will be saved. A draft whose sections
+  don't match the record falls back to the old single textarea with a notice.
+- **Compare with record.** The record as the model saw it, grouped by section: a second column on
+  a laptop (each group sticks beside its section), a bottom sheet on a phone. Missing values read
+  `Not recorded` / `Not performed` / `None recorded`, never blank.
+- **Flags beside sections.** Each audit flag sits under the section that caused it, outlined red
+  or amber. The audit re-runs 400 ms after typing, and Approve waits for it.
+
+| Laptop | Phone |
+|---|---|
+| ![Laptop](docs/images/week5-laptop-compare.png) | ![Phone](docs/images/week5-phone-compare.jpg) |
+
+- **Round trip** (`npm run summary:roundtrip`): parse → serialise is byte-identical for **833 of
+  833** texts, with 0 mismatches:
+  - 798 saved eval drafts (v1–v6);
+  - 16 texts from 13 production rows;
+  - 19 texts from 17 local rows.
+- **Flag-placement tests** (`lib/summary/flag-locations.test.ts`, 15):
+  - a dose error goes to medicines;
+  - an invented findings number goes to "found";
+  - `section_extra` stays global (from a real extra heading, and on a structured draft);
+  - `section_missing`, `too_long` and `script_check` are global;
+  - a missing drug goes to medicines;
+  - an extra drug goes where it is written (in prose, or in the table);
+  - a forbidden phrase goes to its section;
+  - a token in two sections goes to the first;
+  - numbers match whole;
+  - a fallback draft puts everything in global;
+  - `medicine_row_unmatched` goes to medicines;
+  - every flag is placed exactly once;
+  - across all 114 v6 drafts in six languages, an invented number planted in "What we found"
+    lands on "found".
+- **Phone checks (390 px)**, each language on its longest draft: no horizontal scroll, textareas
+  at 16 px with nothing clipped, the Compare sheet opens and closes by tap and by keyboard, and
+  focus is trapped. Not yet tried on a real phone.
+
+```bash
+npm run summary:roundtrip
+```
+
+## Week 5 definition of done
+
+From [docs/week5-reviewer-spec.md §8](docs/week5-reviewer-spec.md):
+
+- [x] Round trip byte-identical for every saved draft and every database row (833/833); the script
+  and the unit test fail on a mismatch
+- [x] Fallback path: wrong heading count gives the single textarea with a notice, and can still be
+  approved (tested in the browser)
+- [x] `locateFlags` unit-tested (15 tests, including the three in the spec)
+- [x] Phone width: all six languages on the longest draft, no horizontal scroll, textareas ≥ 16 px,
+  sheet works with keyboard and touch (emulated; a real phone is still on the list)
+- [x] Record panel: CAG-2026-018 shows `Not performed` (LVEF) and `None recorded`
+  (complications); PCI-2026-005 shows the complication with its outcome
+- [x] Approve path unchanged: 422 on an error, immutable after approval (existing tests pass,
+  none weakened)
+- [x] `docs/reviewer-ux.md` and this section
+- [ ] Owner read-through: Pavan approves one Telugu draft in the new editor on his phone without
+  opening View Markdown
+
 ## Roadmap
 
 - **Week 1 — built and deployed:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases. Remaining checks above.
 - **Week 2 — FHIR R4 export, built:** document Bundle per reviewed procedure, HL7 validator 0 errors, HAPI round-trip. Remaining checks above.
 - **Week 3 — ABDM:** ABHA number and address, Health Information Provider (HIP) integration.
 - **Week 4 — AI discharge summary, built:** six languages, audit, clinician approval, print report. Remaining checks above.
-- **Next:** design polish and tighter row-level security.
+- **Week 5 — Reviewer experience, built:** structured editor, compare with record, flags beside sections. Remaining checks above.
+- **Next:** ABDM (Week 3, waiting on sandbox credentials), form navigation for the capture steps, tighter row-level security.
 
 ## Licence
 

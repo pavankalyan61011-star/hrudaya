@@ -31,6 +31,9 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   the two urgency groups are stored as heading items ending in ":" inside `discharges.red_flags`
   (owner, 2026-10-15). The report page and the summary prompt both read them by convention. A
   category per item would need a migration, so the capture form could offer the standard set.
+- **Form navigation for the capture steps** — moving between the six capture steps of the
+  procedure form. Kept out of Week 5 by the spec ("stays on the backlog"); it was not yet written
+  down here, so it is added now.
 - **FFR / iFR** — conditional physiology per lesion.
 - **Left ventriculography** — conditional; would become an `lvef_source` that can carry a value.
 - **Mechanical circulatory support** — IABP, Impella, ECMO; conditional.
@@ -56,12 +59,12 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   complication. The deterministic interim fix is to leave a complication out of the summary input
   until it has a structured outcome (`lib/summary/input.ts`). That needs owner approval and a
   re-run.
-- **Structured medicine editor with preview instead of Markdown textarea.** Today the clinician
-  edits the whole summary as Markdown, medicines table included. A row-per-medicine editor (drug
-  and dose locked to the record, frequency and duration text editable) with a live preview would
-  make a dose edit impossible to mistype, and would remove Markdown from the clinician's job.
-- **Native-reader check.** All five Indian languages are awaiting the five-question check in
-  `docs/ai-summary.md`.
+- **Structured medicine editor with preview instead of Markdown textarea.** Mostly done in Week 5:
+  section editor, medicines table read-only from the record, View Markdown. Still open: the
+  draft's "how often" / "for how long" cells can't be edited in place, because the table is never
+  edited. A row editor for just those two cells would close it.
+- **Native-reader check.** Telugu done (15 Oct 2026). Hindi, Tamil, Kannada and Malayalam are
+  awaiting the five-question check in `docs/ai-summary.md`.
 - **Approved summary on the FHIR Bundle.** An approved summary could be a `DocumentReference` (or
   a Composition section) in the export. Not mapped yet.
 - **Summary reads at the clinician's own login.** `approving_clinician_id` is chosen from

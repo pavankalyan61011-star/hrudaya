@@ -5,6 +5,41 @@
 
 Drop this at `docs/week5-reviewer-spec.md`. Read `docs/week4-ai-summary-spec.md` §5–§7 first; the audit (`lib/summary/audit.ts`) and the summary input (`lib/summary/input.ts`) are reused unchanged.
 
+## Corrections after build (16 Oct 2026)
+
+The sections below are left as originally written. What was built differs in these places:
+
+- **§3 presence also covers `care`.** The prompt (v2+) and the audit leave "Looking after yourself"
+  out when the record has no advice, so the parser does too. Without this, a draft with no advice
+  would fall back to the plain editor.
+- **§3 types:**
+  - `DraftSection` gains `tableAt` (where the medicines table sits in the body);
+  - `ParsedDraft` gains `fallback`;
+  - the fallback key is `'unknown'`;
+  - omitted sections are listed with `present: false`.
+- **§3 round trip over old drafts.** Drafts from prompts v1–v3 are judged against the record as it
+  was when they were written: no red flags for the 11 cases corrected later. Otherwise every one of
+  them would fall back for a reason that has nothing to do with the parser.
+- **§4 the audit debounce is new.** Before Week 5 the live audit ran on every keystroke. It now
+  runs 400 ms after the last edit, and **Approve stays disabled until it has caught up**, so
+  nothing can be approved against a stale audit.
+- **§4 layout:**
+  - each section shows a small English label above the model's heading, so a reviewer who
+    doesn't read the script knows which section it is;
+  - absent `care` reads "Not in this leaflet — no advice recorded";
+  - a record medicine with no matching draft row shows the record's frequency abbreviation.
+- **§5 width.** The report page is a 768 px column. While editing on ≥ 1024 px the summary card
+  widens (centred, at most 72rem) so the two columns fit; nothing else on the page changes.
+- **§5 "Record changed since this draft" was not already on the card.** It is new: the page now
+  computes the record's input hash and the card compares it with the draft's.
+- **§5 complications without an outcome.** Since Week 4 (prompt v4), a complication with no outcome
+  text is left out of the model's input. "Only what the model saw" would then read "None
+  recorded" while the record has a complication. The panel adds an amber line saying how many
+  such complications the record holds.
+- **§6 `dose_mismatch`** goes straight to medicines, not to the first section mentioning the
+  drug, which could be earlier prose. This is what §8 asks for ("a dose error lands on
+  medicines").
+
 ---
 
 ## 0. Why this week matters (read this, Pavan)
