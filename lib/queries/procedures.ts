@@ -53,7 +53,7 @@ const FULL_SELECT = `
   *,
   patient:patients(*, risk_factors:patient_risk_factors(id, factor, detail)),
   operator:operators!procedures_primary_operator_id_fkey(id, full_name, role),
-  reviewer:operators!procedures_reviewing_clinician_id_fkey(id, full_name),
+  reviewer:operators!procedures_reviewing_clinician_id_fkey(id, full_name, role),
   consent_by:operators!procedures_consent_by_operator_id_fkey(id, full_name),
   timeout_by:operators!procedures_timeout_by_operator_id_fkey(id, full_name),
   facility:facilities(id, name, cath_lab_name, city),
