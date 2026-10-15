@@ -1,0 +1,63 @@
+/**
+ * Prompt for the patient discharge summary (Week 4 spec §5.1). One place, versioned.
+ *
+ * Change the system prompt → bump PROMPT_VERSION. Both are stored on every row, so a prompt
+ * change is visible in the data. The user message is the input JSON and nothing else.
+ */
+import type { SummaryInput } from "./input.ts";
+
+/** Current Sonnet (checked on docs.claude.com/en/docs/about-claude/models, 2026-10-15). */
+export const SUMMARY_MODEL = "claude-sonnet-5-5";
+export const PROMPT_VERSION = "v1";
+
+export const LANGUAGES = {
+  en: "English",
+  te: "Telugu",
+  hi: "Hindi",
+  ta: "Tamil",
+  kn: "Kannada",
+  ml: "Malayalam",
+} as const;
+export type SummaryLanguage = keyof typeof LANGUAGES;
+export const isSummaryLanguage = (v: unknown): v is SummaryLanguage => typeof v === "string" && v in LANGUAGES;
+
+/** The fixed system prompt, in English for every language (spec §5.1, items 1–7 in order). */
+export function systemPrompt(language: SummaryLanguage): string {
+  const L = LANGUAGES[language];
+  return `You write a discharge summary for the patient and their family, from a cardiac catheterisation (cath lab) record, for a hospital in India.
+
+LANGUAGE
+Write the body in ${L}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, frequencies (OD, BD, TDS, QDS, PRN), the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in ${L}.
+
+FACTS
+Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown".
+
+SECTIONS
+Use exactly these sections, in this order, each as a Markdown "## " heading written in ${L}. Do not number the headings and add no other headings.
+1. Why you were in hospital: the diagnosis, in plain words.
+2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel).
+3. What we found: each vessel and its % narrowing, in plain language.
+4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
+5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in ${L}). Copy the drug name, the dose with its unit, and the frequency exactly as given. Write "(DAPT)" after the name of each DAPT medicine. Leave "For how long" empty when the record gives no duration. After the table, write one sentence: do not stop these medicines without asking your cardiologist.
+6. Looking after yourself: the advice items, reworded gently. Add nothing.
+7. When to come back urgently: the red-flag items. Add nothing.
+8. Follow-up: the follow-up date and clinic.
+9. Your team: the operator and the facility.
+
+TONE
+Calm, respectful, plain words, short sentences, second person ("you"). The reading level of a newspaper. Give no reassurance the record does not contain: for example, do not say the heart is now fine unless the clinical status says so.
+
+LENGTH
+Under 450 words of body text in English; the other languages may be longer.
+
+OUTPUT
+Markdown only. No preamble, no closing remarks, no signature line.`;
+}
+
+/** System prompt + the single user message: the input JSON, nothing else. */
+export function buildMessages(input: SummaryInput, language: SummaryLanguage) {
+  return {
+    system: systemPrompt(language),
+    messages: [{ role: "user" as const, content: JSON.stringify(input) }],
+  };
+}
