@@ -64,30 +64,61 @@ One row per risk factor so they are queryable.
 
 Seeded operators (fictional): Dr Arjun Reddy and Dr Meera Shah, both interventional_cardiologist.
 
+### 3.3a `facilities`
+| column | type | notes |
+|---|---|---|
+| name | text | "Synthetic District Hospital" |
+| cath_lab_name | text | "Cath Lab 1" |
+| city | text | "Chittoor" |
+| hfr_id | text, nullable | Health Facility Registry id; for ABDM later |
+
+One synthetic facility is created by migration 0006 (Week 1 scope is one cath lab).
+
 ### 3.4 `procedures`
 The core record. One row per cath lab visit.
 | column | type | notes |
 |---|---|---|
 | patient_id | fk patients | |
 | case_code | text, unique | e.g. PCI-2026-001 |
-| procedure_date | date | |
+| facility_id | fk facilities | required to complete |
+| referring_clinician | text, nullable | |
+| urgency | enum: elective, urgent, emergency | required to complete |
+| procedure_date | date | the IST date of started_at |
+| started_at | timestamptz | required to complete |
+| ended_at | timestamptz | after started_at; procedure duration is derived (ended_at − started_at), never stored |
 | procedure_type | enum: diagnostic_angiography, pci, angiography_and_pci | |
 | indication | enum: stemi, nstemi, unstable_angina, stable_angina, positive_stress_test, pre_op_assessment, cardiomyopathy_workup, other | |
 | presentation_notes | text | free text: the story ("central chest pain radiating to left arm for 2 days…") |
 | ecg_findings | text, nullable | "ST depression V4–V6" |
 | troponin_elevated | boolean, nullable | |
+| allergies | text, nullable | "None known" |
+| creatinine_umol_l | numeric, nullable | baseline creatinine, µmol/L |
+| egfr | numeric, nullable | mL/min/1.73 m² |
+| haemoglobin_g_dl | numeric, nullable | g/dL |
+| platelets_x10e9_l | integer, nullable | ×10⁹/L |
+| baseline_bp_systolic | integer, nullable | mmHg |
+| baseline_bp_diastolic | integer, nullable | mmHg |
+| baseline_heart_rate | integer, nullable | bpm |
 | access_site | enum: right_radial, left_radial, right_femoral, left_femoral, right_ulnar, left_ulnar, other | |
 | sheath_size_fr | integer | 5, 6, 7, 8 |
 | diagnostic_catheters | text[] | ["5F TIG"] |
 | guiding_catheter | text, nullable | "6F EBU 3.5" |
+| contrast_agent | text, nullable | "Iohexol 350" |
 | contrast_volume_ml | integer | |
-| procedure_duration_min | integer | |
 | fluoroscopy_time_min | numeric(5,1) | |
-| radiation_dose_mgy | numeric, nullable | optional |
+| air_kerma_mgy | numeric, nullable | cumulative air kerma, mGy |
+| dap_gy_cm2 | numeric, nullable | dose-area product, Gy·cm² |
+| aortic_pressure_systolic | integer, nullable | mmHg |
+| aortic_pressure_diastolic | integer, nullable | mmHg |
+| lvedp_mmhg | integer, nullable | conditional measurement — see the three-state rule |
+| dominance | enum: right, left, co_dominant, nullable | coronary dominance |
 | lvef_pct | integer 0–100, nullable | post-procedure LVEF, where recorded |
 | primary_operator_id | fk operators | |
 | haemostasis_method | enum: radial_compression_band, manual_compression, vascular_closure_device, other | |
 | outcome_summary | text | the "final impression" paragraph |
+| post_procedure_condition | enum: stable, unstable, deceased, nullable | immediate outcome |
+| post_procedure_destination | enum: ward, ccu, icu, day_case_recovery, transferred, nullable | |
+| immediate_care_notes | text, nullable | the immediate post-procedure plan |
 | status | enum: draft, completed, reviewed | reviewed = signed off; the record and its child rows are then read-only |
 | reviewed_by | fk auth.users, nullable | the signed-in user who marked it reviewed (set by the database) |
 | reviewed_at | timestamptz, nullable | set by the database at sign-off |
@@ -104,7 +135,11 @@ One row per vessel/segment seen on angiography.
 | stenosis_pct | integer 0–100 | 0 = normal |
 | timi_flow | integer 0–3 | pre-intervention |
 | is_culprit | boolean | |
-| lesion_notes | text, nullable | calcification, bifurcation, thrombus, etc. |
+| lesion_length_mm | numeric, nullable | |
+| calcification | enum: none, mild, moderate, severe, nullable | |
+| thrombus | boolean, default false | |
+| bifurcation | boolean, default false | |
+| lesion_notes | text, nullable | anything not covered above |
 
 ### 3.6 `interventions`
 One row per treated lesion.
