@@ -23,6 +23,8 @@ import {
 } from "@/lib/report-format";
 import { Facts, Section, StatusBadge } from "@/components/report/section";
 import { ReviewPanel } from "@/components/report/review-panel";
+import { FhirExport } from "@/components/report/fhir-export";
+import { procedureToBundle } from "@/lib/fhir/mapper";
 import { SyntheticNotice } from "@/components/synthetic-notice";
 import { STEPS } from "../new/step-header";
 
@@ -122,6 +124,8 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
         </div>
       )}
       {p.status === "completed" && <ReviewPanel procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} />}
+      {/* Spec §7: export and preview for reviewed procedures only; built from the rows already loaded. */}
+      <FhirExport procedureId={p.id} caseCode={p.case_code} bundle={p.status === "reviewed" ? procedureToBundle(p, new Date().toISOString()) : null} />
 
       <Section title="Patient">
         {pt ? (
