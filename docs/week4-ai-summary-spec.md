@@ -35,7 +35,14 @@ The sections below are left as originally written. What was built differs in the
 - **§5.1 prompt v5:** the red-flag sentence no longer names "108". v4's "Keep 108 and every number
   as given" made the model add "call 108" to PCI-2026-001, whose record does not contain it, and
   the audit blocked both drafts. Numbers in that section now come only from the record's red-flag
-  items. **The prompt is frozen after v5, pending native-reader feedback.**
+  items. The prompt was frozen after v5, pending native-reader feedback. That was superseded by v6
+  after the Telugu read-through.
+- **§5.1 prompt v6** (Telugu native-reader feedback):
+  - the DAPT sentence names both DAPT medicines;
+  - durations are translated, with the figure kept;
+  - specific findings keep their specific wording.
+
+  **Frozen at v6.** Its eval has not run yet: blocked by the API credit balance.
 - **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
   400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
 

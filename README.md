@@ -209,8 +209,14 @@ prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
   | "108" where the record's red flags lack it (of 48) | 0 | 0 | 0 | 2 | 0 |
   | Longest draft, tokens (limit) | 2,657 (3,000) | 2,557 (3,000) | 2,938 (3,000) | 3,902 (4,000) | 4,006 (6,000) |
 
-  The audit blocked two drafts where v4's own prompt wording had caused the model to add "call 108" to a case whose record did not contain it — the layered guards caught a prompt error, not a model error. v5 removed that wording. **The prompt is frozen after v5, pending native-reader
-  feedback.** Details: [docs/ai-summary.md](docs/ai-summary.md#eval).
+  The audit blocked two drafts where v4's own prompt wording had caused the model to add "call 108" to a case whose record did not contain it — the layered guards caught a prompt error, not a model error. v5 removed that wording.
+
+  **Prompt v6** (Telugu native-reader feedback): it names the DAPT drugs, translates durations
+  with the figure kept, and keeps specific findings specific. The prompt is **frozen at v6**. **v6
+  is not evaluated yet:** its run stopped because the API credit balance is too low, with nothing
+  generated or billed. The v5 baseline it targets: 1 of 102 DAPT drafts named both drugs, and 58
+  of 80 Indian-language drafts left durations in English. Details:
+  [docs/ai-summary.md](docs/ai-summary.md#eval).
 
   Cost per summary (v5):
 
@@ -225,8 +231,10 @@ prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
 
   Longest Indian-language case: PCI-2026-009 in Kannada, **$0.0450**, about 3.5× English. A whole
   run is $2–2.70 ($2.04 v1, $1.98 v2, $2.19 v3, $2.66 v4, $2.69 v5).
-- **Read by people:** Telugu, Hindi, Tamil, Kannada and Malayalam are all **awaiting a
-  native-reader check**: the five-question protocol in
+- **Read by people:** **Telugu is native-reader checked.** The owner, a native speaker and former
+  cath-lab technologist, read five cases: all accurate, with three wording notes and one data
+  correction, which became prompt v6 and a red-flag fix. Hindi, Tamil, Kannada and Malayalam are
+  **awaiting a native-reader check**: the five-question protocol in
   [docs/ai-summary.md](docs/ai-summary.md#native-reader-check). The audit checks drugs, doses and
   numbers; it cannot judge the prose.
 
@@ -253,11 +261,13 @@ From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
   same code path, but not yet through the deployed button.
 - [x] Approve blocked while an error flag exists, and an approved row is immutable (tested locally
   in the browser and against the trigger)
-- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` in every run; prompts v2–v5 zero warnings; v4 had 2 caught `number_unknown` errors, v5 none; prompt frozen after v5
+- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` in every run; prompts v2–v5 zero warnings; v4 had 2 caught `number_unknown` errors, v5 none; v6 (frozen) not yet run
 - [ ] Print page renders A4 from Chrome on Mac and phone, with glyphs correct in print preview for
   all five Indian scripts. Not yet checked: needs a real print preview.
 - [x] `docs/ai-summary.md` written
-- [ ] Native-reader check (five questions, five cases) for Telugu, Hindi, Tamil, Kannada and Malayalam
+- [x] Native-reader check for Telugu (five cases, all accurate, notes acted on in v6)
+- [ ] Native-reader check for Hindi, Tamil, Kannada and Malayalam
+- [ ] v6 eval (blocked: API credit balance too low)
 
 ## Roadmap
 

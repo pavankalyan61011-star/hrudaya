@@ -41,7 +41,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 | Step | File |
 |---|---|
 | Record → PHI-minimal input + sha256 | `lib/summary/input.ts` |
-| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v5"`) |
+| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v6"`) |
 | Claude API call, server-only | `lib/summary/generate.ts` |
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
@@ -60,7 +60,7 @@ the draft.
 builds and runs, and the Generate button is disabled with "AI summary not configured on this
 server".
 
-## The prompt (v5, frozen)
+## The prompt (v6, frozen)
 
 The same English instructions for every language; `{LANGUAGE}` is filled in. The user message is
 the input JSON and nothing else. Versions:
@@ -81,9 +81,15 @@ the input JSON and nothing else. Versions:
 
 - **v5:** the red-flag sentence no longer names "108". Numbers in that section come only from the
   record's own red-flag items.
+- **v6**, from the Telugu native-reader check:
+  - the DAPT sentence names the two DAPT medicines from the record;
+  - durations are written in the patient's language with the figure kept ("12 నెలలు");
+  - a specific finding in a complication's text (e.g. "ultrasound excluded pseudoaneurysm") keeps
+    its specific wording.
 
-**The prompt is frozen after v5, pending native-reader feedback** (owner, 15 Oct 2026). The next
-change comes from what native readers report, not from further eval tuning.
+**The prompt is frozen at v6** (owner, 15 Oct 2026). The next change comes from the remaining
+native readers (Hindi, Tamil, Kannada, Malayalam). **v6 has not been evaluated yet**: the eval
+could not run (see [Eval](#eval)).
 
 Each change and its effect is under [Eval](#eval).
 
@@ -91,10 +97,10 @@ Each change and its effect is under [Eval](#eval).
 You write a discharge summary for the patient and their family, from a cardiac catheterisation (cath lab) record, for a hospital in India.
 
 LANGUAGE
-Write the body in {LANGUAGE}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in {LANGUAGE}. Write how often a medicine is taken in {LANGUAGE}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in {LANGUAGE}, keeping any number in Western digits.
+Write the body in {LANGUAGE}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in {LANGUAGE}. Write how often a medicine is taken in {LANGUAGE}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in {LANGUAGE} too: translate the words of the duration and keep the figure in Western digits, for example "12 months" becomes "12" followed by the word for months in {LANGUAGE}. Never leave a duration in English unless {LANGUAGE} is English.
 
 FACTS
-Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". A complication is described only together with its outcome, in one or two plain sentences, using only that complication's name, management and outcome from the record. A complication without an outcome is not mentioned at all.
+Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". A complication is described only together with its outcome, in one or two plain sentences, using only that complication's name, management and outcome from the record. When that text names a specific finding or test result (for example "ultrasound excluded pseudoaneurysm"), keep it specific — name the test and what it excluded or showed, in plain words with the medical term in brackets — rather than generalising it to "no further problem". A complication without an outcome is not mentioned at all.
 
 SECTIONS
 Use these sections, in this order, each as a Markdown "## " heading written in {LANGUAGE}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.
@@ -102,7 +108,7 @@ Use these sections, in this order, each as a Markdown "## " heading written in {
 2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel). Then any complication in the record, each with its outcome, as described under FACTS.
 3. What we found: each vessel and its % narrowing, in plain language.
 4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
-5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in {LANGUAGE}). Copy the drug name and the dose with its unit exactly as given. Write "(DAPT)" after the name of each DAPT medicine. In "How often", write the frequency as described under LANGUAGE, with its abbreviation in brackets. Leave "For how long" empty when the record gives no duration. After the table: if any medicine is DAPT, write one plain sentence explaining DAPT — two tablets taken together that stop clots forming in the stent (if the record has no stent, say "in the treated artery" instead). Then write one sentence: do not stop these medicines without asking your cardiologist.
+5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in {LANGUAGE}). Copy the drug name and the dose with its unit exactly as given. Write "(DAPT)" after the name of each DAPT medicine. In "How often", write the frequency as described under LANGUAGE, with its abbreviation in brackets. Leave "For how long" empty when the record gives no duration. After the table: if any medicine is DAPT, write one plain sentence explaining DAPT that names the two DAPT medicines from the record exactly as given (for example "Aspirin and Ticagrelor"): two tablets taken together that stop clots forming in the stent (if the record has no stent, say "in the treated artery" instead). Then write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
 7. When to come back urgently: the red-flag items, in order. An item ending in ":" is a heading that says how urgently to act: write it as a lead-in line, then list the items that follow it, up to the next heading, as bullets under it. Keep every number in the red-flag items exactly as given, and write no phone number or other number that the items do not contain. Add nothing. If the record has no red_flags, leave this section out entirely.
 8. Follow-up: the follow-up date and clinic.
@@ -143,7 +149,27 @@ drafts, no model call). Each run: every seeded discharged case × six languages 
 in every run; the fallback never ran. v4 and v5 ran on corrected data: standard red flags for 11 discharges, and
 PCI-2026-005's timeline (`docs/backlog.md` → Data corrections).
 
+### v6: not yet evaluated
+
+On 15 Oct 2026 the v6 run stopped on its first five calls: the API answered **"Your credit balance
+is too low to access the Anthropic API"**. Nothing was generated and nothing was billed (0
+tokens), and the eval stopped itself after repeated failures, as designed. Until credit is added,
+the deployed Generate button cannot draft either, so no v6 draft can reach anyone before the eval
+can run. Re-run with `npm run summary:eval -- --confirm` once there is credit.
+
+What v6 is meant to fix, measured on the saved v5 drafts with the v6 checks (each check is
+language-independent where noted):
+
+| v6 check | v5 (baseline) | v6 |
+|---|---|---|
+| DAPT drafts whose prose names both DAPT medicines, any language (of 102) | 1 | not run yet |
+| Indian-language drafts with a duration still in English "month(s)" (of 80) | 58 | not run yet |
+| PCI-2026-005 English names the pseudoaneurysm finding | no | not run yet |
+| The 11 corrected cases, English: GI-bleeding item in the emergency group (of 11) | 0 (before the data correction) | not run yet |
+
 ### Before and after: prompt v1 → v5 (15 Oct 2026)
+
+v6 is not in this table yet; see above.
 
 | | v1 | v2 | v3 | v4 | v5 |
 |---|---|---|---|---|
@@ -219,7 +245,8 @@ wrote "Your heart pump" to say there was no LVEF. v2 leaves empty sections out.
 - **Everything else held:** 210/210 frequencies with the abbreviation, 17/17 DAPT sentences, both
   English complications described with their outcome ("The swelling settled with pressure";
   "Normal blood flow came back"), and the urgency groups in order in all 11 English drafts.
-- **The prompt is now frozen**, pending native-reader feedback.
+- **The prompt was frozen at v5**, pending native-reader feedback. The Telugu read-through then
+  led to v6, which is now the frozen version.
 
 **How the counts were checked.** The audit runs on every draft. Separately, scripts read every
 saved draft from all four runs:
@@ -244,7 +271,7 @@ Price for `claude-sonnet-5-5`: $2 per million input tokens, $10 per million outp
 (platform.claude.com, 15 Oct 2026). Input is about 2,300 tokens in every language under v5: the
 prompt and the record JSON. Output is what differs, because Indian scripts take several times more
 tokens per word than English, and the standard red flags add the most in Kannada. Prompt v5
-figures (the frozen prompt), with earlier versions for comparison:
+figures (v5 is the last evaluated prompt; v6 has not run yet), with earlier versions for comparison:
 
 | | Tokens in / out (v5) | Cost per summary, v5 | v4 | v3 | v2 | v1 |
 |---|---|---|---|---|---|---|
@@ -283,11 +310,29 @@ a diagnostic-only case (CAG-2026-018).
 | Language | Status |
 |---|---|
 | English | Audit only. Not yet read by a clinician or a patient-side reader. |
-| Telugu | **Awaiting native-reader check** (Pavan) |
+| Telugu | **Native-reader checked** (15 Oct 2026; see below) |
 | Hindi | **Awaiting native-reader check** |
 | Tamil | **Awaiting native-reader check** |
 | Kannada | **Awaiting native-reader check** |
 | Malayalam | **Awaiting native-reader check** |
+
+## Clinical read-through — Telugu (native speaker, ex-cath lab technologist, 15 Oct 2026)
+
+Read by the owner, a native Telugu speaker and former cath-lab technologist, on the v5 Telugu
+drafts:
+
+| Case | Verdict | Note | What changed |
+|---|---|---|---|
+| PCI-2026-001 | **Accurate** | DAPT drugs should be named | Prompt v6: the DAPT sentence names both medicines from the record |
+| PCI-2026-005 | **Accurate** | Outcome stated; the ultrasound wording should be specific | Prompt v6: a specific finding ("ultrasound excluded pseudoaneurysm") keeps its wording |
+| PCI-2026-010 | **Accurate** | Outcome stated | — |
+| CAG-2026-018 | **Accurate** | The source red-flag grouping was wrong | Data correction: GI bleeding moved to the emergency group in all 11 standard lists (`docs/backlog.md` → Data corrections) |
+| PCI-2026-008 | **Accurate** | The duration should be translated | Prompt v6: durations in the patient's language with the figure kept ("12 నెలలు") |
+
+All five were accurate. Every note was about clarity or completeness, not about a wrong fact. One
+note (018) was about the record itself, not the draft. The v5 checks show each note was a pattern,
+not a one-off: only 1 of 102 DAPT drafts named both drugs, and 58 of 80 Indian-language drafts left
+"months" in English. Whether v6 fixes these awaits its eval run.
 
 ## Decisions that differ from the spec
 
