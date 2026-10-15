@@ -6,7 +6,8 @@
  * content. Callers may log ids, language, version, tokens, latency and flag codes only.
  *
  * Request settings, and where they differ from spec §2 (checked against the API docs 2026-10-15):
- *  - max_tokens 3000, not the spec's 1500 (owner decision 2026-10-15). In the first eval sample
+ *  - max_tokens 4000, not the spec's 1500 (owner decisions 2026-10-15: 3000 after the first eval
+ *    sample, then 4000 when the v3 eval's longest Kannada draft used 2938 of 3000). In that sample
  *    Kannada and Malayalam were cut off at 1500 and Tamil used 1485: these scripts take ~5.5
  *    tokens a word, so a complete leaflet needs ~1700–2200. It is a ceiling, not a target —
  *    English still uses ~800. A draft cut off at the limit is refused, never stored: a
@@ -34,7 +35,7 @@ if (typeof window !== "undefined") {
   throw new Error("lib/summary/generate.ts is server-only");
 }
 
-export const MAX_TOKENS = 3000;
+export const MAX_TOKENS = 4000;
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 export type ModelRequest = ReturnType<typeof buildMessages>;

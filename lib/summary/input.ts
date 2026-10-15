@@ -2,8 +2,9 @@
  * The PHI-minimal input sent to the model for a patient discharge summary (Week 4 spec §4).
  *
  * Pure and deterministic: record in, object out, keys in a fixed order — so `inputHash` is stable.
- * Included is exactly the §4 table; nothing else. Never included: patient name, date of birth,
- * MRN, ABHA, phone; lesion notes and other free text; device lot, expiry and UDI.
+ * Included is exactly the §4 table, plus each complication's outcome and management text (owner,
+ * 2026-10-15; the only free text sent, ≤ 300 chars each). Never included: patient name, date of
+ * birth, MRN, ABHA, phone; lesion notes and all other free text; device lot, expiry and UDI.
  * A null field is omitted — never sent as null or "Not recorded".
  *
  * Type-only imports plus relative `.ts` imports, so it runs unchanged in Next and under Node.
@@ -41,7 +42,8 @@ export type SummaryInput = {
   interventions: { vessel: string; type: string; residual_stenosis_pct: number; final_timi: number }[];
   devices: { category: string; name: string; size: string }[];
   measurements: { lvef_pct?: number; contrast_ml?: number; fluoroscopy_min?: number };
-  complications: { name: string; onset?: string }[];
+  /** Only complications whose outcome is recorded (owner, 2026-10-15): described with it, or not at all. */
+  complications: { name: string; onset?: string; management?: string; outcome: string }[];
   discharge?: {
     clinical_status?: string;
     follow_up_date?: string;
@@ -115,6 +117,17 @@ function compact<T extends Record<string, unknown>>(o: T): T {
 
 const sizeText = (d: number, l: number) => `${d} × ${l} mm`;
 
+/**
+ * Complication management/outcome are the only free text sent (owner, 2026-10-15): whitespace
+ * collapsed, at most 300 characters, empty → undefined.
+ */
+export const COMPLICATION_TEXT_MAX = 300;
+function clip(s: string | null | undefined): string | undefined {
+  const t = (s ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return undefined;
+  return t.length > COMPLICATION_TEXT_MAX ? `${t.slice(0, COMPLICATION_TEXT_MAX - 1)}…` : t;
+}
+
 function access(site: string | null, sheath: number | null): SummaryInput["access"] {
   if (!site) return undefined;
   const [side, ...rest] = site.split("_");
@@ -164,7 +177,16 @@ export function buildSummaryInput(p: P): SummaryInput {
       contrast_ml: p.contrast_volume_ml ?? undefined,
       fluoroscopy_min: p.fluoroscopy_time_min ?? undefined,
     }),
-    complications: p.complications.map((c) => compact({ name: COMPLICATION[c.complication] ?? c.complication, onset: c.onset ? ONSET[c.onset] : undefined })),
+    complications: p.complications
+      .filter((c) => clip(c.outcome))
+      .map((c) =>
+        compact({
+          name: COMPLICATION[c.complication] ?? c.complication,
+          onset: c.onset ? ONSET[c.onset] : undefined,
+          management: clip(c.management),
+          outcome: clip(c.outcome)!,
+        }),
+      ),
     discharge: d
       ? compact({
           clinical_status: d.clinical_status,

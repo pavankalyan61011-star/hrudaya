@@ -73,6 +73,25 @@ test("not yet discharged: no discharge block, no medications, no discharged_at",
   assert.equal("discharged_at" in input.episode, false);
 });
 
+test("complications: sent with outcome and management; omitted without an outcome; text clipped at 300", () => {
+  const long = "Managed with compression and observation. ".repeat(20);
+  const c = (over: Record<string, unknown>) => ({
+    id: "c", complication: "access_site_haematoma", severity: "minor", management: "Compression", outcome: "Resolved",
+    onset: "inpatient", onset_at: null, ...over,
+  });
+  const input = buildSummaryInput(fixture({ complications: [
+    c({}),
+    c({ complication: "no_reflow", onset: "intraprocedural", outcome: "   " }),
+    c({ complication: "dissection", outcome: null }),
+    c({ complication: "arrhythmia", management: long, outcome: `  Settled\n with   treatment ` }),
+  ] }));
+  assert.deepEqual(input.complications, [
+    { name: "Bruise or swelling at the access site (haematoma)", onset: "after the procedure, in hospital", management: "Compression", outcome: "Resolved" },
+    { name: "Irregular heartbeat", onset: "after the procedure, in hospital", management: long.trim().slice(0, 299) + "…", outcome: "Settled with treatment" },
+  ]);
+  assert.equal(input.complications[1].management!.length, 300);
+});
+
 test("stable hash across two builds; changes when the record changes", () => {
   const a = buildSummaryInput(fixture());
   const b = buildSummaryInput(fixture());

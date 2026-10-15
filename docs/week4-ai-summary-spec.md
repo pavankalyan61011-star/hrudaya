@@ -9,10 +9,11 @@ Drop this at `docs/week4-ai-summary-spec.md`. Read `docs/week1-spec.md` §3 and 
 
 The sections below are left as originally written. What was built differs in these places:
 
-- **§2 `max_tokens`: 3000, not 1500.** The first eval sample (PCI-2026-001, six languages) was cut
-  off at 1500 for Kannada and Malayalam, and Tamil used 1485. These scripts take about 5.5 tokens a
-  word. 3000 is a ceiling, not a target: English still uses about 800. A draft cut off at the limit
-  is refused and never stored. (Owner decision.)
+- **§2 `max_tokens`: 4000, not 1500.** The first eval sample (PCI-2026-001, six languages) was cut
+  off at 1500 for Kannada and Malayalam, and Tamil used 1485, so it was raised to 3000. Then in the
+  v3 eval the longest Kannada draft used 2,938 of 3,000, so it was raised to 4000. These scripts
+  take about 5.5 tokens a word. The limit is a ceiling, not a target: English still uses about 800.
+  A draft cut off at the limit is refused and never stored. (Owner decisions, both 15 Oct 2026.)
 - **§5.2 `section_missing` / `section_extra`:** the expected count follows the record. The
   "When to come back urgently" section is expected only when the record has red flags; likewise
   "Looking after yourself" only with advice, and "Your heart pump" only with an LVEF. In the first

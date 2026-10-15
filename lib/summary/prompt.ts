@@ -17,8 +17,12 @@ export const SUMMARY_MODEL = "claude-sonnet-5-5";
  *      with the frequency abbreviation kept in brackets ("once a day (OD)"); one plain sentence
  *      explains DAPT; a complication is mentioned only when its outcome is supplied (the record
  *      holds outcomes as free text, which is never sent, so none is mentioned today).
+ * v4 — complications now arrive with their outcome and management text (only those with an
+ *      outcome): each is described with its outcome in one or two plain sentences. Red flags
+ *      may contain heading items ending in ":" (emergency vs contact within a day); each heading
+ *      leads the items that follow it.
  */
-export const PROMPT_VERSION = "v3";
+export const PROMPT_VERSION = "v4";
 
 export const LANGUAGES = {
   en: "English",
@@ -40,17 +44,17 @@ LANGUAGE
 Write the body in ${L}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in ${L}. Write how often a medicine is taken in ${L}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in ${L}, keeping any number in Western digits.
 
 FACTS
-Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". Do not mention a complication unless its outcome is supplied in the record; a complication without an "outcome" field is not mentioned at all.
+Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". A complication is described only together with its outcome, in one or two plain sentences, using only that complication's name, management and outcome from the record. A complication without an outcome is not mentioned at all.
 
 SECTIONS
 Use these sections, in this order, each as a Markdown "## " heading written in ${L}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.
 1. Why you were in hospital: the diagnosis, in plain words.
-2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel).
+2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel). Then any complication in the record, each with its outcome, as described under FACTS.
 3. What we found: each vessel and its % narrowing, in plain language.
 4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
 5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in ${L}). Copy the drug name and the dose with its unit exactly as given. Write "(DAPT)" after the name of each DAPT medicine. In "How often", write the frequency as described under LANGUAGE, with its abbreviation in brackets. Leave "For how long" empty when the record gives no duration. After the table: if any medicine is DAPT, write one plain sentence explaining DAPT — two tablets taken together that stop clots forming in the stent (if the record has no stent, say "in the treated artery" instead). Then write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
-7. When to come back urgently: the red-flag items. Add nothing. If the record has no red_flags, leave this section out entirely.
+7. When to come back urgently: the red-flag items, in order. An item ending in ":" is a heading that says how urgently to act: write it as a lead-in line, then list the items that follow it, up to the next heading, as bullets under it. Keep 108 and every number as given. Add nothing. If the record has no red_flags, leave this section out entirely.
 8. Follow-up: the follow-up date and clinic.
 9. Your team: the operator and the facility.
 
