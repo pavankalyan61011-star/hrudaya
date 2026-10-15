@@ -1,0 +1,197 @@
+{
+ "note": "Section presence per case from the record (current), and as it was for prompts v1-v3 (before the standard red flags were added).",
+ "current": {
+  "CAG-2026-018": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "CAG-2026-019": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-001": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-002": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-003": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-004": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-005": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-006": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-007": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-008": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-009": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-010": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-011": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-012": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-013": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-014": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-015": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-016": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-017": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  }
+ },
+ "beforeV4": {
+  "CAG-2026-018": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "CAG-2026-019": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-001": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-002": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-003": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-004": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-005": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-006": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-007": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-008": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-009": {
+   "pump": true,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-010": {
+   "pump": true,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-011": {
+   "pump": true,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-012": {
+   "pump": true,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-013": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-014": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-015": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  },
+  "PCI-2026-016": {
+   "pump": false,
+   "care": true,
+   "urgent": false
+  },
+  "PCI-2026-017": {
+   "pump": false,
+   "care": true,
+   "urgent": true
+  }
+ }
+}
