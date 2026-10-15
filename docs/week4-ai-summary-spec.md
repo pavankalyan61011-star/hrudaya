@@ -42,7 +42,7 @@ The sections below are left as originally written. What was built differs in the
   - durations are translated, with the figure kept;
   - specific findings keep their specific wording.
 
-  **Frozen at v6.** Its eval has not run yet: blocked by the API credit balance.
+  **Frozen at v6.** v6 eval: 114/114 generated, 0 flags.
 - **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
   400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
 

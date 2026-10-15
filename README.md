@@ -197,40 +197,39 @@ prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
 - **Eval (15 Oct 2026):** 19 seeded discharged cases × 6 languages = 114 drafts per run, all
   generated in every run. What each prompt version changed, measured over all 114 drafts:
 
-  | | v1 | v2 | v3 | v4 | v5 |
-  |---|---|---|---|---|---|
-  | Error flags | 0 | 0 | 0 | **2** (an invented "108", caught) | 0 |
-  | Audit warnings | 37 | 0 | 0 | 0 | 0 |
-  | A section written for an empty part of the record | 37 | 0 | 0 | 0 | 0 |
-  | Frequency in the patient's language with "(OD)" etc. (of 210) | 0 | 0 | 210 | 210 | 210 |
-  | English DAPT explanation (of 17) | 0 | 0 | 17 | 17 | 17 |
-  | English complication described with its outcome (of 2) | 0 | 0 | 0 | 2 | 2 |
-  | Corrected red-flag cases: drafts with both urgency groups and 108 (of 66) | 0 | 0 | 0 | 66 | 66 |
-  | "108" where the record's red flags lack it (of 48) | 0 | 0 | 0 | 2 | 0 |
-  | Longest draft, tokens (limit) | 2,657 (3,000) | 2,557 (3,000) | 2,938 (3,000) | 3,902 (4,000) | 4,006 (6,000) |
+  | | v1 | v2 | v3 | v4 | v5 | v6 |
+  |---|---|---|---|---|---|---|
+  | Error flags | 0 | 0 | 0 | **2** (an invented "108", caught) | 0 | 0 |
+  | Audit warnings | 37 | 0 | 0 | 0 | 0 | 0 |
+  | A section written for an empty part of the record | 37 | 0 | 0 | 0 | 0 | 0 |
+  | Frequency in the patient's language with "(OD)" etc. (of 210) | 0 | 0 | 210 | 210 | 210 | 210 |
+  | English DAPT explanation (of 17) | 0 | 0 | 17 | 17 | 17 | 17 |
+  | English complication described with its outcome (of 2) | 0 | 0 | 0 | 2 | 2 | 2 |
+  | Corrected red-flag cases: drafts with both urgency groups and 108 (of 66) | 0 | 0 | 0 | 66 | 66 | 66 |
+  | "108" where the record's red flags lack it (of 48) | 0 | 0 | 0 | 2 | 0 | 0 |
+  | Longest draft, tokens (limit) | 2,657 (3,000) | 2,557 (3,000) | 2,938 (3,000) | 3,902 (4,000) | 4,006 (6,000) | 3,993 (6,000) |
 
   The audit blocked two drafts where v4's own prompt wording had caused the model to add "call 108" to a case whose record did not contain it — the layered guards caught a prompt error, not a model error. v5 removed that wording.
 
   **Prompt v6** (Telugu native-reader feedback): it names the DAPT drugs, translates durations
-  with the figure kept, and keeps specific findings specific. The prompt is **frozen at v6**. **v6
-  is not evaluated yet:** its run stopped because the API credit balance is too low, with nothing
-  generated or billed. The v5 baseline it targets: 1 of 102 DAPT drafts named both drugs, and 58
-  of 80 Indian-language drafts left durations in English. Details:
+  with the figure kept, and keeps specific findings specific. The prompt is **frozen at v6**. The v6
+  eval is clean (114/114, 0 flags). DAPT drugs are named in 102 of 102 drafts (v5: 1), and 0 of 80
+  Indian-language drafts leave durations in English (v5: 58). Details:
   [docs/ai-summary.md](docs/ai-summary.md#eval).
 
-  Cost per summary (v5):
+  Cost per summary (v6, the frozen prompt):
 
   | Language | Avg output tokens | Cost per summary |
   |---|---|---|
-  | English | 842 | $0.0130 |
-  | Telugu | 1,760 | $0.0222 |
-  | Hindi | 1,380 | $0.0184 |
-  | Tamil | 1,952 | $0.0241 |
-  | Kannada | 3,207 | $0.0367 |
-  | Malayalam | 2,226 | $0.0269 |
+  | English | 868 | $0.0136 |
+  | Telugu | 1,765 | $0.0226 |
+  | Hindi | 1,408 | $0.0191 |
+  | Tamil | 1,916 | $0.0241 |
+  | Kannada | 3,152 | $0.0365 |
+  | Malayalam | 2,289 | $0.0279 |
 
-  Longest Indian-language case: PCI-2026-009 in Kannada, **$0.0450**, about 3.5× English. A whole
-  run is $2–2.70 ($2.04 v1, $1.98 v2, $2.19 v3, $2.66 v4, $2.69 v5).
+  Longest Indian-language case: PCI-2026-012 in Kannada, **$0.0452**, about 3.3× English. A whole
+  run is about $2–2.75 ($2.04 v1 … $2.73 v6).
 - **Read by people:** **Telugu is native-reader checked.** The owner, a native speaker and former
   cath-lab technologist, read five cases: all accurate, with three wording notes and one data
   correction, which became prompt v6 and a red-flag fix. Hindi, Tamil, Kannada and Malayalam are
@@ -261,13 +260,13 @@ From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
   same code path, but not yet through the deployed button.
 - [x] Approve blocked while an error flag exists, and an approved row is immutable (tested locally
   in the browser and against the trigger)
-- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` in every run; prompts v2–v5 zero warnings; v4 had 2 caught `number_unknown` errors, v5 none; v6 (frozen) not yet run
+- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` in every run; prompts v2–v5 zero warnings; v4 had 2 caught `number_unknown` errors; v5 and v6 none
 - [ ] Print page renders A4 from Chrome on Mac and phone, with glyphs correct in print preview for
   all five Indian scripts. Not yet checked: needs a real print preview.
 - [x] `docs/ai-summary.md` written
 - [x] Native-reader check for Telugu (five cases, all accurate, notes acted on in v6)
 - [ ] Native-reader check for Hindi, Tamil, Kannada and Malayalam
-- [ ] v6 eval (blocked: API credit balance too low)
+- [x] v6 eval: 114/114, 0 flags
 
 ## Roadmap
 

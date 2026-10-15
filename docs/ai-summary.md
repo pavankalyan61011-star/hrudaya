@@ -88,8 +88,8 @@ the input JSON and nothing else. Versions:
     its specific wording.
 
 **The prompt is frozen at v6** (owner, 15 Oct 2026). The next change comes from the remaining
-native readers (Hindi, Tamil, Kannada, Malayalam). **v6 has not been evaluated yet**: the eval
-could not run (see [Eval](#eval)).
+native readers (Hindi, Tamil, Kannada, Malayalam). v6 eval: 114/114, 0 flags; every read-through point fixed (see
+[Eval](#eval)).
 
 Each change and its effect is under [Eval](#eval).
 
@@ -149,43 +149,40 @@ drafts, no model call). Each run: every seeded discharged case × six languages 
 in every run; the fallback never ran. v4 and v5 ran on corrected data: standard red flags for 11 discharges, and
 PCI-2026-005's timeline (`docs/backlog.md` → Data corrections).
 
-### v6: not yet evaluated
+### v6: what the Telugu read-through changed
 
-On 15 Oct 2026 the v6 run stopped on its first five calls: the API answered **"Your credit balance
-is too low to access the Anthropic API"**. Nothing was generated and nothing was billed (0
-tokens), and the eval stopped itself after repeated failures, as designed. Until credit is added,
-the deployed Generate button cannot draft either, so no v6 draft can reach anyone before the eval
-can run. Re-run with `npm run summary:eval -- --confirm` once there is credit.
+The first v6 run was blocked by the API credit balance (0 generated, 0 billed). After credit was
+added, a single test call passed, then the full run: **114/114 generated, 0 error flags, 0
+warnings, $2.73.** The v6 checks, with v5 as the baseline:
 
-What v6 is meant to fix, measured on the saved v5 drafts with the v6 checks (each check is
-language-independent where noted):
-
-| v6 check | v5 (baseline) | v6 |
+| v6 check | v5 | v6 |
 |---|---|---|
-| DAPT drafts whose prose names both DAPT medicines, any language (of 102) | 1 | not run yet |
-| Indian-language drafts with a duration still in English "month(s)" (of 80) | 58 | not run yet |
-| PCI-2026-005 English names the pseudoaneurysm finding | no | not run yet |
-| The 11 corrected cases, English: GI-bleeding item in the emergency group (of 11) | 0 (before the data correction) | not run yet |
+| DAPT drafts whose prose names both DAPT medicines, any language (of 102) | 1 | **102** |
+| Indian-language drafts with a duration still in English "month(s)" (of 80) | 58 | **0** |
+| PCI-2026-005 English names the ultrasound finding (pseudoaneurysm) | no | **yes** |
+| …Indian-language 005 drafts keeping the term "pseudoaneurysm" (of 5) | 0 | 4 |
+| The 11 corrected cases, English: GI-bleeding item in the emergency group (of 11) | 0 (before the data correction) | **11** |
 
-### Before and after: prompt v1 → v5 (15 Oct 2026)
+In Telugu, PCI-2026-008's duration is "12 నెలలు", and PCI-2026-001's DAPT sentence reads
+"Aspirin మరియు Ticagrelor అనే రెండు మాత్రలను…". These are the two points from the read-through.
 
-v6 is not in this table yet; see above.
+### Before and after: prompt v1 → v6 (15 Oct 2026)
 
-| | v1 | v2 | v3 | v4 | v5 |
-|---|---|---|---|---|
-| Generated / failed or cut off | 114 / 0 | 114 / 0 | 114 / 0 | 114 / 0 | 114 / 0 |
-| **Error flags** (drug missing/extra, unknown number, dose mismatch) | **0** | **0** | **0** | **2** (`number_unknown`: an invented "108") | **0** |
-| **Audit warnings** | **37** | **0** | **0** | **0** | **0** |
-| A section written for an empty part of the record | 37 | 0 | 0 | 0 | 0 |
-| Frequency with its abbreviation in brackets, e.g. "రోజుకు ఒకసారి (OD)" (of 210 medicine-frequency pairs) | 0 | 0 | 210 | 210 | 210 |
-| English drafts with the DAPT sentence (of 17) | 0 | 0 | 17 | 17 | 17 |
-| Complication described **with its outcome**, English (of 2) | 0 | 0 | 0 (none mentioned) | **2** | **2** |
-| Complication mentioned **without** an outcome, Indian languages (of 10) | ≥ 8 | ≥ 8 | ≥ 5 | — (v4 sends the outcome; whether each draft states it awaits the native-reader check) | — (as v4) |
-| The 11 corrected cases: drafts with "108" (of 66) | 0 | 0 | 0 | **66** | **66** |
-| …English drafts with both urgency groups in order and all 9 items (of 11) | 0 | 0 | 0 | **11** | **11** |
-| "108" written where the record's red flags do not contain it (of 48) | 0 | 0 | 0 | **2** | **0** |
-| Longest draft, tokens out (limit) | 2,657 (3,000) | 2,557 (3,000) | 2,938 (3,000) | 3,902 (4,000) | **4,006 (6,000)** |
-| Cost of the run | $2.04 | $1.98 | $2.19 | $2.66 | $2.69 |
+| | v1 | v2 | v3 | v4 | v5 | v6 |
+|---|---|---|---|---|---|---|
+| Generated / failed or cut off | 114 / 0 | 114 / 0 | 114 / 0 | 114 / 0 | 114 / 0 | 114 / 0 |
+| **Error flags** (drug missing/extra, unknown number, dose mismatch) | **0** | **0** | **0** | **2** (`number_unknown`: an invented "108") | **0** | **0** |
+| **Audit warnings** | **37** | **0** | **0** | **0** | **0** | **0** |
+| A section written for an empty part of the record | 37 | 0 | 0 | 0 | 0 | 0 |
+| Frequency with its abbreviation in brackets, e.g. "రోజుకు ఒకసారి (OD)" (of 210 medicine-frequency pairs) | 0 | 0 | 210 | 210 | 210 | 210 |
+| English drafts with the DAPT sentence (of 17) | 0 | 0 | 17 | 17 | 17 | 17 |
+| Complication described **with its outcome**, English (of 2) | 0 | 0 | 0 (none mentioned) | **2** | **2** | **2** |
+| Complication mentioned **without** an outcome, Indian languages (of 10) | ≥ 8 | ≥ 8 | ≥ 5 | — (v4 sends the outcome; whether each draft states it awaits the native-reader check) | — (as v4) | — (as v4) |
+| The 11 corrected cases: drafts with "108" (of 66) | 0 | 0 | 0 | **66** | **66** | **66** |
+| …English drafts with both urgency groups in order and all 9 items (of 11) | 0 | 0 | 0 | **11** | **11** | **11** |
+| "108" written where the record's red flags do not contain it (of 48) | 0 | 0 | 0 | **2** | **0** | **0** |
+| Longest draft, tokens out (limit) | 2,657 (3,000) | 2,557 (3,000) | 2,938 (3,000) | 3,902 (4,000) | **4,006 (6,000)** | **3,993 (6,000)** |
+| Cost of the run | $2.04 | $1.98 | $2.19 | $2.66 | $2.69 | $2.73 |
 
 **Audit flags by language:**
 
@@ -196,6 +193,7 @@ v6 is not in this table yet; see above.
 | v3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | v4 (errors: `number_unknown`) | 1 | 1 | 0 | 0 | 0 | 0 | 2 |
 | v5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| v6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 The audit blocked two drafts where v4's own prompt wording had caused the model to add "call 108" to a case whose record did not contain it — the layered guards caught a prompt error, not a model error.
 
@@ -267,11 +265,29 @@ The prose itself awaits the native-reader check.
 
 ## Cost per summary
 
+**Prompt v6 (frozen), the current figures:**
+
+| | Tokens in / out (v6) | Cost per summary, v6 |
+|---|---|---|
+| **English**, average of 19 | 2,457 / 868 | **$0.0136** (range $0.0115–$0.0155) |
+| **Longest Indian-language case** (PCI-2026-012, Kannada) | 2,634 / 3,993 | **$0.0452** |
+| Telugu, average | 2,481 / 1,765 | $0.0226 |
+| Hindi, average | 2,481 / 1,408 | $0.0191 |
+| Tamil, average | 2,481 / 1,916 | $0.0241 |
+| Kannada, average | 2,481 / 3,152 | $0.0365 |
+| Malayalam, average | 2,489 / 2,289 | $0.0279 |
+
+All six languages for one case average $0.144. Five Kannada drafts are over 3,500 tokens; the limit
+is 6,000. Time averages 6 s in English and 10–18 s in the Indian languages, 22 s at most. The
+whole v6 run cost $2.73. Total API spend across all runs is about $14.41.
+
+Earlier versions, for comparison:
+
 Price for `claude-sonnet-5-5`: $2 per million input tokens, $10 per million output
 (platform.claude.com, 15 Oct 2026). Input is about 2,300 tokens in every language under v5: the
 prompt and the record JSON. Output is what differs, because Indian scripts take several times more
 tokens per word than English, and the standard red flags add the most in Kannada. Prompt v5
-figures (v5 is the last evaluated prompt; v6 has not run yet), with earlier versions for comparison:
+figures (v5; v6 below), with earlier versions for comparison:
 
 | | Tokens in / out (v5) | Cost per summary, v5 | v4 | v3 | v2 | v1 |
 |---|---|---|---|---|---|---|
