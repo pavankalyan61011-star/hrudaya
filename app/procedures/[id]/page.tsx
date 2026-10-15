@@ -24,6 +24,12 @@ import {
 import { Facts, Section, StatusBadge } from "@/components/report/section";
 import { ReviewPanel } from "@/components/report/review-panel";
 import { FhirExport } from "@/components/report/fhir-export";
+import { DischargeSummaryCard } from "@/components/report/discharge-summary";
+import { getCurrentUser } from "@/lib/queries/auth";
+import { todayIST } from "@/lib/dates";
+import { buildSummaryInput } from "@/lib/summary/input";
+import { summaryBlocker } from "@/lib/summary/api";
+import { summaryConfigured } from "@/lib/summary/generate";
 import { procedureToBundle } from "@/lib/fhir/mapper";
 import { SyntheticNotice } from "@/components/synthetic-notice";
 import { STEPS } from "../new/step-header";
@@ -60,6 +66,34 @@ function SubHeading({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 mt-4 text-sm font-semibold text-slate-700 first:mt-0">{children}</h3>;
 }
 
+/**
+ * What the discharge-summary card needs (Week 4 spec §7). Reads with the user's own client (RLS).
+ * A failed read is passed on as null and shown as "could not load", never as "none".
+ */
+async function loadSummaryCard(db: ReturnType<typeof createClient>, p: ProcedureFull) {
+  const blocker = summaryBlocker(p);
+  if (blocker) return { blocker, input: null, configured: false, generatedToday: null, summaries: null };
+
+  const user = await getCurrentUser();
+  const [list, today] = await Promise.all([
+    db.from("discharge_summaries").select("*").eq("procedure_id", p.id).order("version", { ascending: false }),
+    user
+      ? db
+          .from("discharge_summaries")
+          .select("id", { count: "exact", head: true })
+          .eq("generated_by", user.id)
+          .gte("generated_at", `${todayIST()}T00:00:00+05:30`)
+      : Promise.resolve({ count: null, error: null }),
+  ]);
+  return {
+    blocker: null,
+    input: buildSummaryInput(p),
+    configured: summaryConfigured(),
+    generatedToday: today.error ? null : today.count,
+    summaries: list.error ? null : list.data,
+  };
+}
+
 export default async function ProcedureDetailPage({ params }: { params: { id: string } }) {
   const db = createClient();
   const { procedure: p, error } = await getProcedureFull(db, params.id);
@@ -74,7 +108,8 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
     );
   }
   if (!p) notFound();
-  const { operators } = p.status === "completed" ? await listOperators(db) : { operators: [] };
+  const { operators } = p.status === "completed" || p.status === "reviewed" ? await listOperators(db) : { operators: [] };
+  const summary = await loadSummaryCard(db, p);
 
   const pt = p.patient;
   const vesselById = new Map(p.vessel_findings.map((v) => [v.id, v]));
@@ -126,6 +161,7 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
       {p.status === "completed" && <ReviewPanel procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} />}
       {/* Spec §7: export and preview for reviewed procedures only; built from the rows already loaded. */}
       <FhirExport procedureId={p.id} caseCode={p.case_code} bundle={p.status === "reviewed" ? procedureToBundle(p, new Date().toISOString()) : null} />
+      <DischargeSummaryCard procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} {...summary} />
 
       <Section title="Patient">
         {pt ? (

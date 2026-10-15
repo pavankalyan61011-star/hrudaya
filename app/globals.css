@@ -31,3 +31,32 @@ body {
     @apply rounded-xl border border-slate-200 bg-white p-4;
   }
 }
+
+/* Discharge summary medicines table: stacked rows below 640px, so four columns never overflow a
+   phone. Each cell is labelled with its column header; empty cells are dropped. */
+@media (max-width: 639px) {
+  .summary-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .summary-table tr {
+    display: block;
+    padding: 0.5rem 0;
+  }
+  .summary-table td {
+    display: block;
+    padding: 0.125rem 0;
+  }
+  .summary-table td:empty {
+    display: none;
+  }
+  .summary-table td[data-label]:not([data-label=""])::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: rgb(71 85 105);
+  }
+}
