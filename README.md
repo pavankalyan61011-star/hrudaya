@@ -195,34 +195,38 @@ prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
   and approve, then Print. **Print** is `/procedures/<id>/print`: an A4 clinician report (MRN and
   initials only) plus one page per approved summary.
 - **Eval (15 Oct 2026):** 19 seeded discharged cases × 6 languages = 114 drafts per run, all
-  generated, **0 error flags** in both runs. Prompt v1 had 37 warnings, all one behaviour: it wrote
-  a section for an empty part of the record, mostly "When to come back urgently" with no red flags
-  recorded, often with an added "contact your doctor". Prompt v2 leaves empty sections out:
-  **0 warnings**.
+  generated, **0 error flags in every run**. What each prompt version changed, measured over all
+  114 drafts:
 
-  Before and after, warnings by language:
+  | | v1 | v2 | v3 |
+  |---|---|---|---|
+  | Audit warnings | 37 | 0 | 0 |
+  | A section written for an empty part of the record | 37 | 0 | 0 |
+  | Frequency in the patient's language with "(OD)" etc. (of 210) | 0 | 0 | 210 |
+  | English DAPT explanation (of 17) | 0 | 0 | 17 |
+  | Complication mentioned without an outcome: English / Indian (of 2 / 10) | 2 / ≥ 8 | 2 / ≥ 8 | 0 / ≥ 5 |
 
-  | Prompt | en | te | hi | ta | kn | ml | Total |
-  |---|---|---|---|---|---|---|---|
-  | v1 (before) | 4 | 6 | 4 | 10 | 6 | 7 | 37 |
-  | v2 (after) | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
+  v3's complication rule holds in English but not reliably in the Indian languages. The fix
+  proposed in [docs/ai-summary.md](docs/ai-summary.md#eval) is to leave complications out of the
+  input until they have a structured outcome.
 
-  Cost per summary (v2):
+  Cost per summary (v3):
 
   | Language | Avg output tokens | Cost per summary |
   |---|---|---|
-  | English | 683 | $0.0105 |
-  | Telugu | 1,319 | $0.0169 |
-  | Hindi | 1,066 | $0.0143 |
-  | Tamil | 1,358 | $0.0173 |
-  | Kannada | 2,188 | $0.0256 |
-  | Malayalam | 1,597 | $0.0197 |
+  | English | 727 | $0.0113 |
+  | Telugu | 1,439 | $0.0185 |
+  | Hindi | 1,103 | $0.0151 |
+  | Tamil | 1,556 | $0.0197 |
+  | Kannada | 2,524 | $0.0293 |
+  | Malayalam | 1,704 | $0.0211 |
 
-  Longest Indian-language case: PCI-2026-012 in Kannada, **$0.0294**, about 3× English. A whole
-  run costs about $2 ($2.04 for v1, $1.98 for v2).
-- **Read by people:** Telugu, pending (Pavan, five cases). Hindi, **Tamil, Kannada and Malayalam
-  are not yet read by a native speaker.** The audit checks drugs, doses and numbers; it cannot
-  judge the prose.
+  Longest Indian-language case: PCI-2026-012 in Kannada, **$0.0336**, about 3× English. It used
+  2,938 of the 3,000-token limit. A whole run costs about $2 ($2.04 v1, $1.98 v2, $2.19 v3).
+- **Read by people:** Telugu, Hindi, Tamil, Kannada and Malayalam are all **awaiting a
+  native-reader check**: the five-question protocol in
+  [docs/ai-summary.md](docs/ai-summary.md#native-reader-check). The audit checks drugs, doses and
+  numbers; it cannot judge the prose.
 
 Setup: put `ANTHROPIC_API_KEY` in `.env.local` and in Vercel as a plain environment variable,
 **never** `NEXT_PUBLIC_`. Without it, the app runs and Generate is disabled with the reason shown.
@@ -247,11 +251,11 @@ From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
   same code path, but not yet through the deployed button.
 - [x] Approve blocked while an error flag exists, and an approved row is immutable (tested locally
   in the browser and against the trigger)
-- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` / `number_unknown`; prompt v2 also zero warnings
+- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` / `number_unknown`; prompts v2 and v3 also zero warnings
 - [ ] Print page renders A4 from Chrome on Mac and phone, with glyphs correct in print preview for
   all five Indian scripts. Not yet checked: needs a real print preview.
 - [x] `docs/ai-summary.md` written
-- [ ] Pavan's Telugu read-through of five cases; Tamil, Kannada and Malayalam readers
+- [ ] Native-reader check (five questions, five cases) for Telugu, Hindi, Tamil, Kannada and Malayalam
 
 ## Roadmap
 

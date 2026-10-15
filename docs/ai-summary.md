@@ -27,16 +27,19 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
    re-runs on the clinician's text, live in the browser and again on the server (422). An approved
    row is immutable by database trigger, and only approved summaries print.
 4. **Drug names and doses are never translated.** The prompt keeps drug names, doses, units,
-   frequencies (OD, BD, TDS…), dates, percentages and vessel abbreviations in Latin script and
-   Western digits in every language. "Ticagrelor 90 mg BD" is the same string in all six.
-   `drug_missing` and `dose_mismatch` enforce it: a transliterated drug name fails the audit.
+   dates, percentages and vessel abbreviations in Latin script and Western digits in every
+   language: "Ticagrelor 90 mg" is the same string in all six. Since prompt v3, how often and for
+   how long are written in the patient's language, with the frequency abbreviation kept in
+   brackets, for example "రోజుకు ఒకసారి (OD)". A pharmacist can still match it to the
+   prescription. `drug_missing` and `dose_mismatch` enforce the rule: a transliterated drug name
+   fails the audit.
 
 ## How a summary is made
 
 | Step | File |
 |---|---|
 | Record → PHI-minimal input + sha256 | `lib/summary/input.ts` |
-| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v2"`) |
+| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v3"`) |
 | Claude API call, server-only | `lib/summary/generate.ts` |
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
@@ -55,20 +58,30 @@ the draft.
 builds and runs, and the Generate button is disabled with "AI summary not configured on this
 server".
 
-## The prompt (v2)
+## The prompt (v3)
 
 The same English instructions for every language; `{LANGUAGE}` is filled in. The user message is
-the input JSON and nothing else. v2 differs from v1 in two places: the sentence after the
-SECTIONS heading, and the last sentence of section 7. The reason is under [Eval](#eval).
+the input JSON and nothing else. Versions:
+
+- **v1:** first eval.
+- **v2:** empty sections (no red flags, no LVEF) are left out, and no section may say something
+  does not apply.
+- **v3**, from a live review:
+  - how often and for how long are written in the patient's language, with the frequency
+    abbreviation in brackets;
+  - one plain sentence explains DAPT;
+  - a complication is mentioned only when its outcome is supplied.
+
+Each change and its effect is under [Eval](#eval).
 
 ```text
 You write a discharge summary for the patient and their family, from a cardiac catheterisation (cath lab) record, for a hospital in India.
 
 LANGUAGE
-Write the body in {LANGUAGE}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, frequencies (OD, BD, TDS, QDS, PRN), the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in {LANGUAGE}.
+Write the body in {LANGUAGE}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in {LANGUAGE}. Write how often a medicine is taken in {LANGUAGE}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in {LANGUAGE}, keeping any number in Western digits.
 
 FACTS
-Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown".
+Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". Do not mention a complication unless its outcome is supplied in the record; a complication without an "outcome" field is not mentioned at all.
 
 SECTIONS
 Use these sections, in this order, each as a Markdown "## " heading written in {LANGUAGE}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.
@@ -76,7 +89,7 @@ Use these sections, in this order, each as a Markdown "## " heading written in {
 2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel).
 3. What we found: each vessel and its % narrowing, in plain language.
 4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
-5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in {LANGUAGE}). Copy the drug name, the dose with its unit, and the frequency exactly as given. Write "(DAPT)" after the name of each DAPT medicine. Leave "For how long" empty when the record gives no duration. After the table, write one sentence: do not stop these medicines without asking your cardiologist.
+5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in {LANGUAGE}). Copy the drug name and the dose with its unit exactly as given. Write "(DAPT)" after the name of each DAPT medicine. In "How often", write the frequency as described under LANGUAGE, with its abbreviation in brackets. Leave "For how long" empty when the record gives no duration. After the table: if any medicine is DAPT, write one plain sentence explaining DAPT — two tablets taken together that stop clots forming in the stent (if the record has no stent, say "in the treated artery" instead). Then write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
 7. When to come back urgently: the red-flag items. Add nothing. If the record has no red_flags, leave this section out entirely.
 8. Follow-up: the follow-up date and clinic.
@@ -113,91 +126,123 @@ scripts. The route tests use a mocked model for 401, 404, 409, 503, 429 and 422.
 
 `npm run summary:eval` (estimate) → `-- --confirm` (generate) → `-- --reaudit` (re-score saved
 drafts, no model call). Each run: every seeded discharged case × six languages (19 × 6 = 114),
-`max_tokens` 3000. Only `claude-sonnet-5-5` answered in either run; the fallback never ran.
+`max_tokens` 3000. Only `claude-sonnet-5-5` answered in all three runs; the fallback never ran.
 
-### Before and after: prompt v1 → v2 (15 Oct 2026)
+### Before and after: prompt v1 → v2 → v3 (15 Oct 2026)
 
-| | v1 | v2 |
-|---|---|---|
-| Generated / failed or cut off | 114 / 0 | 114 / 0 |
-| **Error flags** (drug missing/extra, unknown number, dose mismatch) | **0** | **0** |
-| **Warnings** | **37** (all `section_extra`) | **0** |
-| "When to come back" written although the record has no red flags (of 66) | 36 | **0** |
-| "Your heart pump" written although no LVEF is recorded (of 84) | 1 | **0** |
-| English drafts saying something "does not apply" / "was not listed" | 4 | **0** |
-| Cost of the run | $2.04 | $1.98 |
+| | v1 | v2 | v3 |
+|---|---|---|---|
+| Generated / failed or cut off | 114 / 0 | 114 / 0 | 114 / 0 |
+| **Error flags** (drug missing/extra, unknown number, dose mismatch) | **0** | **0** | **0** |
+| **Audit warnings** | **37** (all `section_extra`) | **0** | **0** |
+| "When to come back" written although the record has no red flags (of 66) | 36 | 0 | 0 |
+| "Your heart pump" written although no LVEF is recorded (of 84) | 1 | 0 | 0 |
+| English drafts saying something "does not apply" / "was not listed" | 4 | 0 | 0 |
+| Frequency with its abbreviation in brackets, e.g. "రోజుకు ఒకసారి (OD)" (of 210 medicine-frequency pairs) | 0 | 0 | **210** |
+| English drafts with the DAPT sentence (of 17 with DAPT) | 0 | 0 | **17** |
+| …saying "treated artery" where there is no stent (PCI-2026-015) | — | — | **yes** |
+| Complication mentioned without an outcome, English (of 2: PCI-2026-005, -010) | 2 | 2 | **0** |
+| Complication mentioned without an outcome, Indian languages (of 10) | ≥ 8 | ≥ 8 | **≥ 5** |
+| Longest draft, tokens out (limit 3000) | 2,657 | 2,557 | **2,938** |
+| Cost of the run | $2.04 | $1.98 | $2.19 |
 
-**v1 warnings, by language (before):**
+**Audit warnings by language:**
 
-| Flag | en | te | hi | ta | kn | ml | Total |
+| Prompt | en | te | hi | ta | kn | ml | Total |
 |---|---|---|---|---|---|---|---|
-| section_extra | 4 | 6 | 4 | 10 | 6 | 7 | 37 |
+| v1 | 4 | 6 | 4 | 10 | 6 | 7 | 37 |
+| v2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| v3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
-**v2 warnings, by language (after):**
+**v1 → v2.** For a record with no red flags, v1 left the section out about half the time. The
+rest of the time it wrote the heading anyway, usually saying the record lists no warning signs
+and adding a general "contact your doctor or the hospital if you feel unwell". That sentence is
+not in the record. Once (PCI-2026-017, English) it wrote "Your heart pump" to say there was no
+LVEF. v2 leaves those sections out entirely. Because 11 of the 19 records hold no red flags, those
+11 leaflets now have no "When to come back urgently" section. The fix for that is in the data
+(`docs/backlog.md`, "Red flags should be required on every discharge").
 
-| Flag | en | te | hi | ta | kn | ml | Total |
-|---|---|---|---|---|---|---|---|
-| (none) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+**v2 → v3** (live review):
+- **Frequency and duration** are now in the patient's language, with the abbreviation kept for
+  the pharmacist. Telugu is fully consistent: "రోజుకు ఒకసారి (OD)" all 58 times and
+  "రోజుకు రెండుసార్లు (BD)" all 14 times. No frequency was written with digits.
+- **The DAPT sentence** appears in every English draft that has DAPT. PCI-2026-015 (DAPT with no
+  stent) correctly says "in the treated artery".
+- **Complications.** The complications table keeps `outcome` and `management` as free text only,
+  and free text never reaches the model. So v3 says: do not mention a complication unless its
+  outcome is supplied, which today means none. The English drafts now comply. **The Indian-
+  language drafts do not reliably comply:** at least 5 of the 10 drafts for PCI-2026-005
+  (haematoma) and PCI-2026-010 (no-reflow) still describe the complication, with the English
+  term in brackets. "At least", because the check only finds the English term; a mention written
+  only in the script would be missed. The complication names are still in the input, and a
+  prompt instruction is not a guard. The deterministic fix is to leave a complication out of the
+  input until it has a structured outcome. That is not done yet; see `docs/backlog.md`,
+  "Structured complication outcome".
+- **Headroom.** The longest Kannada draft (PCI-2026-012) used 2,938 of the 3,000-token limit.
+  A cut-off draft is refused and never stored, so this is safe, but a slightly longer record
+  would fail to generate in Kannada.
 
-**What v1 did.** For a record with no red flags, v1 left the section out about half the time,
-which was the intent. The rest of the time it wrote the heading anyway, usually saying the record
-lists no warning signs and adding a general "contact your doctor or the hospital if you feel
-unwell". That sentence is not in the record. Once (PCI-2026-017, English) it wrote "Your heart
-pump" to say there was no LVEF. v1 told the model what to do with a missing LVEF, but not with
-missing red flags.
+**How the counts were checked.** The audit counts sections from the record. Separately, scripts
+read every saved draft from all three runs:
+- sections the record leaves empty;
+- each medicine frequency's `(OD)`/`(BD)`/`(PRN)` in brackets;
+- the English DAPT sentence;
+- complication terms;
+- frequencies written in digits.
 
-**v2** says that sections 4 and 7 are left out entirely when the record has nothing for them, and
-that no section may say something does not apply or is not in the record.
-
-**How the zeros were checked.** The audit counts sections from the record. Separately, a script
-read every v2 draft directly: none of the 66 drafts without red flags has the section, none of the
-84 drafts without an LVEF mentions LVEF, and no English draft says "not listed" or "does not
-apply". The same script run on the saved v1 drafts finds 36, 1 and 4, so the zeros are not an
-artefact of the check.
-
-The cost of v2: 11 of the 19 leaflets now have no "When to come back urgently" section at all,
-because their records hold no red flags. That belongs in the data, not the prompt: see
-`docs/backlog.md`, "Red flags should be required on every discharge".
-
-The first sample run (PCI-2026-001 at `max_tokens` 1500) is why the limit is 3000; see
-Decisions.
+Every non-zero number in the table was found by the same script that reports zero for the
+other versions, so the zeros are not an artefact of the check.
 
 ## Cost per summary
 
 Price for `claude-sonnet-5-5`: $2 per million input tokens, $10 per million output
-(platform.claude.com, 15 Oct 2026). Input is about 1,830 tokens in every language: the prompt and
-the record JSON. Output is what differs, because Indian scripts take several times more tokens per
-word than English. Prompt v2 figures, with v1 for comparison:
+(platform.claude.com, 15 Oct 2026). Input is about 2,040 tokens in every language under v3: the
+prompt and the record JSON. Output is what differs, because Indian scripts take several times more
+tokens per word than English. Prompt v3 figures, with v2 and v1 for comparison:
 
-| | Tokens in / out (v2) | Cost per summary, v2 | v1 |
-|---|---|---|---|
-| **English**, average of 19 | 1,827 / 683 | **$0.0105** (range $0.0080–$0.0115) | $0.0105 |
-| **Longest Indian-language case** (v2: PCI-2026-012, Kannada) | 1,909 / 2,557 | **$0.0294** | $0.0303 (PCI-2026-009, Kannada) |
-| Telugu, average | 1,839 / 1,319 | $0.0169 | $0.0171 |
-| Hindi, average | 1,839 / 1,066 | $0.0143 | $0.0149 |
-| Tamil, average | 1,839 / 1,358 | $0.0173 | $0.0182 |
-| Kannada, average | 1,839 / 2,188 | $0.0256 | $0.0263 |
-| Malayalam, average | 1,843 / 1,597 | $0.0197 | $0.0202 |
+| | Tokens in / out (v3) | Cost per summary, v3 | v2 | v1 |
+|---|---|---|---|---|
+| **English**, average of 19 | 2,027 / 727 | **$0.0113** (range $0.0084–$0.0126) | $0.0105 | $0.0105 |
+| **Longest Indian-language case** (v3: PCI-2026-012, Kannada) | 2,115 / 2,938 | **$0.0336** | $0.0294 | $0.0303 |
+| Telugu, average | 2,045 / 1,439 | $0.0185 | $0.0169 | $0.0171 |
+| Hindi, average | 2,045 / 1,103 | $0.0151 | $0.0143 | $0.0149 |
+| Tamil, average | 2,045 / 1,556 | $0.0197 | $0.0173 | $0.0182 |
+| Kannada, average | 2,045 / 2,524 | $0.0293 | $0.0256 | $0.0263 |
+| Malayalam, average | 2,051 / 1,704 | $0.0211 | $0.0197 | $0.0202 |
 
-The worst case is about 3× English, and Kannada is the longest language in both runs. All six
-languages for one case average $0.104. Spend so far: v1 run $2.04, v2 run $1.98, sample runs
-$0.11. Time per summary averages 5 s in English and 8–13 s in the Indian languages, 18 s at most.
-The route allows 60 s.
+v3 costs about 8% more than v2: the prompt is longer, and the frequencies and the DAPT sentence
+add words. The worst case is about 3× English, and Kannada is the longest language in every run.
+All six languages for one case average $0.115. Spend so far: v1 $2.04, v2 $1.98, v3 $2.19,
+sample runs $0.11. Time per summary averages 5 s in English and 8–14 s in the Indian languages,
+16 s at most. The route allows 60 s.
 
-## Clinical read-through
+## Native-reader check
 
-Spec §9: a native reader marks each draft accurate / wrong / unclear, with notes. Until someone
-who reads the language has done this, the drafts in that language are unread. The audit checks
-drugs, doses and numbers. It cannot judge whether the prose is right.
+The audit checks drugs, doses and numbers. It cannot tell whether the prose is right, kind, or
+understood. A reader who speaks the language natively, ideally someone like the patient's family
+rather than a clinician, reads each draft and answers five questions **in their own words,
+without looking at the record**:
+
+1. **What happened to the patient?** In your own words.
+2. **How much of each medicine, and how often?**
+3. **Which symptoms need help, and how urgently?**
+4. **When and where do they return?**
+5. **Which words are confusing?**
+
+The answers are then compared with the record. A wrong or missing answer to questions 1–4 marks
+the draft **wrong** on that point; question 5 feeds the prompt or the glossary. Record each draft
+as accurate / wrong / unclear, with the reader's notes, in the table below. Cover at least five
+cases per language, including PCI-2026-001, a STEMI, a case with a complication (005 or 010) and
+a diagnostic-only case (CAG-2026-018).
 
 | Language | Status |
 |---|---|
-| English | Audit only. Not yet read by a clinician. |
-| Telugu | **Pending: Pavan to read five cases** (PCI-2026-001, 005, 010, CAG-2026-018 and one STEMI) |
-| Hindi | Not yet read by a native speaker |
-| Tamil | **Not yet read by a native speaker** |
-| Kannada | **Not yet read by a native speaker** |
-| Malayalam | **Not yet read by a native speaker** |
+| English | Audit only. Not yet read by a clinician or a patient-side reader. |
+| Telugu | **Awaiting native-reader check** (Pavan) |
+| Hindi | **Awaiting native-reader check** |
+| Tamil | **Awaiting native-reader check** |
+| Kannada | **Awaiting native-reader check** |
+| Malayalam | **Awaiting native-reader check** |
 
 ## Decisions that differ from the spec
 

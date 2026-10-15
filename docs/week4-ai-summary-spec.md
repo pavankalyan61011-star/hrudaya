@@ -21,6 +21,12 @@ The sections below are left as originally written. What was built differs in the
 - **§5.1 prompt is now v2.** v1 sometimes wrote "When to come back urgently" with no red flags
   recorded, and once "Your heart pump" with no LVEF. v2 leaves empty sections out and never says
   something does not apply. Warnings went from 37 to 0 (`docs/ai-summary.md` → Eval).
+- **§5.1 prompt v3** (live review):
+  - how often and for how long are in the patient's language, with the abbreviation in
+    brackets ("రోజుకు ఒకసారి (OD)"). Guard 4 now covers drug names, doses and units only;
+  - one plain sentence explains DAPT;
+  - a complication is mentioned only when its outcome is supplied. Outcomes are free text today,
+    so none is.
 - **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
   400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
 

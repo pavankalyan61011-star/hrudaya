@@ -41,8 +41,22 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
 
 ## Found while building Week 4 (AI discharge summary)
 
-- **Clinical read-through.** Telugu: Pavan to read five cases. Hindi, Tamil, Kannada and
-  Malayalam: no native reader yet. See `docs/ai-summary.md`.
+- **Structured complication outcome.** Complications store `severity` and `onset` as enums, but
+  `management` and `outcome` are free text only, and there is no resolved field. Free text never
+  reaches the model, so since prompt v3 the discharge summary mentions no complication at all
+  (PCI-2026-005 haematoma, PCI-2026-010 no-reflow). A structured outcome (e.g. resolved /
+  resolved with treatment / ongoing at discharge) would let the summary describe each complication
+  together with its outcome. Meanwhile, the v3 eval shows the prompt rule is not enough: English
+  complies, but at least 5 of 10 Indian-language drafts for 005/010 still mention the
+  complication. The deterministic interim fix is to leave a complication out of the summary input
+  until it has a structured outcome (`lib/summary/input.ts`). That needs owner approval and a
+  re-run.
+- **Structured medicine editor with preview instead of Markdown textarea.** Today the clinician
+  edits the whole summary as Markdown, medicines table included. A row-per-medicine editor (drug
+  and dose locked to the record, frequency and duration text editable) with a live preview would
+  make a dose edit impossible to mistype, and would remove Markdown from the clinician's job.
+- **Native-reader check.** All five Indian languages are awaiting the five-question check in
+  `docs/ai-summary.md`.
 - **Approved summary on the FHIR Bundle.** An approved summary could be a `DocumentReference` (or
   a Composition section) in the export. Not mapped yet.
 - **Summary reads at the clinician's own login.** `approving_clinician_id` is chosen from
