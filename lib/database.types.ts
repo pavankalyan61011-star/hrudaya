@@ -125,8 +125,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           discharge_id: string
-          dose: number
-          dose_unit: Database["public"]["Enums"]["dose_unit"]
+          dose: number | null
+          dose_unit: Database["public"]["Enums"]["dose_unit"] | null
           drug_name: string
           duration: string | null
           frequency: Database["public"]["Enums"]["dose_frequency"]
@@ -140,8 +140,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           discharge_id: string
-          dose: number
-          dose_unit: Database["public"]["Enums"]["dose_unit"]
+          dose?: number | null
+          dose_unit?: Database["public"]["Enums"]["dose_unit"] | null
           drug_name: string
           duration?: string | null
           frequency: Database["public"]["Enums"]["dose_frequency"]
@@ -155,8 +155,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           discharge_id?: string
-          dose?: number
-          dose_unit?: Database["public"]["Enums"]["dose_unit"]
+          dose?: number | null
+          dose_unit?: Database["public"]["Enums"]["dose_unit"] | null
           drug_name?: string
           duration?: string | null
           frequency?: Database["public"]["Enums"]["dose_frequency"]
@@ -657,7 +657,7 @@ export type Database = {
         | "thrombectomy"
         | "rotational_atherectomy"
         | "other"
-      medication_route: "oral" | "sc" | "iv" | "topical"
+      medication_route: "oral" | "sc" | "iv" | "topical" | "sublingual"
       operator_role:
         | "interventional_cardiologist"
         | "fellow"
@@ -882,7 +882,7 @@ export const Constants = {
         "rotational_atherectomy",
         "other",
       ],
-      medication_route: ["oral", "sc", "iv", "topical"],
+      medication_route: ["oral", "sc", "iv", "topical", "sublingual"],
       operator_role: [
         "interventional_cardiologist",
         "fellow",

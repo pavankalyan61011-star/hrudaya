@@ -185,16 +185,29 @@ export const DetailsStepSchema = z.object({
 
 // ─── Step 6: discharge ─────────────────────────────────────────────────────────
 
-export const MedicationSchema = z.object({
-  drug_name: text,
-  dose: decimal(0, 1_000_000, true),
-  dose_unit: z.enum(ENUMS.dose_unit),
-  frequency: z.enum(ENUMS.dose_frequency, { error: "Required" }),
-  route: z.enum(ENUMS.medication_route),
-  duration: optionalText,
-  purpose: optionalText,
-  is_dapt: z.boolean(),
-});
+/** Dose may be blank only for a PRN medicine; a unit is kept only alongside a dose. */
+export const MedicationSchema = z
+  .object({
+    drug_name: text,
+    dose: z
+      .preprocess(blankToUndefined, z.number({ error: "Enter a number" }).gt(0, "Must be more than 0").optional())
+      .transform((v) => v ?? null),
+    dose_unit: optionalEnum(ENUMS.dose_unit),
+    frequency: z.enum(ENUMS.dose_frequency, { error: "Required" }),
+    route: z.enum(ENUMS.medication_route),
+    duration: optionalText,
+    purpose: optionalText,
+    is_dapt: z.boolean(),
+  })
+  .superRefine((m, ctx) => {
+    if (m.dose === null && m.frequency !== "prn") {
+      ctx.addIssue({ code: "custom", path: ["dose"], message: "Required (may be blank only for PRN)" });
+    }
+    if (m.dose !== null && !m.dose_unit) {
+      ctx.addIssue({ code: "custom", path: ["dose_unit"], message: "Required" });
+    }
+  })
+  .transform((m) => ({ ...m, dose_unit: m.dose === null ? null : m.dose_unit }));
 
 export const DischargeSchema = z
   .object({

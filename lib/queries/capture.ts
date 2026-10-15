@@ -138,8 +138,8 @@ export async function saveComplications(db: DbClient, procedureId: string, items
 
 export type MedicationInput = {
   drug_name: string;
-  dose: number;
-  dose_unit: Enums["dose_unit"];
+  dose: number | null; // null only for a PRN medicine
+  dose_unit: Enums["dose_unit"] | null; // null exactly when dose is null
   frequency: Enums["dose_frequency"];
   route: Enums["medication_route"];
   duration: string | null;

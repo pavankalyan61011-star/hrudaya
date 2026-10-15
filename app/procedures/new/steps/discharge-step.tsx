@@ -156,10 +156,11 @@ export function DischargeStep({ procedureId, initial }: Props) {
                     <RemoveButton what={m.drug_name || `medication ${i + 1}`} onClick={() => setV((s) => ({ ...s, medications: s.medications.filter((x) => x.key !== m.key) }))} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Dose" htmlFor={id("dose")} required error={me("dose")}>
+                    <Field label="Dose" htmlFor={id("dose")} required={m.frequency !== "prn"} error={me("dose")}
+                      hint={m.frequency === "prn" ? "May be left blank for PRN" : undefined}>
                       <TextInput id={id("dose")} inputMode="decimal" value={m.dose} onChange={(x) => setMed(m.key, { dose: x })} invalid={!!me("dose")} />
                     </Field>
-                    <Field label="Unit" htmlFor={id("unit")} required error={me("dose_unit")}>
+                    <Field label="Unit" htmlFor={id("unit")} required={m.dose.trim() !== ""} error={me("dose_unit")}>
                       <EnumSelect id={id("unit")} value={m.dose_unit} onChange={(x) => setMed(m.key, { dose_unit: x })} options={ENUMS.dose_unit} invalid={!!me("dose_unit")} />
                     </Field>
                     <Field label="Frequency" htmlFor={id("freq")} required error={me("frequency")}>

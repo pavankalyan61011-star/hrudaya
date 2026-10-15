@@ -67,8 +67,8 @@ type SeedIntervention = {
 
 type SeedMedication = {
   drug_name: string;
-  dose: number;
-  dose_unit: Enums["dose_unit"];
+  dose: number | null; // null only for PRN
+  dose_unit: Enums["dose_unit"] | null; // null exactly when dose is null
   frequency: Enums["dose_frequency"];
   route?: Enums["medication_route"];
   duration?: string;
@@ -179,6 +179,11 @@ const dapt = (p2y12: "Ticagrelor" | "Clopidogrel", duration: string): SeedMedica
     ? mg("Ticagrelor", 90, "bd", { is_dapt: true, duration })
     : mg("Clopidogrel", 75, "od", { is_dapt: true, duration }),
 ];
+
+/** Owner correction 2026-10-15: GTN stored as sublingual PRN with no dose. */
+const gtnPrn = (): SeedMedication => ({
+  drug_name: "GTN", dose: null, dose_unit: null, frequency: "prn", route: "sublingual", purpose: "angina relief",
+});
 
 const NORMAL_LM = v("lmca", null, 0, 3);
 
@@ -494,9 +499,9 @@ const CASES: SeedCase[] = [
         "Primary PCI to proximal RCA with an everolimus DES (3.5 × 28 mm). Transient no-reflow treated with intracoronary vasodilator; TIMI III restored. Final residual <10%. LVEF 45%.",
     },
     vessels: [
-      // Source does not mark a culprit for this case, so none is set (literal mapping).
+      // Culprit set by owner correction 2026-10-15 (source line did not mark it).
       NORMAL_LM, v("lad", "mid", 40, 3), v("lcx", "mid", 30, 3),
-      v("rca", "proximal", 100, 0, { lesion_notes: "Thrombotic occlusion" }),
+      v("rca", "proximal", 100, 0, { is_culprit: true, lesion_notes: "Thrombotic occlusion" }),
     ],
     interventions: [desPci(3, [2.0, 15, 10], ["Everolimus DES", 3.5, 28, 14, "SYN-DES-260010"], [3.75, 12, 16])],
     complications: [
@@ -594,8 +599,7 @@ const CASES: SeedCase[] = [
       length_of_stay_hours: 24, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["Exercise guidance", "DAPT adherence"],
       red_flags: ["Recurrent chest pain"],
-      // NOT STORED: sublingual GTN as needed — no dose given and sublingual is not a route in the schema.
-      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od")],
+      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od"), gtnPrn()],
     },
   },
 
@@ -625,8 +629,7 @@ const CASES: SeedCase[] = [
       length_of_stay_hours: 24, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["DAPT adherence", "Access-site care", "Activity advice"],
       red_flags: [],
-      // NOT STORED: sublingual GTN as needed (see PCI-2026-013).
-      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od")],
+      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od"), gtnPrn()],
     },
   },
 
@@ -699,8 +702,7 @@ const CASES: SeedCase[] = [
       length_of_stay_hours: 24, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["Activity advice", "Access-site care", "DAPT adherence"],
       red_flags: [],
-      // NOT STORED: sublingual GTN as needed (see PCI-2026-013).
-      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od")],
+      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od"), gtnPrn()],
     },
   },
 
@@ -721,8 +723,8 @@ const CASES: SeedCase[] = [
       haemostasis_method: "radial_compression_band",
       outcome_summary: "PCI to proximal LAD with a zotarolimus DES (3.5 × 22 mm). Final LAD residual <10%, TIMI III. No complications.",
     },
-    // Source does not mark a culprit for this case, so none is set (literal mapping).
-    vessels: [NORMAL_LM, v("lad", "proximal", 90, 3), v("lcx", "mid", 30, 3), v("rca", "mid", 40, 3)],
+    // Culprit set by owner correction 2026-10-15: the only lesion treated.
+    vessels: [NORMAL_LM, v("lad", "proximal", 90, 3, { is_culprit: true }), v("lcx", "mid", 30, 3), v("rca", "mid", 40, 3)],
     interventions: [desPci(1, [2.5, 15, 12], ["Zotarolimus DES", 3.5, 22, 14, "SYN-DES-260017"], [3.75, 12, 16])],
     complications: [],
     discharge: {

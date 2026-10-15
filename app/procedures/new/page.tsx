@@ -169,7 +169,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
               advice: d?.advice ?? [],
               red_flags: d?.red_flags ?? [],
               medications: (d?.discharge_medications ?? []).map((m) => ({
-                key: m.id, drug_name: m.drug_name, dose: str(m.dose), dose_unit: m.dose_unit, frequency: m.frequency, route: m.route,
+                key: m.id, drug_name: m.drug_name, dose: str(m.dose), dose_unit: m.dose_unit ?? "", frequency: m.frequency, route: m.route,
                 duration: m.duration ?? "", purpose: m.purpose ?? "", is_dapt: m.is_dapt,
               })),
             }}

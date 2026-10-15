@@ -161,10 +161,10 @@ At most one per procedure. Optional: a patient who remains admitted has no row, 
 |---|---|---|
 | discharge_id | fk discharges | |
 | drug_name | text | "Ticagrelor" |
-| dose | numeric | 90 |
-| dose_unit | enum: mg, mcg, g, ml, iu | |
+| dose | numeric, nullable | 90; null only when frequency = prn (e.g. GTN) |
+| dose_unit | enum: mg, mcg, g, ml, iu, nullable | null exactly when dose is null |
 | frequency | enum: od, bd, tds, qds, prn, weekly | |
-| route | enum: oral, sc, iv, topical, default oral | |
+| route | enum: oral, sc, iv, topical, sublingual, default oral | |
 | duration | text, nullable | "12 months" |
 | purpose | text, nullable | "antiplatelet" |
 | is_dapt | boolean, default false | aspirin + P2Y12 — drives the Week 4 adherence messaging |

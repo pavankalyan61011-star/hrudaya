@@ -33,7 +33,7 @@ Requires **Node 22.18 or later** (the seed script runs TypeScript directly) and 
    ```
 2. Copy `.env.example` to `.env.local` and fill in the three values from Supabase →
    Project Settings → API. The service-role key stays on your machine; the app never uses it.
-3. Apply the migrations in order (`0001`, `0002`, `0003`). Either paste each file from
+3. Apply the migrations in order (`0001` to `0004`). Either paste each file from
    `supabase/migrations/` into the Supabase SQL editor, or with the Supabase CLI:
    ```bash
    supabase db query --linked --project-ref <your-project-ref> -f supabase/migrations/0001_init.sql

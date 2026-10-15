@@ -243,7 +243,8 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
                 <ul className="divide-y divide-slate-100">
                   {p.discharge.discharge_medications.map((m) => (
                     <li key={m.id} className="py-2">
-                      <span className="font-semibold">{m.drug_name}</span> {m.dose} {label(m.dose_unit)} {label(m.frequency)}
+                      <span className="font-semibold">{m.drug_name}</span>
+                      {m.dose !== null && ` ${m.dose} ${label(m.dose_unit)}`} {label(m.frequency)}
                       {m.route !== "oral" && ` ${label(m.route)}`}
                       {m.is_dapt && <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-900">DAPT</span>}
                       {(m.duration || m.purpose) && (
