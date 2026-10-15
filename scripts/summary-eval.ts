@@ -118,9 +118,10 @@ const results = await pool(jobs, CONCURRENCY, async (j, i): Promise<Result> => {
     return { ...base, ok: true, model: d.model, tokens_in: d.tokens_in, tokens_out: d.tokens_out, latency_ms: Date.now() - t0, flags: d.audit_flags };
   } catch (e) {
     const failure = e instanceof SummaryModelError ? `${e.kind}: ${e.message}` : "failed";
-    console.log(`[${i + 1}/${jobs.length}] ${j.case_code} ${j.language} FAILED ${failure}`);
+    const billed = e instanceof SummaryModelError && e.billed ? e.billed : { tokens_in: 0, tokens_out: 0 };
+    console.log(`[${i + 1}/${jobs.length}] ${j.case_code} ${j.language} FAILED ${failure} (${billed.tokens_in}/${billed.tokens_out} tok billed)`);
     if (++consecutiveFailures >= 3) stopped = true;
-    return { ...base, ok: false, failure, tokens_in: 0, tokens_out: 0, latency_ms: Date.now() - t0, flags: [] };
+    return { ...base, ok: false, failure, ...billed, latency_ms: Date.now() - t0, flags: [] };
   }
 });
 
@@ -129,8 +130,11 @@ writeFileSync(join(OUT, "results.json"), JSON.stringify({ model: SUMMARY_MODEL, 
 // ─── Report ───────────────────────────────────────────────────────────────────
 
 const ok = results.filter((r) => r.ok);
-const tin = ok.reduce((a, r) => a + r.tokens_in, 0);
-const tout = ok.reduce((a, r) => a + r.tokens_out, 0);
+// Every billed token, including calls refused here (cut off at max_tokens, empty, declined).
+const tin = results.reduce((a, r) => a + r.tokens_in, 0);
+const tout = results.reduce((a, r) => a + r.tokens_out, 0);
+const okIn = ok.reduce((a, r) => a + r.tokens_in, 0);
+const okOut = ok.reduce((a, r) => a + r.tokens_out, 0);
 const codesOf = (r: Result) => (!r.ok ? "FAILED" : r.flags.length ? r.flags.map((f) => (f.severity === "error" ? `**${f.code}**` : f.code)).join(", ") : "—");
 const allCodes = [...new Set(ok.flatMap((r) => r.flags.map((f) => f.code)))].sort();
 
@@ -139,7 +143,8 @@ lines.push(`# Summary eval — ${SUMMARY_MODEL}, prompt ${PROMPT_VERSION}`, "");
 lines.push(`Run ${new Date().toISOString()}. ${jobs.length} scheduled, ${ok.length} generated, ${results.filter((r) => !r.ok).length} failed or not run.`);
 const models = [...new Set(ok.map((r) => r.model))];
 lines.push(`Models that answered: ${models.join(", ") || "none"}.`, "");
-lines.push(`Tokens: ${tin.toLocaleString()} in, ${tout.toLocaleString()} out. Cost $${dollars(tin, tout).toFixed(2)} — $${ok.length ? (dollars(tin, tout) / ok.length).toFixed(4) : "0"} per summary.`, "");
+lines.push(`Billed tokens (all calls, including refused/cut off): ${tin.toLocaleString()} in, ${tout.toLocaleString()} out — $${dollars(tin, tout).toFixed(2)}.`);
+lines.push(`Per generated summary: $${ok.length ? (dollars(okIn, okOut) / ok.length).toFixed(4) : "0"} (generated drafts only); all-in per usable summary $${ok.length ? (dollars(tin, tout) / ok.length).toFixed(4) : "0"}.`, "");
 lines.push("## Per language", "", "| Language | Generated | Avg tokens in | Avg tokens out | Max out | Avg $ | With an error flag |", "|---|---|---|---|---|---|---|");
 for (const l of langs) {
   const rs = ok.filter((r) => r.language === l);

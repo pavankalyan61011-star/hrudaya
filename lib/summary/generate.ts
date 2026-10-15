@@ -50,9 +50,12 @@ export type ModelFailure = "not_configured" | "rate_limited" | "refused" | "trun
 /** Thrown for every way a model call can fail. `message` never contains input or output text. */
 export class SummaryModelError extends Error {
   readonly kind: ModelFailure;
-  constructor(kind: ModelFailure, message: string) {
+  /** Tokens billed for a call that answered but was refused here (cut off, empty, declined). */
+  readonly billed?: { tokens_in: number; tokens_out: number };
+  constructor(kind: ModelFailure, message: string, billed?: { tokens_in: number; tokens_out: number }) {
     super(message);
     this.kind = kind;
+    this.billed = billed;
     this.name = "SummaryModelError";
   }
 }
@@ -119,11 +122,12 @@ export type Draft = {
 export async function draftSummary(input: SummaryInput, language: SummaryLanguage, call: ModelCall): Promise<Draft> {
   const reply = await call(buildMessages(input, language));
 
-  if (reply.stop_reason === "refusal") throw new SummaryModelError("refused", "The model declined to draft this summary");
+  const billed = { tokens_in: reply.tokens_in, tokens_out: reply.tokens_out };
+  if (reply.stop_reason === "refusal") throw new SummaryModelError("refused", "The model declined to draft this summary", billed);
   if (reply.stop_reason === "max_tokens") {
-    throw new SummaryModelError("truncated", `The draft was cut off at ${MAX_TOKENS} tokens and was not saved`);
+    throw new SummaryModelError("truncated", `The draft was cut off at ${MAX_TOKENS} tokens and was not saved`, billed);
   }
-  if (!reply.text) throw new SummaryModelError("empty", "The model returned no text");
+  if (!reply.text) throw new SummaryModelError("empty", "The model returned no text", billed);
 
   return {
     draft_text: reply.text,

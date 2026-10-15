@@ -57,6 +57,7 @@ for (const [stop_reason, text, kind] of [
       assert.ok(e instanceof SummaryModelError);
       assert.equal(e.kind, kind);
       assert.ok(!e.message.includes("Aspirin"), "error message must not echo the draft");
+      assert.deepEqual(e.billed, { tokens_in: 1200, tokens_out: 600 }, "billed tokens are kept for cost accounting");
       return true;
     });
   });
