@@ -9,9 +9,11 @@ Drop this at `docs/week4-ai-summary-spec.md`. Read `docs/week1-spec.md` §3 and 
 
 The sections below are left as originally written. What was built differs in these places:
 
-- **§2 `max_tokens`: 4000, not 1500.** The first eval sample (PCI-2026-001, six languages) was cut
-  off at 1500 for Kannada and Malayalam, and Tamil used 1485, so it was raised to 3000. Then in the
-  v3 eval the longest Kannada draft used 2,938 of 3,000, so it was raised to 4000. These scripts
+- **§2 `max_tokens`: 6000, not 1500.** The first eval sample (PCI-2026-001, six languages) was cut
+  off at 1500 for Kannada and Malayalam, and Tamil used 1485, so it was raised to 3000. In the v3
+  eval the longest Kannada draft used 2,938 of 3,000, so it went to 4000. In the v4 eval, with the
+  standard red flags added, it used 3,902 of 4,000 (9 of 19 Kannada drafts were over 3,500), so it
+  went to 6000. These scripts
   take about 5.5 tokens a word. The limit is a ceiling, not a target: English still uses about 800.
   A draft cut off at the limit is refused and never stored. (Owner decisions, both 15 Oct 2026.)
 - **§5.2 `section_missing` / `section_extra`:** the expected count follows the record. The
@@ -28,6 +30,12 @@ The sections below are left as originally written. What was built differs in the
   - one plain sentence explains DAPT;
   - a complication is mentioned only when its outcome is supplied. Outcomes are free text today,
     so none is.
+- **§5.1 prompt v4:** complications are described together with their outcome; red flags may carry
+  urgency headings.
+- **§5.1 prompt v5:** the red-flag sentence no longer names "108". v4's "Keep 108 and every number
+  as given" made the model add "call 108" to PCI-2026-001, whose record does not contain it, and
+  the audit blocked both drafts. Numbers in that section now come only from the record's red-flag
+  items. **The prompt is frozen after v5, pending native-reader feedback.**
 - **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
   400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
 

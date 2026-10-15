@@ -21,8 +21,12 @@ export const SUMMARY_MODEL = "claude-sonnet-5-5";
  *      outcome): each is described with its outcome in one or two plain sentences. Red flags
  *      may contain heading items ending in ":" (emergency vs contact within a day); each heading
  *      leads the items that follow it.
+ * v5 — v4's "Keep 108 and every number as given" made the model add "call 108" to a record
+ *      whose red flags do not contain it (PCI-2026-001, en + te; the audit blocked both). The
+ *      sentence no longer names 108: numbers come only from the red-flag items themselves.
+ *      Frozen after v5 pending native-reader feedback (owner, 2026-10-15).
  */
-export const PROMPT_VERSION = "v4";
+export const PROMPT_VERSION = "v5";
 
 export const LANGUAGES = {
   en: "English",
@@ -54,7 +58,7 @@ Use these sections, in this order, each as a Markdown "## " heading written in $
 4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
 5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in ${L}). Copy the drug name and the dose with its unit exactly as given. Write "(DAPT)" after the name of each DAPT medicine. In "How often", write the frequency as described under LANGUAGE, with its abbreviation in brackets. Leave "For how long" empty when the record gives no duration. After the table: if any medicine is DAPT, write one plain sentence explaining DAPT — two tablets taken together that stop clots forming in the stent (if the record has no stent, say "in the treated artery" instead). Then write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
-7. When to come back urgently: the red-flag items, in order. An item ending in ":" is a heading that says how urgently to act: write it as a lead-in line, then list the items that follow it, up to the next heading, as bullets under it. Keep 108 and every number as given. Add nothing. If the record has no red_flags, leave this section out entirely.
+7. When to come back urgently: the red-flag items, in order. An item ending in ":" is a heading that says how urgently to act: write it as a lead-in line, then list the items that follow it, up to the next heading, as bullets under it. Keep every number in the red-flag items exactly as given, and write no phone number or other number that the items do not contain. Add nothing. If the record has no red_flags, leave this section out entirely.
 8. Follow-up: the follow-up date and clinic.
 9. Your team: the operator and the facility.
 
