@@ -24,3 +24,20 @@ export function formatDate(isoDate: string | null | undefined): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(d);
 }
+
+/** An instant → "YYYY-MM-DDTHH:mm" for <input type="datetime-local">, in IST. */
+export function toISTInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(new Date(iso).getTime() + 330 * 60_000);
+  return d.toISOString().slice(0, 16);
+}
+
+/** "YYYY-MM-DDTHH:mm" typed as IST → ISO instant. Times are always entered as India time. */
+export function fromISTInput(local: string): string {
+  return `${local}:00+05:30`;
+}
+
+/** The India calendar date of an instant. */
+export function istDateOf(iso: string): string {
+  return new Date(new Date(iso).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+}

@@ -48,12 +48,18 @@ export async function getDraftHeader(db: DbClient, id: string) {
   return { draft: data, error };
 }
 
+// procedures has four foreign keys to operators, so each embed names its key.
 const FULL_SELECT = `
   *,
   patient:patients(*, risk_factors:patient_risk_factors(id, factor, detail)),
-  operator:operators(id, full_name, role),
+  operator:operators!procedures_primary_operator_id_fkey(id, full_name, role),
+  reviewer:operators!procedures_reviewing_clinician_id_fkey(id, full_name),
+  consent_by:operators!procedures_consent_by_operator_id_fkey(id, full_name),
+  timeout_by:operators!procedures_timeout_by_operator_id_fkey(id, full_name),
+  facility:facilities(id, name, cath_lab_name, city),
   vessel_findings!vessel_findings_procedure_id_fkey(*),
   interventions(*, devices_used(*)),
+  procedure_medications(*),
   complications(*),
   discharge:discharges(*, discharge_medications(*))
 ` as const;
@@ -68,6 +74,7 @@ export async function getProcedureFull(db: DbClient, id: string) {
     .order("created_at", { referencedTable: "interventions" })
     .order("created_at", { referencedTable: "interventions.devices_used" })
     .order("created_at", { referencedTable: "complications" })
+    .order("created_at", { referencedTable: "procedure_medications" })
     .order("created_at", { referencedTable: "discharges.discharge_medications" })
     .maybeSingle();
   return { procedure: data, error };
@@ -87,4 +94,20 @@ export async function listProcedures(db: DbClient) {
 
 export async function completeProcedure(db: DbClient, id: string) {
   return updateDraftProcedure(db, id, { status: "completed" });
+}
+
+/**
+ * Sign-off. Only a completed procedure moves to reviewed; the database stamps the signed-in user
+ * and the time, and from then on the record is read-only.
+ */
+export async function markReviewed(db: DbClient, id: string, reviewingClinicianId: string) {
+  const { data, error } = await db
+    .from("procedures")
+    .update({ status: "reviewed", reviewing_clinician_id: reviewingClinicianId })
+    .eq("id", id)
+    .eq("status", "completed")
+    .select("id");
+  if (error) return { error };
+  if (!data || data.length === 0) return { error: { code: "PGRST116", message: "not completed" } };
+  return { error: null };
 }

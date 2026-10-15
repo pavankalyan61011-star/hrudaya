@@ -23,7 +23,10 @@ export function Facts({ items }: { items: [string, React.ReactNode][] }) {
   );
 }
 
-export function StatusBadge({ status }: { status: "draft" | "completed" }) {
+export function StatusBadge({ status }: { status: "draft" | "completed" | "reviewed" }) {
+  if (status === "reviewed") {
+    return <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900">Reviewed</span>;
+  }
   return status === "completed" ? (
     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">Completed</span>
   ) : (

@@ -20,6 +20,8 @@ export type DeviceRow = {
   length_mm: string;
   inflation_atm: string;
   lot_number: string;
+  expiry_date: string;
+  udi: string;
   quantity: string;
 };
 
@@ -56,7 +58,7 @@ const GROUPS: { phase: Enums["device_phase"]; title: string; add: string; defaul
 const TIMI_OPTIONS = TIMI_LABELS.map((l, i) => ({ value: String(i), label: `TIMI ${l}` }));
 
 const blankDevice = (phase: Enums["device_phase"], category: string): DeviceRow => ({
-  key: newKey(), phase, category, product_name: "", diameter_mm: "", length_mm: "", inflation_atm: "", lot_number: "", quantity: "1",
+  key: newKey(), phase, category, product_name: "", diameter_mm: "", length_mm: "", inflation_atm: "", lot_number: "", expiry_date: "", udi: "", quantity: "1",
 });
 
 const blankIntervention = (lesionId: string): InterventionRow => ({
@@ -169,6 +171,14 @@ export function InterventionStep({ procedureId, diagnosticOnly, lesions, initial
                               aria-invalid={!!de("lot_number") || undefined} aria-describedby={de("lot_number") ? `${id("lot")}-error` : undefined}
                               autoComplete="off" autoCapitalize="characters" className={`input font-mono ${de("lot_number") ? "border-red-600" : ""}`} />
                           </Field>
+                          <div className="grid grid-cols-2 gap-3">
+                            <Field label="Expiry date" htmlFor={id("exp")} hint="Optional" error={de("expiry_date")}>
+                              <TextInput id={id("exp")} type="date" value={d.expiry_date} onChange={(x) => updateDevice(it.key, d.key, { expiry_date: x })} invalid={!!de("expiry_date")} />
+                            </Field>
+                            <Field label="UDI" htmlFor={id("udi")} hint="Optional">
+                              <TextInput id={id("udi")} value={d.udi} onChange={(x) => updateDevice(it.key, d.key, { udi: x })} />
+                            </Field>
+                          </div>
                         </div>
                       );
                     })}

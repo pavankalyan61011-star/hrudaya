@@ -11,8 +11,8 @@ import {
   syncRiskFactors,
   type PatientSearchResult,
 } from "@/lib/queries/patients";
-import { createDraftProcedure, getDraftHeader, updateDraftProcedure, completeProcedure } from "@/lib/queries/procedures";
-import { saveComplications, saveDischarge, saveInterventions, saveVessels } from "@/lib/queries/capture";
+import { createDraftProcedure, getDraftHeader, updateDraftProcedure, completeProcedure, markReviewed } from "@/lib/queries/procedures";
+import { saveComplications, saveDischarge, saveInterventions, saveProcedureMedications, saveVessels } from "@/lib/queries/capture";
 import {
   AngiographyStepSchema,
   DetailsStepSchema,
@@ -112,8 +112,8 @@ export async function saveIndicationStep(_prev: StepState, formData: FormData): 
   const { db, draft, error } = await requireDraft(formData);
   if (error || !draft) return { error: error ?? undefined };
 
-  const { troponin, ...fields } = parsed.data;
-  const upd = await updateDraftProcedure(db, draft.id, { ...fields, troponin_elevated: troponin });
+  const { troponin, access_ultrasound, ...fields } = parsed.data;
+  const upd = await updateDraftProcedure(db, draft.id, { ...fields, troponin_elevated: troponin, access_ultrasound_guided: access_ultrasound });
   if (upd.error) return { error: friendlyError(upd.error) };
   redirect(stepUrl(draft.id, 3));
 }
@@ -127,7 +127,10 @@ export async function saveAngiographyStep(_prev: StepState, formData: FormData):
   const { db, draft, error } = await requireDraft(formData);
   if (error || !draft) return { error: error ?? undefined };
 
-  const res = await saveVessels(db, draft.id, parsed.data.vessels);
+  const { vessels, ...procedureFields } = parsed.data;
+  const upd = await updateDraftProcedure(db, draft.id, procedureFields);
+  if (upd.error) return { error: friendlyError(upd.error) };
+  const res = await saveVessels(db, draft.id, vessels);
   if (res.error) return { error: friendlyError(res.error) };
   redirect(stepUrl(draft.id, 4));
 }
@@ -162,9 +165,11 @@ export async function saveDetailsStep(_prev: StepState, formData: FormData): Pro
   const { db, draft, error } = await requireDraft(formData);
   if (error || !draft) return { error: error ?? undefined };
 
-  const { complications, ...fields } = parsed.data;
+  const { complications, procedure_medications, ...fields } = parsed.data;
   const upd = await updateDraftProcedure(db, draft.id, fields);
   if (upd.error) return { error: friendlyError(upd.error) };
+  const meds = await saveProcedureMedications(db, draft.id, procedure_medications);
+  if (meds.error) return { error: friendlyError(meds.error) };
   const res = await saveComplications(db, draft.id, complications);
   if (res.error) return { error: friendlyError(res.error) };
   redirect(stepUrl(draft.id, 6));
@@ -186,4 +191,17 @@ export async function saveDischargeStep(_prev: StepState, formData: FormData): P
   const done = await completeProcedure(db, draft.id);
   if (done.error) return { error: friendlyError(done.error) };
   redirect(`/procedures/${draft.id}`);
+}
+
+// ─── Sign-off (report page) ────────────────────────────────────────────────────
+
+export async function markReviewedAction(_prev: StepState, formData: FormData): Promise<StepState> {
+  if (!(await getCurrentUser())) return { error: SIGNED_OUT };
+  const procedureId = String(formData.get("procedure_id") ?? "");
+  const clinicianId = String(formData.get("reviewing_clinician_id") ?? "");
+  if (!clinicianId) return { error: "Choose the reviewing clinician.", fieldErrors: { reviewing_clinician_id: "Required" } };
+  const db = createClient();
+  const { error } = await markReviewed(db, procedureId, clinicianId);
+  if (error) return { error: friendlyError(error) };
+  redirect(`/procedures/${procedureId}`);
 }

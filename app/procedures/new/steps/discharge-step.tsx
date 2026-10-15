@@ -25,8 +25,9 @@ export type MedicationRow = {
 
 export type DischargeValues = {
   admitted: boolean;
-  discharge_date: string;
-  length_of_stay_hours: string;
+  discharged_at: string; // datetime-local, IST
+  dapt_planned_months: string;
+  dapt_review_date: string;
   clinical_status: string;
   follow_up_date: string;
   follow_up_clinic: string;
@@ -90,7 +91,7 @@ export function DischargeStep({ procedureId, initial }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveDischargeStep, {});
   const errors = state.fieldErrors ?? {};
   const [v, setV] = useState<DischargeValues>(initial);
-  const set = (k: "discharge_date" | "length_of_stay_hours" | "clinical_status" | "follow_up_date" | "follow_up_clinic") => (x: string) =>
+  const set = (k: "discharged_at" | "dapt_planned_months" | "dapt_review_date" | "clinical_status" | "follow_up_date" | "follow_up_clinic") => (x: string) =>
     setV((s) => ({ ...s, [k]: x }));
   const setMed = (key: string, patch: Partial<MedicationRow>) =>
     setV((s) => ({ ...s, medications: s.medications.map((m) => (m.key === key ? { ...m, ...patch } : m)) }));
@@ -117,11 +118,9 @@ export function DischargeStep({ procedureId, initial }: Props) {
       {!v.admitted && (
         <>
           <section className="card grid grid-cols-2 gap-3">
-            <Field label="Discharge date" htmlFor="discharge_date" required error={e("discharge_date")}>
-              <TextInput id="discharge_date" type="date" value={v.discharge_date} onChange={set("discharge_date")} invalid={!!e("discharge_date")} />
-            </Field>
-            <Field label="Length of stay (h)" htmlFor="los" required error={e("length_of_stay_hours")}>
-              <TextInput id="los" inputMode="numeric" value={v.length_of_stay_hours} onChange={set("length_of_stay_hours")} invalid={!!e("length_of_stay_hours")} />
+            <Field label="Discharged (India time)" htmlFor="discharged_at" required error={e("discharged_at")} className="col-span-2"
+              hint="Length of stay is worked out from the admission time">
+              <TextInput id="discharged_at" type="datetime-local" value={v.discharged_at} onChange={set("discharged_at")} invalid={!!e("discharged_at")} />
             </Field>
             <Field label="Clinical status" htmlFor="clinical_status" required error={e("clinical_status")} className="col-span-2">
               <TextInput id="clinical_status" value={v.clinical_status} onChange={set("clinical_status")} invalid={!!e("clinical_status")} placeholder="e.g. Clinically stable" />
@@ -136,6 +135,14 @@ export function DischargeStep({ procedureId, initial }: Props) {
 
           <section className="card space-y-3">
             <h2 className="font-semibold">Medications</h2>
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3">
+              <Field label="DAPT plan (months)" htmlFor="dapt_months" hint="Optional" error={e("dapt_planned_months")}>
+                <TextInput id="dapt_months" inputMode="numeric" value={v.dapt_planned_months} onChange={set("dapt_planned_months")} invalid={!!e("dapt_planned_months")} />
+              </Field>
+              <Field label="Review DAPT by" htmlFor="dapt_review" hint="Optional" error={e("dapt_review_date")}>
+                <TextInput id="dapt_review" type="date" value={v.dapt_review_date} onChange={set("dapt_review_date")} invalid={!!e("dapt_review_date")} />
+              </Field>
+            </div>
             <div className="flex flex-wrap gap-2">
               {DAPT_REGIMENS.map((r) => (
                 <button key={r.label} type="button" className="btn-secondary text-sm"

@@ -2,10 +2,27 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProcedureFull, type ProcedureFull } from "@/lib/queries/procedures";
+import { listOperators } from "@/lib/queries/operators";
 import { ageOn, formatDate } from "@/lib/dates";
 import { label, timi } from "@/lib/labels";
-import { NOT_RECORDED, guidewireText, lesionName, medicationLine, orNotRecorded, phaseHeading } from "@/lib/report-format";
+import {
+  NOT_RECORDED,
+  formatDateTime,
+  formatTime,
+  guidewireText,
+  lengthOfStay,
+  lesionName,
+  lvefText,
+  measurement,
+  medicationLine,
+  minutesBetween,
+  orNotRecorded,
+  phaseHeading,
+  procedureMedicationLine,
+  timingHeading,
+} from "@/lib/report-format";
 import { Facts, Section, StatusBadge } from "@/components/report/section";
+import { ReviewPanel } from "@/components/report/review-panel";
 import { SyntheticNotice } from "@/components/synthetic-notice";
 import { STEPS } from "../new/step-header";
 
@@ -17,6 +34,9 @@ const yesNo = (v: boolean | null) => (v === null ? NOT_RECORDED : v ? "Yes" : "N
 const num = (v: number | null, unit: string) => (v === null ? null : `${v} ${unit}`);
 /** Enum value for display; null → "Not recorded". */
 const en = (v: string | null) => (v ? label(v) : NOT_RECORDED);
+const pressure = (sys: number | null, dia: number | null, unit = "mmHg") => (sys === null || dia === null ? null : `${sys}/${dia} ${unit}`);
+const DESTINATION: Record<string, string> = { ward: "Ward", ccu: "CCU", icu: "ICU", day_case_recovery: "Day-case recovery", transferred: "Transferred" };
+const PREVIOUS_PROCEDURES = new Set(["prior_pci", "prior_cabg"]);
 
 function deviceLine(d: Device) {
   const size = `${d.diameter_mm} × ${d.length_mm} mm`;
@@ -34,6 +54,10 @@ function CulpritTag() {
   );
 }
 
+function SubHeading({ children }: { children: React.ReactNode }) {
+  return <h3 className="mb-2 mt-4 text-sm font-semibold text-slate-700 first:mt-0">{children}</h3>;
+}
+
 export default async function ProcedureDetailPage({ params }: { params: { id: string } }) {
   const db = createClient();
   const { procedure: p, error } = await getProcedureFull(db, params.id);
@@ -48,15 +72,22 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
     );
   }
   if (!p) notFound();
+  const { operators } = p.status === "completed" ? await listOperators(db) : { operators: [] };
 
   const pt = p.patient;
   const vesselById = new Map(p.vessel_findings.map((v) => [v.id, v]));
-  const lesionOf = (id: string) => vesselById.get(id);
+  const previous = pt?.risk_factors.filter((r) => PREVIOUS_PROCEDURES.has(r.factor)) ?? [];
+  const riskFactors = pt?.risk_factors.filter((r) => !PREVIOUS_PROCEDURES.has(r.factor)) ?? [];
+  const duration = minutesBetween(p.started_at, p.ended_at);
+  const timings = ["pre_procedure", "intra_procedure", "post_procedure"] as const;
+  const during = p.complications.filter((c) => c.onset === "intraprocedural");
+  const after = p.complications.filter((c) => c.onset === "inpatient");
+  const untimed = p.complications.filter((c) => c.onset === null);
 
   return (
     <article className="space-y-4">
       <header className="space-y-2">
-        <Link href="/procedures" className="text-sm text-sky-800 underline">
+        <Link href="/procedures" className="inline-flex min-h-11 items-center text-sm text-sky-800 underline">
           ← All procedures
         </Link>
         <div className="flex flex-wrap items-center gap-2">
@@ -66,6 +97,16 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
         <p className="text-slate-700">
           {en(p.procedure_type)} · {p.procedure_date ? formatDate(p.procedure_date) : NOT_RECORDED} · {p.operator?.full_name ?? "Operator not recorded"}
         </p>
+        {p.facility && (
+          <p className="text-sm text-slate-600">
+            {p.facility.name} — {p.facility.cath_lab_name}, {p.facility.city}
+          </p>
+        )}
+        {p.status === "reviewed" && (
+          <p className="text-sm font-medium text-sky-900">
+            Reviewed by {p.reviewer?.full_name ?? NOT_RECORDED} on {formatDateTime(p.reviewed_at)}
+          </p>
+        )}
       </header>
 
       {p.status === "draft" && (
@@ -80,6 +121,7 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
           </div>
         </div>
       )}
+      {p.status === "completed" && <ReviewPanel procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} />}
 
       <Section title="Patient">
         {pt ? (
@@ -92,12 +134,25 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
                 ["Date of birth", formatDate(pt.date_of_birth)],
               ]}
             />
-            <h3 className="mb-1 mt-3 text-sm font-semibold text-slate-700">Risk factors</h3>
-            {pt.risk_factors.length === 0 ? (
+            <SubHeading>Previous procedures</SubHeading>
+            {previous.length === 0 ? (
+              <p className="text-slate-600">None recorded</p>
+            ) : (
+              <ul className="space-y-1">
+                {previous.map((r) => (
+                  <li key={r.id}>
+                    {label(r.factor)}
+                    {r.detail ? ` — ${r.detail}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <SubHeading>Risk factors</SubHeading>
+            {riskFactors.length === 0 ? (
               <p className="text-slate-600">None recorded</p>
             ) : (
               <ul className="flex flex-wrap gap-2">
-                {pt.risk_factors.map((r) => (
+                {riskFactors.map((r) => (
                   <li key={r.id} className="rounded-full bg-slate-100 px-3 py-1 text-sm">
                     {label(r.factor)}
                     {r.detail ? ` — ${r.detail}` : ""}
@@ -111,28 +166,59 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
         )}
       </Section>
 
-      <Section title="Presentation">
-        <Facts items={[["Indication", en(p.indication)], ["Troponin elevated", yesNo(p.troponin_elevated)], ["ECG", p.ecg_findings]]} />
+      <Section title="Presentation and baseline">
+        <Facts
+          items={[
+            ["Indication", en(p.indication)],
+            ["Urgency", en(p.urgency)],
+            ["Admitted", formatDateTime(p.admitted_at)],
+            ["Referring clinician", p.referring_clinician],
+            ["Troponin elevated", yesNo(p.troponin_elevated)],
+            ["ECG", p.ecg_findings],
+          ]}
+        />
         <p className="mt-3 whitespace-pre-line">{orNotRecorded(p.presentation_notes)}</p>
+        <SubHeading>Baseline</SubHeading>
+        <Facts
+          items={[
+            ["Allergies", p.allergies],
+            ["Creatinine", num(p.creatinine_umol_l, "µmol/L")],
+            ["eGFR", num(p.egfr, "mL/min/1.73 m²")],
+            ["Haemoglobin", num(p.haemoglobin_g_dl, "g/dL")],
+            ["Platelets", num(p.platelets_x10e9_l, "×10⁹/L")],
+            ["Blood pressure", pressure(p.baseline_bp_systolic, p.baseline_bp_diastolic)],
+            ["Heart rate", num(p.baseline_heart_rate, "bpm")],
+          ]}
+        />
       </Section>
 
       <Section title="Access">
         <Facts
           items={[
             ["Access site", en(p.access_site)],
+            ["Ultrasound-guided", yesNo(p.access_ultrasound_guided)],
+            ["Attempts", p.access_attempts],
             ["Sheath", p.sheath_size_fr ? `${p.sheath_size_fr}F` : null],
             ["Diagnostic catheters", p.diagnostic_catheters.length ? p.diagnostic_catheters.join(", ") : null],
             ["Guiding catheter", p.guiding_catheter],
             ["Primary operator", p.operator ? `${p.operator.full_name} (${label(p.operator.role)})` : null],
+            ["Sheath removed", p.sheath_removed_at ? formatDateTime(p.sheath_removed_at) : null],
           ]}
         />
       </Section>
 
-      <Section title="Coronary angiography">
+      <Section title="Coronary anatomy">
+        <Facts
+          items={[
+            ["Dominance", p.dominance ? (p.dominance === "co_dominant" ? "Co-dominant" : `${label(p.dominance)}-dominant`) : null],
+            ["Aortic pressure", pressure(p.aortic_pressure_systolic, p.aortic_pressure_diastolic)],
+            ["LVEDP", measurement(p.lvedp_status, `${p.lvedp_mmhg} mmHg`)],
+          ]}
+        />
         {p.vessel_findings.length === 0 ? (
-          <p className="text-slate-600">No findings recorded</p>
+          <p className="mt-3 text-slate-600">No findings recorded</p>
         ) : (
-          <table className="w-full table-fixed text-left text-sm">
+          <table className="mt-3 w-full table-fixed text-left text-sm">
             <thead className="text-slate-600">
               <tr>
                 <th scope="col" className="w-2/5 pb-2 font-medium">Vessel</th>
@@ -141,17 +227,26 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
               </tr>
             </thead>
             <tbody>
-              {p.vessel_findings.map((v) => (
-                <tr key={v.id} className={`border-t border-slate-100 align-top ${v.is_culprit ? "bg-red-50" : ""}`}>
-                  <td className="py-2 pr-2">
-                    <span className="font-semibold">{lesionName(v.vessel, v.segment)}</span>
-                    {v.is_culprit && <CulpritTag />}
-                    {v.lesion_notes && <span className="block break-words text-xs text-slate-600">{v.lesion_notes}</span>}
-                  </td>
-                  <td className="py-2">{v.stenosis_pct === 0 ? "0% (normal)" : `${v.stenosis_pct}%`}</td>
-                  <td className="py-2">{timi(v.timi_flow)}</td>
-                </tr>
-              ))}
+              {p.vessel_findings.map((v) => {
+                const detail = [
+                  v.lesion_length_mm !== null ? `${v.lesion_length_mm} mm long` : null,
+                  v.calcification ? `${label(v.calcification).toLowerCase()} calcification` : null,
+                  v.thrombus ? "thrombus" : null,
+                  v.bifurcation ? "bifurcation" : null,
+                  v.lesion_notes,
+                ].filter(Boolean);
+                return (
+                  <tr key={v.id} className={`border-t border-slate-100 align-top ${v.is_culprit ? "bg-red-50" : ""}`}>
+                    <td className="py-2 pr-2">
+                      <span className="font-semibold">{lesionName(v.vessel, v.segment)}</span>
+                      {v.is_culprit && <CulpritTag />}
+                      {detail.length > 0 && <span className="block break-words text-xs text-slate-600">{detail.join(" · ")}</span>}
+                    </td>
+                    <td className="py-2">{v.stenosis_pct === 0 ? "0% (normal)" : `${v.stenosis_pct}%`}</td>
+                    <td className="py-2">{timi(v.timi_flow)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -162,83 +257,166 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
           <p className="text-slate-600">{p.procedure_type === "diagnostic_angiography" ? "Diagnostic angiography only — no intervention." : "None recorded"}</p>
         ) : (
           <div className="space-y-5">
-            {p.interventions.map((iv) => (
-              <div key={iv.id} className="space-y-3">
-                <h3 className="font-semibold">
-                  {(() => {
-                    const v = lesionOf(iv.vessel_finding_id);
-                    return v ? (
+            {p.interventions.map((iv) => {
+              const v = vesselById.get(iv.vessel_finding_id);
+              return (
+                <div key={iv.id} className="space-y-3">
+                  <h3 className="font-semibold">
+                    {v ? (
                       <>
                         {lesionName(v.vessel, v.segment)}
                         {v.is_culprit && <CulpritTag />}
                       </>
                     ) : (
                       NOT_RECORDED
-                    );
-                  })()}
-                  <span className="block text-sm font-normal text-slate-700">{label(iv.intervention_type)}</span>
-                </h3>
-                <Facts
-                  items={[
-                    ["Guidewire", guidewireText(iv.guidewire)],
-                    ["Residual stenosis", `${iv.residual_stenosis_pct}%`],
-                    ["Final flow", timi(iv.timi_flow_post)],
-                    ["Result", iv.success ? "Successful" : "Not successful"],
-                    ["Dissection", iv.dissection ? "Yes" : "No"],
-                    ["Perforation", iv.perforation ? "Yes" : "No"],
-                  ]}
-                />
-                {iv.devices_used.length > 0 && (
-                  <ol className="space-y-2">
-                    {(["pre_dilation", "deployment", "post_dilation", "other"] as const).flatMap((phase) =>
-                      iv.devices_used
-                        .filter((d) => d.phase === phase)
-                        .map((d) => (
-                          <li key={d.id} className="rounded-lg border border-slate-200 p-2 text-sm">
-                            <span className="block text-xs font-semibold uppercase text-slate-600">{phaseHeading(phase, d.category)}</span>
-                            <span className="block break-words">{deviceLine(d)}</span>
-                            {d.lot_number && <span className="block font-mono text-xs">Lot {d.lot_number}</span>}
-                          </li>
-                        )),
                     )}
-                  </ol>
-                )}
-                {iv.notes && <p className="text-sm text-slate-700">{iv.notes}</p>}
-              </div>
-            ))}
+                    <span className="block text-sm font-normal text-slate-700">{label(iv.intervention_type)}</span>
+                  </h3>
+                  <Facts
+                    items={[
+                      ["Guidewire", guidewireText(iv.guidewire)],
+                      ["Residual stenosis", `${iv.residual_stenosis_pct}%`],
+                      ["Final flow", timi(iv.timi_flow_post)],
+                      ["Result", iv.success ? "Successful" : "Not successful"],
+                      ["Dissection", iv.dissection ? "Yes" : "No"],
+                      ["Perforation", iv.perforation ? "Yes" : "No"],
+                    ]}
+                  />
+                  {iv.devices_used.length > 0 && (
+                    <ol className="space-y-2">
+                      {(["pre_dilation", "deployment", "post_dilation", "other"] as const).flatMap((phase) =>
+                        iv.devices_used
+                          .filter((d) => d.phase === phase)
+                          .map((d) => (
+                            <li key={d.id} className="rounded-lg border border-slate-200 p-2 text-sm">
+                              <span className="block text-xs font-semibold uppercase text-slate-600">{phaseHeading(phase, d.category)}</span>
+                              <span className="block break-words">{deviceLine(d)}</span>
+                              {(d.lot_number || d.expiry_date) && (
+                                <span className="block font-mono text-xs">
+                                  {[d.lot_number ? `Lot ${d.lot_number}` : null, d.expiry_date ? `Expiry ${formatDate(d.expiry_date)}` : null]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              )}
+                              {d.udi && <span className="block break-all font-mono text-xs">UDI {d.udi}</span>}
+                            </li>
+                          )),
+                      )}
+                    </ol>
+                  )}
+                  {iv.notes && <p className="text-sm text-slate-700">{iv.notes}</p>}
+                </div>
+              );
+            })}
           </div>
         )}
       </Section>
 
+      <Section title="Procedure medications">
+        {p.procedure_medications.length === 0 ? (
+          <p className="text-slate-600">None recorded</p>
+        ) : (
+          timings.map((t) => {
+            const meds = p.procedure_medications.filter((m) => m.timing === t);
+            if (meds.length === 0) return null;
+            return (
+              <div key={t}>
+                <SubHeading>{timingHeading(t)}</SubHeading>
+                <ul className="divide-y divide-slate-100">
+                  {meds.map((m) => (
+                    <li key={m.id} className="py-2">
+                      <span>{procedureMedicationLine(m)}</span>
+                      <span className="block text-sm text-slate-600">
+                        {[
+                          m.administered_at ? `Given ${formatTime(m.administered_at)}` : null,
+                          m.act_seconds !== null ? `ACT ${m.act_seconds} s${m.act_measured_at ? ` at ${formatTime(m.act_measured_at)}` : ""}` : null,
+                          m.notes,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "Time not recorded"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })
+        )}
+      </Section>
+
       <Section title="Procedure details">
+        <SubHeading>Safety</SubHeading>
         <Facts
           items={[
-            ["Contrast", num(p.contrast_volume_ml, "mL")],
-            ["Procedure duration", num(p.procedure_duration_min, "min")],
+            ["Consent", p.consent_obtained_at ? `${p.consent_by?.full_name ?? "Clinician not recorded"}, ${formatDateTime(p.consent_obtained_at)}` : null],
+            ["Time-out", p.timeout_completed_at ? `${p.timeout_by?.full_name ?? "Clinician not recorded"}, ${formatDateTime(p.timeout_completed_at)}` : null],
+          ]}
+        />
+        <SubHeading>Procedure</SubHeading>
+        <Facts
+          items={[
+            ["Started", formatDateTime(p.started_at)],
+            ["Ended", formatDateTime(p.ended_at)],
+            ["Procedure duration", duration === null ? null : `${duration} min`],
+            ["Contrast", [p.contrast_agent, num(p.contrast_volume_ml, "mL")].filter(Boolean).join(", ") || null],
             ["Fluoroscopy", num(p.fluoroscopy_time_min, "min")],
-            ["Radiation dose (mGy)", p.radiation_dose_mgy],
-            ["LVEF", p.lvef_pct === null ? null : `${p.lvef_pct}%`],
+            ["Cumulative air kerma (mGy)", p.air_kerma_mgy],
+            ["Dose-area product (Gy·cm²)", p.dap_gy_cm2],
             ["Haemostasis", en(p.haemostasis_method)],
           ]}
         />
+        <SubHeading>Final impression</SubHeading>
+        <p className="whitespace-pre-line">{orNotRecorded(p.outcome_summary)}</p>
       </Section>
 
       <Section title="Complications">
         {p.complications.length === 0 ? (
           <p>None</p>
         ) : (
-          <ul className="space-y-2">
-            {p.complications.map((c) => (
-              <li key={c.id}>
-                <span className="font-semibold">{label(c.complication)}</span> ({label(c.severity)}) — {c.management}
-              </li>
-            ))}
-          </ul>
+          (
+            [
+              ["During procedure", during],
+              ["After procedure", after],
+              ["Timing not recorded", untimed],
+            ] as const
+          ).map(([heading, list]) =>
+            list.length === 0 ? null : (
+              <div key={heading}>
+                <SubHeading>{heading}</SubHeading>
+                <ul className="space-y-2">
+                  {list.map((c) => (
+                    <li key={c.id}>
+                      <span className="font-semibold">{label(c.complication)}</span> ({label(c.severity)})
+                      {c.onset_at && <span className="text-slate-700"> · {formatDateTime(c.onset_at)}</span>}
+                      <span className="block">{c.management}</span>
+                      {c.outcome && <span className="block text-sm text-slate-700">Outcome: {c.outcome}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ),
+          )
         )}
       </Section>
 
-      <Section title="Final impression">
-        <p className="whitespace-pre-line">{orNotRecorded(p.outcome_summary)}</p>
+      <Section title="Immediate outcome">
+        <Facts
+          items={[
+            ["Condition", en(p.post_procedure_condition)],
+            ["Destination", p.post_procedure_destination ? DESTINATION[p.post_procedure_destination] : null],
+            ["LVEF", lvefText(p)],
+          ]}
+        />
+        <SubHeading>Immediate post-procedure plan {p.ended_at && <span className="font-normal text-slate-600">· {formatDateTime(p.ended_at)}</span>}</SubHeading>
+        <p className="whitespace-pre-line">{orNotRecorded(p.immediate_care_notes)}</p>
+        <SubHeading>Communication</SubHeading>
+        <Facts
+          items={[
+            ["Findings explained to patient", p.findings_communicated_to_patient_at ? formatDateTime(p.findings_communicated_to_patient_at) : null],
+            ["Findings shared with team", p.findings_communicated_to_team ? "Yes" : "No"],
+            ["Notes", p.communication_notes],
+          ]}
+        />
       </Section>
 
       <Section title="Discharge">
@@ -248,8 +426,8 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
           <div className="space-y-4">
             <Facts
               items={[
-                ["Discharge date", formatDate(p.discharge.discharge_date)],
-                ["Length of stay", `${p.discharge.length_of_stay_hours} h`],
+                ["Discharged", formatDateTime(p.discharge.discharged_at)],
+                ["Length of stay", lengthOfStay(p.admitted_at, p.discharge.discharged_at)],
                 ["Clinical status", p.discharge.clinical_status],
                 ["Follow-up", `${formatDate(p.discharge.follow_up_date)} — ${p.discharge.follow_up_clinic}`],
               ]}
@@ -275,6 +453,12 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
                     </li>
                   ))}
                 </ul>
+              )}
+              {p.discharge.dapt_planned_months !== null && (
+                <p className="mt-2 font-medium">
+                  DAPT plan: {p.discharge.dapt_planned_months} {p.discharge.dapt_planned_months === 1 ? "month" : "months"}
+                  {p.discharge.dapt_review_date && `, review by ${formatDate(p.discharge.dapt_review_date)}`}
+                </p>
               )}
             </div>
             {p.discharge.advice.length > 0 && (

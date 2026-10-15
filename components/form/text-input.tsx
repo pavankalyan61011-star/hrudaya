@@ -3,7 +3,7 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   invalid?: boolean;
-  type?: "text" | "date" | "tel";
+  type?: "text" | "date" | "datetime-local" | "tel";
   /** "numeric" / "decimal" bring up the number keypad on phones. */
   inputMode?: "text" | "numeric" | "decimal" | "tel";
   placeholder?: string;

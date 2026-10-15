@@ -52,6 +52,26 @@ const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
     .union([z.enum(values), z.literal(""), z.null(), z.undefined()])
     .transform((v) => (v ? (v as T[number]) : null));
 
+const optionalUuid = z
+  .union([z.uuid(), z.literal(""), z.null(), z.undefined()])
+  .transform((v) => (v ? v : null));
+
+const optionalDate = z
+  .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date"), z.literal(""), z.null(), z.undefined()])
+  .transform((v) => (v ? v : null));
+
+/** <input type="datetime-local"> value, entered as India time → ISO instant with +05:30. */
+const LOCAL_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+const optionalDateTime = z
+  .union([z.string().regex(LOCAL_DT, "Choose a date and time"), z.literal(""), z.null(), z.undefined()])
+  .transform((v) => (v ? `${v}:00+05:30` : null));
+const dateTime = z
+  .string({ error: "Required" })
+  .regex(LOCAL_DT, "Choose a date and time")
+  .transform((v) => `${v}:00+05:30`);
+
+const yesNoUnknown = z.enum(["yes", "no", "unknown"]).transform((v) => (v === "unknown" ? null : v === "yes"));
+
 /** Issue path → first message, e.g. { "vessels.2.stenosis_pct": "At most 100" }. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -103,8 +123,22 @@ export const IndicationStepSchema = z.object({
   indication: z.enum(ENUMS.indication, { error: "Required" }),
   presentation_notes: text,
   ecg_findings: optionalText,
-  troponin: z.enum(["yes", "no", "unknown"]).transform((v) => (v === "unknown" ? null : v === "yes")),
+  troponin: yesNoUnknown,
+  facility_id: z.uuid({ error: "Required" }),
+  urgency: z.enum(ENUMS.urgency, { error: "Required" }),
+  referring_clinician: optionalText,
+  admitted_at: optionalDateTime,
+  allergies: optionalText,
+  creatinine_umol_l: optionalDecimal(0.01, 1_000_000),
+  egfr: optionalDecimal(0.01, 1_000_000),
+  haemoglobin_g_dl: optionalDecimal(0.01, 1_000_000),
+  platelets_x10e9_l: optionalInt(1),
+  baseline_bp_systolic: optionalInt(1),
+  baseline_bp_diastolic: optionalInt(1),
+  baseline_heart_rate: optionalInt(1),
   access_site: z.enum(ENUMS.access_site, { error: "Required" }),
+  access_ultrasound: yesNoUnknown,
+  access_attempts: optionalInt(1),
   sheath_size_fr: z.preprocess(blankToUndefined, z.union([z.literal(5), z.literal(6), z.literal(7), z.literal(8)], { error: "Required" })),
   diagnostic_catheters: z.array(z.string().trim().min(1)).max(10),
   guiding_catheter: optionalText,
@@ -121,11 +155,31 @@ export const VesselSchema = z.object({
   timi_flow: int(0, 3),
   is_culprit: z.boolean(),
   lesion_notes: optionalText,
+  lesion_length_mm: optionalDecimal(0.1, 1_000_000),
+  calcification: optionalEnum(ENUMS.calcification_grade),
+  thrombus: z.boolean(),
+  bifurcation: z.boolean(),
 });
 
-export const AngiographyStepSchema = z.object({
-  vessels: z.array(VesselSchema).min(1, "Add at least one vessel"),
-});
+/**
+ * Three-state rule (spec §3): the value is required when, and only when, the status is "recorded";
+ * any value typed before switching away from "recorded" is dropped.
+ */
+function threeState<V>(status: "not_recorded" | "not_performed" | "recorded", value: V | null, ctx: z.RefinementCtx, path: string) {
+  if (status === "recorded" && value === null) ctx.addIssue({ code: "custom", path: [path], message: "Required when recorded" });
+}
+
+export const AngiographyStepSchema = z
+  .object({
+    vessels: z.array(VesselSchema).min(1, "Add at least one vessel"),
+    dominance: optionalEnum(ENUMS.coronary_dominance),
+    aortic_pressure_systolic: optionalInt(1),
+    aortic_pressure_diastolic: optionalInt(1),
+    lvedp_status: z.enum(ENUMS.measurement_status),
+    lvedp_mmhg: optionalInt(0),
+  })
+  .superRefine((v, ctx) => threeState(v.lvedp_status, v.lvedp_mmhg, ctx, "lvedp_mmhg"))
+  .transform((v) => ({ ...v, lvedp_mmhg: v.lvedp_status === "recorded" ? v.lvedp_mmhg : null }));
 
 // ─── Step 4: intervention & devices ────────────────────────────────────────────
 
@@ -139,6 +193,8 @@ export const DeviceSchema = z
     length_mm: decimal(0, 9999.9, true),
     inflation_atm: optionalInt(1),
     lot_number: optionalText,
+    expiry_date: optionalDate,
+    udi: optionalText,
     quantity: int(1),
   })
   .superRefine((d, ctx) => {
@@ -170,18 +226,75 @@ export const ComplicationSchema = z.object({
   complication: z.enum(ENUMS.complication_type, { error: "Required" }),
   severity: z.enum(ENUMS.complication_severity, { error: "Required" }),
   management: text,
+  onset: optionalEnum(ENUMS.complication_onset),
+  onset_at: optionalDateTime,
+  outcome: optionalText,
 });
 
-export const DetailsStepSchema = z.object({
-  contrast_volume_ml: int(0),
-  procedure_duration_min: int(1),
-  fluoroscopy_time_min: decimal(0, 9999.9),
-  radiation_dose_mgy: optionalDecimal(0, 1_000_000),
-  lvef_pct: optionalInt(0, 100),
-  haemostasis_method: z.enum(ENUMS.haemostasis_method, { error: "Required" }),
-  outcome_summary: text,
-  complications: z.array(ComplicationSchema),
-});
+/** A unit is kept only alongside a dose; a dose needs a unit. */
+export const ProcedureMedicationSchema = z
+  .object({
+    drug_name: text,
+    dose: z
+      .preprocess(blankToUndefined, z.number({ error: "Enter a number" }).gt(0, "Must be more than 0").optional())
+      .transform((v) => v ?? null),
+    dose_unit: optionalEnum(ENUMS.dose_unit),
+    route: z.enum(ENUMS.medication_route, { error: "Required" }),
+    timing: z.enum(ENUMS.medication_timing, { error: "Required" }),
+    administered_at: optionalDateTime,
+    act_seconds: optionalInt(1),
+    act_measured_at: optionalDateTime,
+    notes: optionalText,
+  })
+  .superRefine((m, ctx) => {
+    if (m.dose !== null && !m.dose_unit) ctx.addIssue({ code: "custom", path: ["dose_unit"], message: "Required with a dose" });
+  })
+  .transform((m) => ({ ...m, dose_unit: m.dose === null ? null : m.dose_unit }));
+
+export const DetailsStepSchema = z
+  .object({
+    started_at: dateTime,
+    ended_at: dateTime,
+    consent_obtained_at: optionalDateTime,
+    consent_by_operator_id: optionalUuid,
+    timeout_completed_at: optionalDateTime,
+    timeout_by_operator_id: optionalUuid,
+    sheath_removed_at: optionalDateTime,
+    contrast_agent: optionalText,
+    contrast_volume_ml: int(0),
+    fluoroscopy_time_min: decimal(0, 9999.9),
+    air_kerma_mgy: optionalDecimal(0, 100_000_000),
+    dap_gy_cm2: optionalDecimal(0, 100_000_000),
+    haemostasis_method: z.enum(ENUMS.haemostasis_method, { error: "Required" }),
+    outcome_summary: text,
+    procedure_medications: z.array(ProcedureMedicationSchema),
+    complications: z.array(ComplicationSchema),
+    post_procedure_condition: optionalEnum(ENUMS.post_procedure_condition),
+    post_procedure_destination: optionalEnum(ENUMS.post_procedure_destination),
+    immediate_care_notes: optionalText,
+    lvef_status: z.enum(ENUMS.measurement_status),
+    lvef_pct: optionalInt(0, 100),
+    lvef_source: optionalEnum(ENUMS.lvef_source),
+    lvef_measured_on: optionalDate,
+    findings_communicated_to_patient_at: optionalDateTime,
+    findings_communicated_to_team: z.boolean(),
+    communication_notes: optionalText,
+  })
+  .superRefine((v, ctx) => {
+    if (new Date(v.ended_at) <= new Date(v.started_at)) {
+      ctx.addIssue({ code: "custom", path: ["ended_at"], message: "Must be after the start" });
+    }
+    threeState(v.lvef_status, v.lvef_pct, ctx, "lvef_pct");
+  })
+  .transform((v) => {
+    const recorded = v.lvef_status === "recorded";
+    return {
+      ...v,
+      lvef_pct: recorded ? v.lvef_pct : null,
+      lvef_source: recorded ? v.lvef_source : null,
+      lvef_measured_on: recorded ? v.lvef_measured_on : null,
+    };
+  });
 
 // ─── Step 6: discharge ─────────────────────────────────────────────────────────
 
@@ -211,15 +324,18 @@ export const MedicationSchema = z
 
 export const DischargeSchema = z
   .object({
-    discharge_date: isoDate,
-    length_of_stay_hours: int(0),
+    discharged_at: dateTime,
     clinical_status: text,
     follow_up_date: isoDate,
     follow_up_clinic: text,
     advice: z.array(z.string().trim().min(1)),
     red_flags: z.array(z.string().trim().min(1)),
     medications: z.array(MedicationSchema),
+    dapt_planned_months: optionalInt(1),
+    dapt_review_date: optionalDate,
   })
+  // discharge_date is always the India date of discharged_at.
+  .transform((d) => ({ ...d, discharge_date: new Date(new Date(d.discharged_at).getTime() + 330 * 60_000).toISOString().slice(0, 10) }))
   .superRefine((d, ctx) => {
     if (d.follow_up_date < d.discharge_date) {
       ctx.addIssue({ code: "custom", path: ["follow_up_date"], message: "Follow-up must be on or after discharge" });

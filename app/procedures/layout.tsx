@@ -12,7 +12,7 @@ export default async function ProceduresLayout({ children }: { children: React.R
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2">
-          <Link href="/procedures" className="text-lg font-bold">
+          <Link href="/procedures" className="inline-flex min-h-11 items-center text-lg font-bold">
             Hrudaya
           </Link>
           <div className="flex items-center gap-2">

@@ -11,7 +11,7 @@ type Result = { error: DbError };
 
 async function deleteByIds(
   db: DbClient,
-  table: "vessel_findings" | "interventions" | "complications" | "discharge_medications",
+  table: "vessel_findings" | "interventions" | "complications" | "discharge_medications" | "procedure_medications",
   ids: string[],
 ): Promise<Result> {
   if (ids.length === 0) return { error: null };
@@ -31,6 +31,10 @@ export type VesselInput = {
   timi_flow: number;
   is_culprit: boolean;
   lesion_notes: string | null;
+  lesion_length_mm: number | null;
+  calcification: Enums["calcification_grade"] | null;
+  thrombus: boolean;
+  bifurcation: boolean;
 };
 
 /** Updates rows that kept their id, inserts new ones, removes ones the user deleted. */
@@ -68,6 +72,8 @@ export type DeviceInput = {
   length_mm: number;
   inflation_atm: number | null;
   lot_number: string | null;
+  expiry_date: string | null;
+  udi: string | null;
   quantity: number;
 };
 
@@ -118,6 +124,9 @@ export type ComplicationInput = {
   complication: Enums["complication_type"];
   severity: Enums["complication_severity"];
   management: string;
+  onset: Enums["complication_onset"] | null;
+  onset_at: string | null;
+  outcome: string | null;
 };
 
 export async function saveComplications(db: DbClient, procedureId: string, items: ComplicationInput[]): Promise<Result> {
@@ -134,6 +143,34 @@ export async function saveComplications(db: DbClient, procedureId: string, items
   return deleteByIds(db, "complications", (existing ?? []).map((e) => e.id));
 }
 
+// ─── Step 5: procedure medications ─────────────────────────────────────────────
+
+export type ProcedureMedicationInput = {
+  drug_name: string;
+  dose: number | null;
+  dose_unit: Enums["dose_unit"] | null;
+  route: Enums["medication_route"];
+  timing: Enums["medication_timing"];
+  administered_at: string | null;
+  act_seconds: number | null;
+  act_measured_at: string | null;
+  notes: string | null;
+};
+
+export async function saveProcedureMedications(db: DbClient, procedureId: string, items: ProcedureMedicationInput[]): Promise<Result> {
+  const { data: existing, error: readError } = await db.from("procedure_medications").select("id").eq("procedure_id", procedureId);
+  if (readError) return { error: readError };
+  if (items.length > 0) {
+    const { data, error } = await db
+      .from("procedure_medications")
+      .insert(items.map((m) => ({ ...m, procedure_id: procedureId })))
+      .select("id");
+    if (error) return { error };
+    if ((data ?? []).length !== items.length) return { error: { message: "insert incomplete" } };
+  }
+  return deleteByIds(db, "procedure_medications", (existing ?? []).map((e) => e.id));
+}
+
 // ─── Step 6: discharge ─────────────────────────────────────────────────────────
 
 export type MedicationInput = {
@@ -148,8 +185,10 @@ export type MedicationInput = {
 };
 
 export type DischargeInput = {
-  discharge_date: string;
-  length_of_stay_hours: number;
+  discharge_date: string; // the IST date of discharged_at, computed by the action
+  discharged_at: string;
+  dapt_planned_months: number | null;
+  dapt_review_date: string | null;
   clinical_status: string;
   follow_up_date: string;
   follow_up_clinic: string;

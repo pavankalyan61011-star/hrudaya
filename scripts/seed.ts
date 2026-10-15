@@ -322,7 +322,7 @@ const CASES: SeedCase[] = [
     case_code: "PCI-2026-004",
     patient: { mrn: "SYN-MRN-0004", full_name: "Synthetic Patient 004", sex: "male", date_of_birth: "1967-05-14" },
     // ASSUMPTION: "diabetes" without a type is recorded as diabetes_t2 (also 006, 008, 009, 010, 015, 019, 020).
-    risk_factors: [{ factor: "diabetes_t2" }, { factor: "hypertension" }, { factor: "smoking", detail: "current smoker" }],
+    risk_factors: [{ factor: "diabetes_t2" }, { factor: "hypertension" }, { factor: "smoking" }],
     operator: ARJUN,
     procedure: {
       procedure_date: "2026-09-08", procedure_type: "angiography_and_pci", indication: "nstemi",
@@ -442,7 +442,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-008",
     patient: { mrn: "SYN-MRN-0008", full_name: "Synthetic Patient 008", sex: "male", date_of_birth: "1964-01-18" },
-    risk_factors: [{ factor: "smoking", detail: "current smoker" }, { factor: "dyslipidaemia" }],
+    risk_factors: [{ factor: "smoking" }, { factor: "dyslipidaemia" }],
     operator: ARJUN,
     procedure: {
       procedure_date: "2026-09-17", procedure_type: "angiography_and_pci", indication: "stemi",
@@ -451,7 +451,7 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 120, procedure_duration_min: 44, fluoroscopy_time_min: 9.5, lvef_pct: 50,
       haemostasis_method: "radial_compression_band",
       outcome_summary:
-        "Primary PCI to mid RCA with a zotarolimus DES (3.5 × 26 mm) after wire crossing of a thrombotic occlusion. Final RCA residual <10%, TIMI III. No complications. Post-PCI LVEF 50%.",
+        "Primary PCI to mid RCA with a zotarolimus DES (3.5 × 26 mm) after wire crossing of a thrombotic occlusion. Final RCA residual <10%, TIMI III. No complications.",
     },
     vessels: [
       NORMAL_LM, v("lad", "mid", 30, 3), v("lcx", null, 0, 3),
@@ -480,7 +480,7 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 130, procedure_duration_min: 51, fluoroscopy_time_min: 11.3, lvef_pct: 45,
       haemostasis_method: "radial_compression_band",
       outcome_summary:
-        "Primary PCI to proximal LAD with an everolimus DES (3.5 × 28 mm). Final LAD residual <10%, TIMI III. No complications. LVEF 45%; no clinical heart failure.",
+        "Primary PCI to proximal LAD with an everolimus DES (3.5 × 28 mm). Final LAD residual <10%, TIMI III. No complications; no clinical heart failure.",
     },
     vessels: [
       NORMAL_LM, v("lad", "proximal", 100, 0, { is_culprit: true, lesion_notes: "Thrombotic occlusion" }),
@@ -502,7 +502,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-010",
     patient: { mrn: "SYN-MRN-0010", full_name: "Synthetic Patient 010", sex: "male", date_of_birth: "1959-03-20" },
-    risk_factors: [{ factor: "diabetes_t2" }, { factor: "smoking", detail: "current smoker" }],
+    risk_factors: [{ factor: "diabetes_t2" }, { factor: "smoking" }],
     operator: ARJUN,
     procedure: {
       procedure_date: "2026-09-21", procedure_type: "angiography_and_pci", indication: "stemi",
@@ -511,7 +511,7 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 150, procedure_duration_min: 65, fluoroscopy_time_min: 15.2, lvef_pct: 45,
       haemostasis_method: "radial_compression_band",
       outcome_summary:
-        "Primary PCI to proximal RCA with an everolimus DES (3.5 × 28 mm). Transient no-reflow treated with intracoronary vasodilator; TIMI III restored. Final residual <10%. LVEF 45%.",
+        "Primary PCI to proximal RCA with an everolimus DES (3.5 × 28 mm). Transient no-reflow treated with intracoronary vasodilator; TIMI III restored. Final residual <10%.",
     },
     vessels: [
       // Culprit set by owner correction 2026-10-15 (source line did not mark it).
@@ -542,7 +542,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-011",
     patient: { mrn: "SYN-MRN-0011", full_name: "Synthetic Patient 011", sex: "male", date_of_birth: "1978-04-21" },
-    risk_factors: [{ factor: "smoking", detail: "current smoker" }, { factor: "family_history", detail: "premature coronary disease" }],
+    risk_factors: [{ factor: "smoking" }, { factor: "family_history", detail: "premature coronary disease" }],
     operator: MEERA,
     procedure: {
       procedure_date: "2026-09-24", procedure_type: "angiography_and_pci", indication: "stemi",
@@ -552,7 +552,7 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 105, procedure_duration_min: 39, fluoroscopy_time_min: 8.2, lvef_pct: 55,
       haemostasis_method: "radial_compression_band",
       outcome_summary:
-        "Primary PCI to proximal LCX with a zotarolimus DES (3.0 × 22 mm). Final LCX residual <10%, TIMI III. No complications. LVEF 55%.",
+        "Primary PCI to proximal LCX with a zotarolimus DES (3.0 × 22 mm). Final LCX residual <10%, TIMI III. No complications.",
     },
     vessels: [NORMAL_LM, v("lad", null, 0, 3), v("rca", null, 10, 3), v("lcx", "proximal", 100, 0, { is_culprit: true })],
     interventions: [desPci(3, [2.0, 12, 10], ["Zotarolimus DES", 3.0, 22, 14, "SYN-DES-260011"], [3.25, 12, 16])],
@@ -579,7 +579,7 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 135, procedure_duration_min: 54, fluoroscopy_time_min: 12.1, lvef_pct: 45,
       haemostasis_method: "manual_compression",
       outcome_summary:
-        "Primary PCI to mid LAD with an everolimus DES (3.0 × 28 mm). Final LAD residual <10%, TIMI III. No complications. LVEF 45%; staged LCX assessment planned.",
+        "Primary PCI to mid LAD with an everolimus DES (3.0 × 28 mm). Final LAD residual <10%, TIMI III. No complications. Staged LCX assessment planned.",
     },
     vessels: [NORMAL_LM, v("lad", "mid", 100, 0, { is_culprit: true }), v("lcx", "proximal", 75, 3), v("rca", "mid", 30, 3)],
     interventions: [desPci(1, [2.0, 15, 10], ["Everolimus DES", 3.0, 28, 14, "SYN-DES-260012"], [3.25, 12, 16])],
@@ -822,7 +822,7 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 70, procedure_duration_min: 31, fluoroscopy_time_min: 6.0, lvef_pct: 50,
       haemostasis_method: "radial_compression_band",
       outcome_summary:
-        "Left-main and three-vessel disease; complex anatomy discussed with Heart Team; CABG recommended — referred for CABG. No balloon or stent. Remains admitted for surgical evaluation; cardiac surgical review next day; patient counselled about findings. LVEF 50%.",
+        "Left-main and three-vessel disease; complex anatomy discussed with Heart Team; CABG recommended — referred for CABG. No balloon or stent. Remains admitted for surgical evaluation; cardiac surgical review next day; patient counselled about findings.",
     },
     vessels: [v("lmca", "distal", 60, 3), v("lad", "proximal", 90, 3), v("lcx", "proximal", 80, 3), v("rca", "mid", 85, 3)],
     interventions: [],
@@ -1033,6 +1033,8 @@ function validate(cases: SeedCase[]): string[] {
     }
     if (!isPci(c) && c.interventions.length > 0) problems.push(`${c.case_code}: diagnostic-only case has interventions`);
     if (!c.procedure.procedure_date.match(/^2026-(09|10)-/)) problems.push(`${c.case_code}: date outside Sept–Oct 2026`);
+    // Owner: never imply LVEF came from the angiogram. LVEF lives in its own fields with its source.
+    if (/LVEF/i.test(c.procedure.outcome_summary)) problems.push(`${c.case_code}: final impression mentions LVEF`);
     if (istDate(t.started) !== c.procedure.procedure_date) problems.push(`${c.case_code}: start is not on the procedure date (IST)`);
     if (c.discharge && plusMin(t.admitted, c.discharge.length_of_stay_hours * 60) <= t.ended) problems.push(`${c.case_code}: discharged before the procedure ended`);
     const meds = c.discharge?.medications ?? [];
