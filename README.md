@@ -195,34 +195,36 @@ prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
   and approve, then Print. **Print** is `/procedures/<id>/print`: an A4 clinician report (MRN and
   initials only) plus one page per approved summary.
 - **Eval (15 Oct 2026):** 19 seeded discharged cases × 6 languages = 114 drafts per run, all
-  generated, **0 error flags in every run**. What each prompt version changed, measured over all
-  114 drafts:
+  generated in every run. What each prompt version changed, measured over all 114 drafts:
 
-  | | v1 | v2 | v3 |
-  |---|---|---|---|
-  | Audit warnings | 37 | 0 | 0 |
-  | A section written for an empty part of the record | 37 | 0 | 0 |
-  | Frequency in the patient's language with "(OD)" etc. (of 210) | 0 | 0 | 210 |
-  | English DAPT explanation (of 17) | 0 | 0 | 17 |
-  | Complication mentioned without an outcome: English / Indian (of 2 / 10) | 2 / ≥ 8 | 2 / ≥ 8 | 0 / ≥ 5 |
+  | | v1 | v2 | v3 | v4 |
+  |---|---|---|---|---|
+  | Error flags | 0 | 0 | 0 | 2 (an invented "108", caught) |
+  | Audit warnings | 37 | 0 | 0 | 0 |
+  | A section written for an empty part of the record | 37 | 0 | 0 | 0 |
+  | Frequency in the patient's language with "(OD)" etc. (of 210) | 0 | 0 | 210 | 210 |
+  | English DAPT explanation (of 17) | 0 | 0 | 17 | 17 |
+  | English complication described with its outcome (of 2) | 0 | 0 | 0 | 2 |
+  | Corrected red-flag cases: drafts with both urgency groups and 108 (of 66) | 0 | 0 | 0 | 66 |
+  | Longest draft, tokens (limit) | 2,657 (3,000) | 2,557 (3,000) | 2,938 (3,000) | 3,902 (4,000) |
 
-  v3's complication rule holds in English but not reliably in the Indian languages. The fix
-  proposed in [docs/ai-summary.md](docs/ai-summary.md#eval) is to leave complications out of the
-  input until they have a structured outcome.
+  v4's two error flags are its own fault: the prompt's "Keep 108…" led PCI-2026-001 (whose red
+  flags have no 108) to add it in English and Telugu. The audit blocked both. A one-word fix (v5)
+  and a higher Kannada ceiling are proposed in [docs/ai-summary.md](docs/ai-summary.md#eval).
 
-  Cost per summary (v3):
+  Cost per summary (v4):
 
   | Language | Avg output tokens | Cost per summary |
   |---|---|---|
-  | English | 727 | $0.0113 |
-  | Telugu | 1,439 | $0.0185 |
-  | Hindi | 1,103 | $0.0151 |
-  | Tamil | 1,556 | $0.0197 |
-  | Kannada | 2,524 | $0.0293 |
-  | Malayalam | 1,704 | $0.0211 |
+  | English | 839 | $0.0129 |
+  | Telugu | 1,750 | $0.0221 |
+  | Hindi | 1,388 | $0.0185 |
+  | Tamil | 1,912 | $0.0237 |
+  | Kannada | 3,163 | $0.0362 |
+  | Malayalam | 2,195 | $0.0265 |
 
-  Longest Indian-language case: PCI-2026-012 in Kannada, **$0.0336**, about 3× English. It used
-  2,938 of the 3,000-token limit. A whole run costs about $2 ($2.04 v1, $1.98 v2, $2.19 v3).
+  Longest Indian-language case: PCI-2026-007 in Kannada, **$0.0438**, about 3.4× English. A whole
+  run is $2–2.70 ($2.04 v1, $1.98 v2, $2.19 v3, $2.66 v4).
 - **Read by people:** Telugu, Hindi, Tamil, Kannada and Malayalam are all **awaiting a
   native-reader check**: the five-question protocol in
   [docs/ai-summary.md](docs/ai-summary.md#native-reader-check). The audit checks drugs, doses and
@@ -251,7 +253,7 @@ From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
   same code path, but not yet through the deployed button.
 - [x] Approve blocked while an error flag exists, and an approved row is immutable (tested locally
   in the browser and against the trigger)
-- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` / `number_unknown`; prompts v2 and v3 also zero warnings
+- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` in every run; prompts v2–v4 zero warnings; v4 has 2 caught `number_unknown` errors (see above)
 - [ ] Print page renders A4 from Chrome on Mac and phone, with glyphs correct in print preview for
   all five Indian scripts. Not yet checked: needs a real print preview.
 - [x] `docs/ai-summary.md` written
