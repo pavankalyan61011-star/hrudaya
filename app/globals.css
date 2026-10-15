@@ -96,3 +96,16 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Week 5: the phone "Compare with record" sheet slides up (200 ms, transform/opacity only; the
+   class is motion-safe, so reduced-motion users get no animation). */
+@keyframes sheet-in {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}

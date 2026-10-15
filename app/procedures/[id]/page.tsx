@@ -11,7 +11,7 @@ import { ReviewPanel } from "@/components/report/review-panel";
 import { FhirExport } from "@/components/report/fhir-export";
 import { DischargeSummaryCard } from "@/components/report/discharge-summary";
 import { getCurrentUser } from "@/lib/queries/auth";
-import { buildSummaryInput } from "@/lib/summary/input";
+import { buildSummaryInput, inputHash } from "@/lib/summary/input";
 import { summaryBlocker, toClientSummary } from "@/lib/summary/api";
 import { summaryConfigured } from "@/lib/summary/generate";
 import { procedureToBundle } from "@/lib/fhir/mapper";
@@ -30,7 +30,7 @@ const en = (v: string | null) => (v ? label(v) : NOT_RECORDED);
  */
 async function loadSummaryCard(db: ReturnType<typeof createClient>, p: ProcedureFull) {
   const blocker = summaryBlocker(p);
-  if (blocker) return { blocker, input: null, configured: false, generatedToday: null, summaries: null };
+  if (blocker) return { blocker, input: null, configured: false, generatedToday: null, summaries: null, record: null };
 
   const user = await getCurrentUser();
   const [list, today] = await Promise.all([
@@ -43,9 +43,15 @@ async function loadSummaryCard(db: ReturnType<typeof createClient>, p: Procedure
           .gte("generated_at", `${todayIST()}T00:00:00+05:30`)
       : Promise.resolve({ count: null, error: null }),
   ]);
+  const input = buildSummaryInput(p);
   return {
     blocker: null,
-    input: buildSummaryInput(p),
+    input,
+    record: {
+      lvefStatus: p.lvef_status,
+      complicationsWithoutOutcome: p.complications.filter((c) => !(c.outcome ?? "").trim()).length,
+      inputHash: inputHash(input),
+    },
     configured: summaryConfigured(),
     generatedToday: today.error ? null : today.count,
     summaries: list.error ? null : (list.data ?? []).map(toClientSummary),

@@ -33,6 +33,8 @@ type Props = {
   onFocusSection?: (key: SectionKey) => void;
   /** Rendered beside each section (the record group) — second column on wide screens. */
   aside?: (key: SectionKey) => React.ReactNode;
+  /** Shown at the top of the second column (e.g. "Record changed since this draft"). */
+  asideHeader?: React.ReactNode;
   disabled?: boolean;
 };
 
@@ -42,7 +44,7 @@ type Props = {
  * cannot be split by the record's sections. Emits the serialised Markdown on every change; the
  * card saves exactly that text, which is also what "View Markdown" shows.
  */
-export function SummaryEditor({ initialText, input, language, flags, onChange, onFocusSection, aside, disabled }: Props) {
+export function SummaryEditor({ initialText, input, language, flags, onChange, onFocusSection, aside, asideHeader, disabled }: Props) {
   const presence = useMemo(() => presenceFromInput(input), [input]);
   const [parsed, setParsed] = useState<ParsedDraft>(() => parseDraft(initialText, presence));
   const markdown = useMemo(() => serialiseDraft(parsed), [parsed]);
@@ -98,6 +100,15 @@ export function SummaryEditor({ initialText, input, language, flags, onChange, o
     <div className="space-y-3">
       {summaryLine}
       <ol className="space-y-3">
+        {aside && (
+          <li className="hidden lg:grid lg:grid-cols-[3fr_2fr] lg:gap-4">
+            <p className="self-end text-xs font-semibold uppercase tracking-wide text-slate-500">Draft · edit the wording</p>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">Record · what the model saw</p>
+              {asideHeader}
+            </div>
+          </li>
+        )}
         {SECTION_KEYS.map((key) => {
           const s = parsed.sections.find((x) => x.key === key)!;
           const here = placed.get(key) ?? [];

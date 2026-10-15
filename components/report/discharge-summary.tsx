@@ -10,6 +10,8 @@ import { SUMMARY_FONT_VARIABLES } from "@/lib/summary/fonts";
 import { formatDateTime } from "@/lib/report-format";
 import { SummaryMarkdown } from "./summary-markdown";
 import { SummaryEditor } from "./summary-editor";
+import { RecordBlock, RecordChanged, type RecordContext } from "./record-panel";
+import { CompareSheet } from "./compare-sheet";
 import type { SectionKey } from "@/lib/summary/sections";
 
 /** Each language in its own script, so a reader finds theirs without knowing English. */
@@ -27,6 +29,8 @@ type Props = {
   summaries: SummaryRow[] | null;
   operators: { id: string; full_name: string }[];
   defaultClinicianId: string | null;
+  /** For the Compare-with-record panel: what the input cannot say by itself. */
+  record: { lvefStatus: RecordContext["lvefStatus"]; complicationsWithoutOutcome: number; inputHash: string } | null;
 };
 
 const flagsOf = (row: SummaryRow) => (Array.isArray(row.audit_flags) ? (row.audit_flags as unknown as AuditFlag[]) : []);
@@ -53,7 +57,7 @@ export function DischargeSummaryCard(props: Props) {
   // Approve stays disabled, so nothing is approved against a stale audit; the server re-audits too.
   const [auditedText, setAuditedText] = useState("");
   const [editSession, setEditSession] = useState(0);
-  const [, setFocusedSection] = useState<SectionKey>("why");
+  const [focusedSection, setFocusedSection] = useState<SectionKey>("why");
   useEffect(() => {
     const t = setTimeout(() => setAuditedText(text), 400);
     return () => clearTimeout(t);
@@ -61,6 +65,11 @@ export function DischargeSummaryCard(props: Props) {
   const auditPending = editing && auditedText !== text;
   const liveFlags = useMemo(() => (editing && input ? auditDraft(input, auditedText, language) : []), [editing, input, auditedText, language]);
   const operatorName = (id: string | null) => operators.find((o) => o.id === id)?.full_name ?? "a clinician";
+  const recordCtx: RecordContext | null = useMemo(
+    () => (input && props.record ? { input, lvefStatus: props.record.lvefStatus, complicationsWithoutOutcome: props.record.complicationsWithoutOutcome } : null),
+    [input, props.record],
+  );
+  const recordChanged = !!(current && props.record && current.input_hash !== props.record.inputHash);
 
   if (blocker || !input) {
     return (
@@ -141,7 +150,15 @@ export function DischargeSummaryCard(props: Props) {
   }
 
   return (
-    <section className={`card space-y-4 ${SUMMARY_FONT_VARIABLES}`} aria-labelledby="summary-heading" aria-busy={busy !== null}>
+    <section
+      className={`card space-y-4 ${SUMMARY_FONT_VARIABLES} ${
+        // While editing: room for the fixed Compare button on phones; on ≥1024 px the card widens
+        // (centred, at most 72rem) so the draft and the record fit side by side.
+        editing ? "pb-24 lg:pb-4 lg:ml-[calc(50%-min(36rem,50vw-2rem))] lg:w-[min(72rem,calc(100vw-4rem))]" : ""
+      }`}
+      aria-labelledby="summary-heading"
+      aria-busy={busy !== null}
+    >
       <div className="space-y-3">
         <h2 id="summary-heading" className="text-sm font-bold uppercase tracking-wide text-slate-700">Discharge summary</h2>
         <div className="flex flex-wrap items-end gap-3">
@@ -248,8 +265,11 @@ export function DischargeSummaryCard(props: Props) {
                 flags={liveFlags}
                 onChange={setText}
                 onFocusSection={setFocusedSection}
+                aside={recordCtx ? (k) => <RecordBlock group={k} ctx={recordCtx} /> : undefined}
+                asideHeader={recordChanged ? <RecordChanged /> : null}
                 disabled={busy !== null}
               />
+              {recordCtx && <CompareSheet ctx={recordCtx} focused={focusedSection} changed={recordChanged} />}
               <div>
                 <label htmlFor="approving-clinician" className="label">Approving clinician</label>
                 <select id="approving-clinician" className="input min-h-11 sm:w-72" value={clinician} onChange={(e) => setClinician(e.target.value)}>
