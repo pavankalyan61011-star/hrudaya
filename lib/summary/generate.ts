@@ -6,7 +6,10 @@
  * content. Callers may log ids, language, version, tokens, latency and flag codes only.
  *
  * Request settings, and where they differ from spec §2 (checked against the API docs 2026-10-15):
- *  - max_tokens 1500, as specified. A draft cut off at the limit is refused, never stored: a
+ *  - max_tokens 3000, not the spec's 1500 (owner decision 2026-10-15). In the first eval sample
+ *    Kannada and Malayalam were cut off at 1500 and Tamil used 1485: these scripts take ~5.5
+ *    tokens a word, so a complete leaflet needs ~1700–2200. It is a ceiling, not a target —
+ *    English still uses ~800. A draft cut off at the limit is refused, never stored: a
  *    truncated leaflet would silently lose its last sections (red flags, follow-up).
  *  - temperature is NOT sent. claude-sonnet-5-5 rejects any non-default sampling value with a 400,
  *    so `temperature: 0` cannot be honoured. It never guaranteed identical output anyway; the
@@ -31,7 +34,7 @@ if (typeof window !== "undefined") {
   throw new Error("lib/summary/generate.ts is server-only");
 }
 
-export const MAX_TOKENS = 1500;
+export const MAX_TOKENS = 3000;
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 export type ModelRequest = ReturnType<typeof buildMessages>;
