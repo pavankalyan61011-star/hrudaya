@@ -7,6 +7,26 @@ Drop this at `docs/week2-fhir-spec.md`. Read `docs/week1-spec.md` §3 first for 
 
 ---
 
+## Corrections after build (15 Oct 2026)
+
+Every code below was checked before use (LOINC on loinc.org, SNOMED CT by tx.fhir.org `$lookup`).
+Nine of the codes originally written in this spec failed and were changed; §4 below already shows
+the corrected values. Full detail and sources: [docs/fhir-mapping.md §2.1](fhir-mapping.md).
+
+| # | Use | Originally in this spec | Problem | Now |
+|---|---|---|---|---|
+| 1 | STEMI / NSTEMI | STEMI `401314000`, NSTEMI `401303003` | Swapped: 401314000 is *non*-ST elevation MI, 401303003 is ST elevation MI | STEMI `401303003`, NSTEMI `401314000` |
+| 2 | Positive / abnormal stress test | SNOMED `429559004` | Wrong meaning: "Typical angina" | Text only |
+| 3 | Coronary artery dissection | SNOMED `234020005` | Wrong meaning: "Vasculitis secondary to drug" | Text only |
+| 4 | Prior PCI (as a Condition) | SNOMED `415070008` | Wrong meaning for a history: it is the PCI procedure itself | Text only for the Condition (still the Procedure code) |
+| 5 | LMCA | SNOMED `73208009` | Does not exist in SNOMED CT | Text only |
+| 6 | LCX | SNOMED `57396005` | Does not exist in SNOMED CT | Text only (OM1/OM2 too) |
+| 7 | Activated clotting time | LOINC `3184-5` | Invalid check digit | LOINC `3184-9` |
+| 8 | Composition type | LOINC `34896-3` | Invalid check digit | LOINC `34896-1` |
+| 9 | Creatinine | LOINC `2160-0` | Mass/volume, but Hrudaya stores µmol/L | LOINC `14682-9` (moles/volume) |
+
+---
+
 ## 0. Why this week matters (read this, Pavan)
 
 Week 1 made the data structured. Week 2 makes it **portable**. A FHIR Bundle is a standard JSON document that any modern health system — a hospital EMR, an insurer, a national registry, ABDM — can read without knowing anything about Hrudaya. After this week, every PCI you record can leave the app in a form the rest of healthcare understands. ABDM (Week 3) requires exactly this: it only accepts health records as FHIR.

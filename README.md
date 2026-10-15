@@ -87,7 +87,7 @@ From [docs/week1-spec.md §7](docs/week1-spec.md):
 - [x] README has the scope statement and a "synthetic data only" notice
 - [ ] 60-second Friday progress video recorded
 
-## FHIR R4 export (Week 2)
+## Week 2 — FHIR R4 export
 
 Every reviewed procedure exports as one FHIR R4 **document Bundle** — Composition, Patient,
 Encounter, Organization, Location, Practitioner, Condition, Procedure, Device, Observation,
@@ -95,7 +95,42 @@ MedicationAdministration and MedicationRequest — from the **Export FHIR** butt
 `GET /api/fhir/procedures/<id>` (signed in; drafts are refused). Field-by-field mapping, every
 code with how it was verified, and the known validator warnings: [docs/fhir-mapping.md](docs/fhir-mapping.md).
 
-- **Validated:** all 21 reviewed cases pass the official HL7 FHIR validator with **0 errors**.
+- **Validated:** all 21 reviewed cases (the 20 seeded cases plus PCI-2026-021, entered in the app)
+  pass the official HL7 FHIR validator 7.0.1 with **0 errors**:
+
+  | Case | Errors | Warnings |
+  |---|---|---|
+  | CAG-2026-018 | 0 | 32 |
+  | CAG-2026-019 | 0 | 35 |
+  | CAG-2026-020 | 0 | 33 |
+  | PCI-2026-001 | 0 | 47 |
+  | PCI-2026-002 | 0 | 44 |
+  | PCI-2026-003 | 0 | 45 |
+  | PCI-2026-004 | 0 | 50 |
+  | PCI-2026-005 | 0 | 44 |
+  | PCI-2026-006 | 0 | 44 |
+  | PCI-2026-007 | 0 | 44 |
+  | PCI-2026-008 | 0 | 44 |
+  | PCI-2026-009 | 0 | 46 |
+  | PCI-2026-010 | 0 | 47 |
+  | PCI-2026-011 | 0 | 44 |
+  | PCI-2026-012 | 0 | 46 |
+  | PCI-2026-013 | 0 | 45 |
+  | PCI-2026-014 | 0 | 50 |
+  | PCI-2026-015 | 0 | 43 |
+  | PCI-2026-016 | 0 | 44 |
+  | PCI-2026-017 | 0 | 45 |
+  | PCI-2026-021 | 0 | 42 |
+
+  The warnings are two kinds, both best-practice and accepted:
+  *dom-6 — "a resource should have narrative"* (one per resource: the Composition's sections carry
+  narrative, but resources have no `text` of their own yet — backlog), and the *UCUM annotation* in
+  eGFR's unit `mL/min/{1.73_m2}` (the conventional unit, chosen in the spec). The first validator run
+  found one real error (a dosage with no dose, on PCI-2026-010) which was fixed — so the zero is
+  measured, not vacuous.
+- **Codes verified:** every SNOMED CT and LOINC code in use is checked against its source; nine codes
+  in the original spec were wrong and were corrected (see the spec's "Corrections after build").
+  Re-check them any time with `npm run fhir:verify-codes`.
 - **Interoperable:** PCI-2026-001's Bundle round-trips through the public HAPI FHIR R4 server
   (Bundle `124023`):
 
