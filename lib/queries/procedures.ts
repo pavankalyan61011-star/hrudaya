@@ -1,0 +1,90 @@
+import type { DbClient } from "@/lib/supabase/types";
+import type { TablesUpdate } from "@/lib/database.types";
+
+const CASE_CODE = /^(PCI|CAG)-(\d{4})-(\d{3,})$/;
+
+/** Next case code for the year: one running number shared by PCI- and CAG- codes, as in the seed. */
+export async function nextCaseCode(db: DbClient, year: string, prefix: "PCI" | "CAG" = "PCI") {
+  const { data, error } = await db.from("procedures").select("case_code").like("case_code", `%-${year}-%`);
+  if (error) return { code: null, error };
+  let max = 0;
+  for (const row of data ?? []) {
+    const m = CASE_CODE.exec(row.case_code);
+    if (m && m[2] === year) max = Math.max(max, Number(m[3]));
+  }
+  return { code: `${prefix}-${year}-${String(max + 1).padStart(3, "0")}`, error: null };
+}
+
+/** Creates a draft procedure for the patient; retries if another device took the same case code. */
+export async function createDraftProcedure(db: DbClient, patientId: string, year: string) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { code, error: codeError } = await nextCaseCode(db, year);
+    if (codeError || !code) return { id: null, error: codeError };
+    const { data, error } = await db
+      .from("procedures")
+      .insert({ patient_id: patientId, case_code: code, status: "draft" })
+      .select("id")
+      .single();
+    if (!error) return { id: data.id, error: null };
+    if (error.code !== "23505") return { id: null, error };
+  }
+  return { id: null, error: { code: "23505", message: "procedures_case_code_key" } };
+}
+
+/** Updates a procedure only while it is a draft; a completed record is never changed by the form. */
+export async function updateDraftProcedure(db: DbClient, id: string, fields: TablesUpdate<"procedures">) {
+  const { data, error } = await db.from("procedures").update(fields).eq("id", id).eq("status", "draft").select("id");
+  if (error) return { error };
+  if (!data || data.length === 0) return { error: { code: "PGRST116", message: "draft not found" } };
+  return { error: null };
+}
+
+export async function getDraftHeader(db: DbClient, id: string) {
+  const { data, error } = await db
+    .from("procedures")
+    .select("id, case_code, status, procedure_type, procedure_date, patient:patients(id, full_name, mrn, sex, date_of_birth)")
+    .eq("id", id)
+    .maybeSingle();
+  return { draft: data, error };
+}
+
+const FULL_SELECT = `
+  *,
+  patient:patients(*, risk_factors:patient_risk_factors(id, factor, detail)),
+  operator:operators(id, full_name, role),
+  vessel_findings!vessel_findings_procedure_id_fkey(*),
+  interventions(*, devices_used(*)),
+  complications(*),
+  discharge:discharges(*, discharge_medications(*))
+` as const;
+
+/** The whole record, children in entry order. Used by the form steps and the detail page. */
+export async function getProcedureFull(db: DbClient, id: string) {
+  const { data, error } = await db
+    .from("procedures")
+    .select(FULL_SELECT)
+    .eq("id", id)
+    .order("created_at", { referencedTable: "vessel_findings" })
+    .order("created_at", { referencedTable: "interventions" })
+    .order("created_at", { referencedTable: "interventions.devices_used" })
+    .order("created_at", { referencedTable: "complications" })
+    .order("created_at", { referencedTable: "discharges.discharge_medications" })
+    .maybeSingle();
+  return { procedure: data, error };
+}
+
+export type ProcedureFull = NonNullable<Awaited<ReturnType<typeof getProcedureFull>>["procedure"]>;
+
+export async function listProcedures(db: DbClient) {
+  const { data, error } = await db
+    .from("procedures")
+    .select("id, case_code, procedure_date, indication, procedure_type, status, created_at, patient:patients(full_name, mrn)")
+    .order("procedure_date", { ascending: false, nullsFirst: true })
+    .order("created_at", { ascending: false })
+    .limit(200);
+  return { procedures: data ?? [], error };
+}
+
+export async function completeProcedure(db: DbClient, id: string) {
+  return updateDraftProcedure(db, id, { status: "completed" });
+}
