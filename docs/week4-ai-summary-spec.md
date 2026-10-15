@@ -1,6 +1,6 @@
-# Hrudaya — Week 4 Spec: AI discharge summary (Telugu · Hindi · English) and printable report
+# Hrudaya — Week 4 Spec: AI discharge summary (English · Telugu · Hindi · Tamil · Kannada · Malayalam) and printable report
 
-> Goal: a reviewed, discharged procedure can produce a **patient-facing discharge summary** in Telugu, Hindi or English, drafted by Claude from the structured record only, checked by a deterministic audit, edited and **approved by a clinician** before it is saved — plus a **printable A4 procedure report** built without AI.
+> Goal: a reviewed, discharged procedure can produce a **patient-facing discharge summary** in English, Telugu, Hindi, Tamil, Kannada or Malayalam, drafted by Claude from the structured record only, checked by a deterministic audit, edited and **approved by a clinician** before it is saved — plus a **printable A4 procedure report** built without AI.
 > Built out of order: Week 3 (ABDM) waits for sandbox credentials. Week 4 depends on nothing from Week 3.
 
 Drop this at `docs/week4-ai-summary-spec.md`. Read `docs/week1-spec.md` §3 and `docs/week2-fhir-spec.md` §3–4 first; the loader from Week 2 (`lib/fhir/load.ts`) is reused.
@@ -56,14 +56,14 @@ Env: `ANTHROPIC_API_KEY` — server-side only, **never** `NEXT_PUBLIC_`, never r
 
 Model: use the current Sonnet-class model. Check https://docs.claude.com/en/docs/about-claude/models for the exact model string before coding; put it in one constant `SUMMARY_MODEL` in `prompt.ts`, and store it on every row. `max_tokens: 1500`, `temperature: 0`.
 
-Fonts: `next/font/google` — Noto Sans Telugu, Noto Sans Devanagari, Noto Sans (Latin). Loaded only on the summary card and the print page.
+Fonts: `next/font/google` — Noto Sans (Latin), Noto Sans Telugu, Noto Sans Devanagari, Noto Sans Tamil, Noto Sans Kannada, Noto Sans Malayalam. Loaded only on the summary card and the print page, and only the font for the language being shown.
 
 ---
 
 ## 3. Data model — migration 0008 (additive)
 
 ```sql
-create type public.summary_language as enum ('en', 'te', 'hi');
+create type public.summary_language as enum ('en', 'te', 'hi', 'ta', 'kn', 'ml');
 create type public.summary_status   as enum ('draft', 'approved');
 
 create table public.discharge_summaries (
@@ -137,7 +137,7 @@ Nulls: a null field is **omitted**, never sent as `null` or `"Not recorded"`. Th
 `PROMPT_VERSION = 'v1'`. System prompt, fixed text, in English for all three languages. Must contain, in this order:
 
 1. Role: you write a discharge summary **for the patient and their family**, from a cath lab record, for a hospital in India.
-2. Language instruction: write the body in `{language}` (Telugu / Hindi / English). **Drug names, doses, units, frequencies (OD/BD/TDS), the case code, dates, percentages and vessel abbreviations (LAD, LCX, RCA, LMCA) stay exactly as given, in Latin script and Western digits.** Explain a vessel abbreviation once in brackets in the target language on first use.
+2. Language instruction: write the body in `{language}` (English / Telugu / Hindi / Tamil / Kannada / Malayalam). **Drug names, doses, units, frequencies (OD/BD/TDS), the case code, dates, percentages and vessel abbreviations (LAD, LCX, RCA, LMCA) stay exactly as given, in Latin script and Western digits.** Explain a vessel abbreviation once in brackets in the target language on first use.
 3. Facts rule: use **only** the JSON provided. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. If something is absent, say nothing about it — do not write "not recorded".
 4. Fixed section order, headings in the target language, Markdown `##`:
    1. Why you were in hospital (diagnosis, in plain words)
@@ -150,7 +150,7 @@ Nulls: a null field is **omitted**, never sent as `null` or `"Not recorded"`. Th
    8. Follow-up (date, clinic)
    9. Your team (operator, facility)
 5. Tone: calm, respectful, plain words, short sentences, second person. Reading level of a newspaper. No reassurance that isn't in the record ("your heart is fine now" is forbidden unless clinical_status says so).
-6. Length: under 450 words of body text in English; Telugu/Hindi may be longer.
+6. Length: under 450 words of body text in English; the Indian languages may be longer.
 7. Output: Markdown only. No preamble, no closing remarks, no signature line.
 
 User message: the input JSON, nothing else.
@@ -167,7 +167,7 @@ User message: the input JSON, nothing else.
 | `dose_mismatch` | For each medication, the pattern `<drug> … <dose> <unit>` within 60 chars is not found. | error |
 | `section_missing` | Fewer than 8 `##` headings (9 if LVEF present). | warning |
 | `section_extra` | More than expected headings. | warning |
-| `script_check` | Language is `te`/`hi` and the body contains fewer than 70 % characters in the expected Unicode block (excluding the medicines table and Latin-script tokens). | warning |
+| `script_check` | Language is not `en` and the body contains fewer than 70 % characters in the expected Unicode block — Telugu U+0C00–0C7F, Devanagari U+0900–097F, Tamil U+0B80–0BFF, Kannada U+0C80–0CFF, Malayalam U+0D00–0D7F — excluding the medicines table and Latin-script tokens. | warning |
 | `forbidden_phrase` | Draft contains any of a small list: "not recorded", "unknown", "N/A", "as an AI", "I cannot". | warning |
 | `too_long` | Over 700 words (any language, counted on whitespace). | warning |
 
@@ -177,7 +177,7 @@ Flags are stored on the row and shown in the card. **An `error` flag disables Ap
 
 ## 6. API
 
-- `POST /api/procedures/[id]/summary` body `{ language: 'en'|'te'|'hi' }`
+- `POST /api/procedures/[id]/summary` body `{ language: 'en'|'te'|'hi'|'ta'|'kn'|'ml' }`
   - 401 unauthenticated · 404 unknown · 409 not reviewed or no discharge · 503 if `ANTHROPIC_API_KEY` unset · 429 if the caller has generated ≥ 20 summaries today (count rows by `generated_by` and `generated_at`).
   - Builds input, calls model, runs audit, inserts row (version = max + 1), returns the row.
   - Never logs the input or the draft. Logs: procedure id, language, version, tokens, latency, flag codes.
@@ -194,13 +194,13 @@ Both routes use the server Supabase client (RLS applies) — no service-role key
 Only on `reviewed` procedures that have a discharge; otherwise the card shows one line: "Discharge summary available after clinical review and discharge".
 
 **Discharge summary** card:
-- Language toggle: English · తెలుగు · हिन्दी.
+- Language select (six options): English · తెలుగు · हिन्दी · தமிழ் · ಕನ್ನಡ · മലയാളം. A select, not a row of buttons — six don't fit at phone width.
 - **Generate draft** button (disabled with reason if key missing or daily cap hit). Spinner with "Drafting… usually 10–20 seconds".
 - Draft view: red banner **AI draft — not reviewed. Do not give to patient.** Audit flags listed under it (errors red, warnings amber, each with its detail). The Markdown rendered below, in the right font.
 - **Edit** → textarea (same font) with the draft pre-filled; **Approving clinician** select (operators); **Approve and save**. Disabled while error flags exist; re-audits on click.
 - Approved view: green banner **Approved by Dr X · 15 Oct 2026 14:32 · v2 · {language}**, the approved text, a **Print** link (opens §8 with this summary), and a "Regenerate (new version)" link.
 - Version list: small table of all versions for this procedure/language: version, status, generated at, approved by.
-- Mobile-safe; Telugu and Hindi must wrap correctly at phone width (test with the longest draft).
+- Mobile-safe; every script must wrap correctly at phone width (test with the longest draft in each language).
 
 ---
 
@@ -220,12 +220,12 @@ Pages:
 
 - [ ] Migration 0008 applied on Supabase before code deploy; app runs with and without `ANTHROPIC_API_KEY`
 - [ ] `buildSummaryInput` unit-tested: no name/DOB/MRN/lot/UDI in output for any seeded case; omitted keys for null; stable hash across two builds
-- [ ] `auditDraft` unit-tested with hand-written drafts: a missing drug, an extra drug, an invented number, a dose mismatch, a clean draft (all three languages)
-- [ ] Generate works live for PCI-2026-001 in all three languages; Approve blocked while an error flag exists; approved row immutable (trigger tested)
-- [ ] Eval: every seeded discharged case × 3 languages generated once; `tmp/summaries/report.md` tabulates flags per case/language; zero `drug_missing`/`drug_extra` after prompt fixes, and every `number_unknown` either fixed in the prompt or explained
-- [ ] Print page renders A4 from Chrome on Mac and phone; Telugu and Hindi glyphs correct in print preview
+- [ ] `auditDraft` unit-tested with hand-written drafts: a missing drug, an extra drug, an invented number, a dose mismatch, a clean draft (English plus at least Telugu; `script_check` tested for all five scripts)
+- [ ] Generate works live for PCI-2026-001 in all six languages; Approve blocked while an error flag exists; approved row immutable (trigger tested)
+- [ ] Eval: every seeded discharged case × 6 languages generated once (~100 calls); `tmp/summaries/report.md` tabulates flags per case/language; zero `drug_missing`/`drug_extra` after prompt fixes, and every `number_unknown` either fixed in the prompt or explained
+- [ ] Print page renders A4 from Chrome on Mac and phone; glyphs correct in print preview for all five Indian scripts (conjuncts and vowel signs render, no boxes)
 - [ ] `docs/ai-summary.md` written: the four guards, full prompt text, audit table, eval table, cost per summary (from stored tokens)
-- [ ] Pavan has read the Telugu drafts for at least five cases and marked each: accurate / wrong / unclear, with notes — that list goes into `docs/ai-summary.md` as "Clinical read-through"
+- [ ] Pavan has read the Telugu drafts for at least five cases and marked each: accurate / wrong / unclear, with notes — that list goes into `docs/ai-summary.md` as "Clinical read-through". Tamil, Kannada and Malayalam are marked **"not yet read by a native speaker"** in the docs until someone who reads them has done the same — do not claim otherwise.
 
 ---
 
@@ -239,9 +239,9 @@ Read docs/week4-ai-summary-spec.md, then docs/week1-spec.md §3 and docs/week2-f
 3. lib/summary/prompt.ts (SUMMARY_MODEL — check docs.claude.com for the current Sonnet model string, PROMPT_VERSION='v1', system prompt per §5.1, buildMessages). lib/summary/drug-list.ts. lib/summary/audit.ts per §5.2 with tests per §9.
 4. Add @anthropic-ai/sdk. lib/summary/generate.ts: server-only, reads ANTHROPIC_API_KEY, temperature 0, max_tokens 1500, stores row with tokens. Never log input or output text.
 5. API routes per §6 with tests (mock the Anthropic client; test 401/404/409/503/429/422).
-6. Report page card per §7, with Noto Sans Telugu / Devanagari via next/font/google. Mobile-safe.
+6. Report page card per §7, with the six Noto Sans fonts via next/font/google (load only the one in use). Mobile-safe.
 7. Print page per §8.
-8. scripts/summary-eval.ts + npm run summary:eval: generate every seeded discharged case × en/te/hi once (this costs real money — print the estimated token count and ask me before running), write tmp/summaries/<case>.<lang>.md and tmp/summaries/report.md (flags per case/language). tmp/ is gitignored. Fix prompt issues the audit reveals; bump PROMPT_VERSION if the prompt changes after the first run.
+8. scripts/summary-eval.ts + npm run summary:eval: generate every seeded discharged case × en/te/hi/ta/kn/ml once (this costs real money — print the estimated token count and ask me before running), write tmp/summaries/<case>.<lang>.md and tmp/summaries/report.md (flags per case/language). tmp/ is gitignored. Fix prompt issues the audit reveals; bump PROMPT_VERSION if the prompt changes after the first run.
 9. docs/ai-summary.md per §9 and README "Week 4 — AI discharge summary" section. Update docs/backlog.md with anything deferred.
 
 Rules: ANTHROPIC_API_KEY is server-side only and never NEXT_PUBLIC_. Never put patient name, DOB, MRN, lot, expiry or UDI in the model input. Ask before any dependency beyond @anthropic-ai/sdk. When done, give me: the eval flag table, cost per summary, and a phone test list.
@@ -252,5 +252,5 @@ Rules: ANTHROPIC_API_KEY is server-side only and never NEXT_PUBLIC_. Never put p
 - Day 1: create the Anthropic API key, put it in `.env.local` as `ANTHROPIC_API_KEY` and in Vercel (not `NEXT_PUBLIC_`). Paste the prompt. Apply migration 0008 when Claude Code stops at step 1.
 - Day 2: while it builds, write out — in your own words — the four guards from §0. That is the interview answer to "how do you stop AI hallucinating in a clinical document?"
 - Day 3: eval runs. Open the Telugu drafts for PCI-2026-001, 005, 010, CAG-2026-018 and one STEMI. Read each as if you were the patient's son. Mark accurate / wrong / unclear with a note. This is the most valuable thing you do this week: you are the only person on the project who can judge the Telugu.
-- Day 4: phone test; approve one summary in each language; print PCI-2026-001 to PDF and check the Telugu page.
+- Day 4: phone test; approve one summary in each language; print PCI-2026-001 to PDF and check every script page renders (no boxes). Ask a Kannada-, Tamil- or Malayalam-reading friend to read one draft each and tell you accurate / wrong / unclear; record their verdicts in docs/ai-summary.md.
 - Day 5: 60-second video #3 — "Hrudaya drafts a discharge summary in Telugu; the audit catches an invented number; the cardiologist approves". Send it to me in chat first; I post only after your approval.
