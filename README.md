@@ -35,7 +35,8 @@ Requires **Node 22.18 or later** (the seed script runs TypeScript directly) and 
    ```
 2. Copy `.env.example` to `.env.local` and fill in the three values from Supabase →
    Project Settings → API. The service-role key stays on your machine; the app never uses it.
-3. Apply the migrations in order (`0001` to `0004`). Either paste each file from
+3. Apply the migrations in order (`0001` to `0004`). For a local database, `supabase start`
+   (needs Docker) applies them all. For a hosted project, either paste each file from
    `supabase/migrations/` into the Supabase SQL editor, or with the Supabase CLI:
    ```bash
    supabase db query --linked --project-ref <your-project-ref> -f supabase/migrations/0001_init.sql
@@ -71,7 +72,7 @@ After a schema change, regenerate `lib/database.types.ts` with
 
 From [docs/week1-spec.md §7](docs/week1-spec.md):
 
-- [x] Schema migration runs clean on a fresh Supabase project
+- [x] Schema migration runs clean on a fresh Supabase project — verified 2026-10-15: 0001–0004 applied in order to a fresh local Supabase (`supabase start`), seed loaded 20/20; schema and all 20 cases identical to production
 - [x] Seed loads 20 cases without error
 - [ ] New procedure can be entered start to finish on a phone in under 8 minutes — not yet timed
 - [ ] Detail page reads like a real cath report — awaiting review
