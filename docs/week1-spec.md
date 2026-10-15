@@ -62,6 +62,8 @@ One row per risk factor so they are queryable.
 | role | enum: interventional_cardiologist, fellow, cath_lab_technologist, nurse | |
 | hpr_id | text, nullable | Health Professional Registry id; later |
 
+Seeded operators (fictional): Dr Arjun Reddy and Dr Meera Shah, both interventional_cardiologist.
+
 ### 3.4 `procedures`
 The core record. One row per cath lab visit.
 | column | type | notes |
@@ -82,6 +84,7 @@ The core record. One row per cath lab visit.
 | procedure_duration_min | integer | |
 | fluoroscopy_time_min | numeric(5,1) | |
 | radiation_dose_mgy | numeric, nullable | optional |
+| lvef_pct | integer 0–100, nullable | post-procedure LVEF, where recorded |
 | primary_operator_id | fk operators | |
 | haemostasis_method | enum: radial_compression_band, manual_compression, vascular_closure_device, other | |
 | outcome_summary | text | the "final impression" paragraph |
@@ -120,7 +123,7 @@ Every implant and balloon, with lot number — this is the traceability table.
 |---|---|---|
 | intervention_id | fk interventions | |
 | phase | enum: pre_dilation, deployment, post_dilation, other | |
-| category | enum: stent, balloon_sc, balloon_nc, guidewire, other | |
+| category | enum: stent, balloon_sc, balloon_nc, balloon_dcb, balloon_scoring, guidewire, other | balloon_dcb = drug-coated balloon |
 | product_name | text | "Xience Skypoint DES" |
 | manufacturer | text, nullable | |
 | diameter_mm | numeric(4,2) | 3.5 |
@@ -141,7 +144,7 @@ Zero rows = no complications.
 | management | text | |
 
 ### 3.9 `discharges`
-One per procedure.
+At most one per procedure. Optional: a patient who remains admitted has no row, and the detail page shows "Not yet discharged".
 | column | type | notes |
 |---|---|---|
 | procedure_id | fk procedures, unique | |

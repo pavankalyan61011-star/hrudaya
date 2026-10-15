@@ -456,6 +456,7 @@ export type Database = {
             | null
           id: string
           indication: Database["public"]["Enums"]["indication"] | null
+          lvef_pct: number | null
           outcome_summary: string | null
           patient_id: string
           presentation_notes: string | null
@@ -484,6 +485,7 @@ export type Database = {
             | null
           id?: string
           indication?: Database["public"]["Enums"]["indication"] | null
+          lvef_pct?: number | null
           outcome_summary?: string | null
           patient_id: string
           presentation_notes?: string | null
@@ -512,6 +514,7 @@ export type Database = {
             | null
           id?: string
           indication?: Database["public"]["Enums"]["indication"] | null
+          lvef_pct?: number | null
           outcome_summary?: string | null
           patient_id?: string
           presentation_notes?: string | null
@@ -627,6 +630,8 @@ export type Database = {
         | "balloon_nc"
         | "guidewire"
         | "other"
+        | "balloon_dcb"
+        | "balloon_scoring"
       device_phase: "pre_dilation" | "deployment" | "post_dilation" | "other"
       dose_frequency: "od" | "bd" | "tds" | "qds" | "prn" | "weekly"
       dose_unit: "mg" | "mcg" | "g" | "ml" | "iu"
@@ -846,6 +851,8 @@ export const Constants = {
         "balloon_nc",
         "guidewire",
         "other",
+        "balloon_dcb",
+        "balloon_scoring",
       ],
       device_phase: ["pre_dilation", "deployment", "post_dilation", "other"],
       dose_frequency: ["od", "bd", "tds", "qds", "prn", "weekly"],
