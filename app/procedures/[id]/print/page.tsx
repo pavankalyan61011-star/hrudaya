@@ -101,8 +101,10 @@ export default async function PrintPage({ params, searchParams }: { params: { id
           </header>
           <SummaryMarkdown text={s.approved_text ?? ""} language={s.language} />
           <footer className="break-inside-avoid border-t border-slate-300 pt-2 text-sm">
-            Approved by <strong>{operatorName(s.approving_clinician_id)}</strong> on {formatDateTime(s.approved_at)} · version {s.version} ·
-            drafted with AI ({s.model}, prompt {s.prompt_version}), checked and approved by the clinician named.
+            Approved by <strong>{operatorName(s.approving_clinician_id)}</strong> on {formatDateTime(s.approved_at)} · version {s.version}.{" "}
+            {/* Owner, 2026-10-15: no AI vendor or model name where a patient or clinician sees it; the
+                model stays on the row (discharge_summaries.model) for provenance. */}
+            Drafted with AI assistance (prompt {s.prompt_version}); checked and approved by the clinician named.
           </footer>
         </article>
       ))}

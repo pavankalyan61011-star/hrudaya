@@ -5,7 +5,7 @@ import Link from "next/link";
 import { LANGUAGES, type SummaryLanguage } from "@/lib/summary/prompt";
 import { auditDraft, hasErrors, type AuditFlag } from "@/lib/summary/audit";
 import type { SummaryInput } from "@/lib/summary/input";
-import type { SummaryRow } from "@/lib/summary/generate";
+import type { ClientSummary as SummaryRow } from "@/lib/summary/api";
 import { SUMMARY_FONT_VARIABLES, summaryFontFamily } from "@/lib/summary/fonts";
 import { formatDateTime } from "@/lib/report-format";
 import { SummaryMarkdown } from "./summary-markdown";

@@ -178,8 +178,8 @@ From [docs/week2-fhir-spec.md §8](docs/week2-fhir-spec.md):
 
 ## Week 4 — AI discharge summary
 
-A reviewed, discharged procedure can have a **patient discharge summary** drafted by Claude
-(`claude-sonnet-5-5`) in English, Telugu (తెలుగు), Hindi (हिन्दी), Tamil (தமிழ்), Kannada (ಕನ್ನಡ) or
+A reviewed, discharged procedure can have a **patient discharge summary** drafted with AI
+assistance in English, Telugu (తెలుగు), Hindi (हिन्दी), Tamil (தமிழ்), Kannada (ಕನ್ನಡ) or
 Malayalam (മലയാളം). The model drafts, the code audits, the clinician signs. Full write-up, with the
 prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
 

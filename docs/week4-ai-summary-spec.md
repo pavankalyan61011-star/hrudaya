@@ -1,6 +1,6 @@
 # Hrudaya — Week 4 Spec: AI discharge summary (English · Telugu · Hindi · Tamil · Kannada · Malayalam) and printable report
 
-> Goal: a reviewed, discharged procedure can produce a **patient-facing discharge summary** in English, Telugu, Hindi, Tamil, Kannada or Malayalam, drafted by Claude from the structured record only, checked by a deterministic audit, edited and **approved by a clinician** before it is saved — plus a **printable A4 procedure report** built without AI.
+> Goal: a reviewed, discharged procedure can produce a **patient-facing discharge summary** in English, Telugu, Hindi, Tamil, Kannada or Malayalam, drafted with AI assistance from the structured record only, checked by a deterministic audit, edited and **approved by a clinician** before it is saved — plus a **printable A4 procedure report** built without AI.
 > Built out of order: Week 3 (ABDM) waits for sandbox credentials. Week 4 depends on nothing from Week 3.
 
 Drop this at `docs/week4-ai-summary-spec.md`. Read `docs/week1-spec.md` §3 and `docs/week2-fhir-spec.md` §3–4 first; the loader from Week 2 (`lib/fhir/load.ts`) is reused.
@@ -43,6 +43,11 @@ The sections below are left as originally written. What was built differs in the
   - specific findings keep their specific wording.
 
   **Frozen at v6.** v6 eval: 114/114 generated, 0 flags.
+- **§8 approval line (owner, 2026-10-15):** no AI vendor or model name in any text a patient or
+  clinician sees. The printed line reads "Drafted with AI assistance (prompt v6); checked and
+  approved by the clinician named", with the version taken from the row. `model` and
+  `prompt_version` stay on every `discharge_summaries` row, and in `docs/ai-summary.md`, for
+  provenance.
 - **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
   400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
 

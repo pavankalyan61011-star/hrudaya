@@ -12,7 +12,7 @@ import { FhirExport } from "@/components/report/fhir-export";
 import { DischargeSummaryCard } from "@/components/report/discharge-summary";
 import { getCurrentUser } from "@/lib/queries/auth";
 import { buildSummaryInput } from "@/lib/summary/input";
-import { summaryBlocker } from "@/lib/summary/api";
+import { summaryBlocker, toClientSummary } from "@/lib/summary/api";
 import { summaryConfigured } from "@/lib/summary/generate";
 import { procedureToBundle } from "@/lib/fhir/mapper";
 import { SyntheticNotice } from "@/components/synthetic-notice";
@@ -48,7 +48,7 @@ async function loadSummaryCard(db: ReturnType<typeof createClient>, p: Procedure
     input: buildSummaryInput(p),
     configured: summaryConfigured(),
     generatedToday: today.error ? null : today.count,
-    summaries: list.error ? null : list.data,
+    summaries: list.error ? null : (list.data ?? []).map(toClientSummary),
   };
 }
 

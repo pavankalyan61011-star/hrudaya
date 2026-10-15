@@ -24,6 +24,18 @@ import { draftSummary, SummaryModelError, type Draft, type ModelCall, type Summa
 
 export const DAILY_CAP = 20;
 
+/**
+ * A summary as it leaves the server: the row without `model`. No AI vendor or model name may reach
+ * a patient or clinician, including in page data or API responses (owner, 2026-10-15). The model
+ * stays on the database row for provenance.
+ */
+export type ClientSummary = Omit<SummaryRow, "model">;
+export function toClientSummary(row: SummaryRow): ClientSummary {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { model, ...rest } = row;
+  return rest;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type LogEvent =
@@ -47,7 +59,7 @@ export type GenerateDeps = {
 };
 
 export type ApiResult =
-  | { status: 200 | 201; body: { summary: SummaryRow; flags?: AuditFlag[] } }
+  | { status: 200 | 201; body: { summary: ClientSummary; flags?: AuditFlag[] } }
   | { status: 400 | 401 | 404 | 409 | 422 | 429 | 500 | 502 | 503; body: { error: string; flags?: AuditFlag[] } };
 
 const fail = (status: Exclude<ApiResult["status"], 200 | 201>, error: string, flags?: AuditFlag[]): ApiResult => ({
@@ -127,7 +139,7 @@ export async function generateSummary(procedureId: string, body: unknown, deps: 
     model: draft.model,
     flags: draft.audit_flags.map((f) => f.code),
   });
-  return { status: 201, body: { summary: saved.row } };
+  return { status: 201, body: { summary: toClientSummary(saved.row) } };
 }
 
 // ─── PUT: save edit / approve ────────────────────────────────────────────────
@@ -192,5 +204,5 @@ export async function saveSummary(procedureId: string, summaryId: string, body: 
   if (approve) {
     deps.log({ event: "summary_approved", procedure_id: procedureId, summary_id: summaryId, language: summary.language, version: summary.version, flags: flags.map((f) => f.code) });
   }
-  return { status: 200, body: { summary: row, flags } };
+  return { status: 200, body: { summary: toClientSummary(row), flags } };
 }

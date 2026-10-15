@@ -92,6 +92,16 @@ test("201: drafts, audits, stores version, logs no text", async () => {
   for (const text of ["Aspirin", "heart attack", "PCI-TEST-001", "Dr Test"]) assert.ok(!logged.includes(text), `log contains ${text}`);
 });
 
+test("responses never carry the model name (owner: no vendor or model where people see it)", async () => {
+  const gen = await generateSummary(PID, { language: "en" }, genDeps({ save: async (row) => ({ row: { ...row, id: SID, version: 1, status: "draft", model: "claude-sonnet-5-5" } as unknown as SummaryRow, error: null }) }).deps);
+  assert.equal(gen.status, 201);
+  assert.ok(!("model" in (gen.body as { summary: object }).summary));
+  assert.ok(!JSON.stringify(gen.body).includes("claude"));
+  const put = await saveSummary(PID, SID, approve(), putDeps().deps);
+  assert.equal(put.status, 200);
+  assert.ok(!JSON.stringify(put.body).includes("claude"));
+});
+
 test("401 when not signed in — nothing loaded, model not called", async () => {
   let loads = 0;
   const { deps, model } = genDeps({ getUser: async () => null, load: async () => (loads++, { procedure: fixture(), error: null }) });

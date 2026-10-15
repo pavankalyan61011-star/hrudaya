@@ -46,7 +46,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
 | Card on the report page | `components/report/discharge-summary.tsx` |
-| Print (A4, approved only) | `/procedures/[id]/print` |
+| Print (A4, approved only) | `/procedures/[id]/print`. Each summary ends with "Approved by Dr X on … · version N. Drafted with AI assistance (prompt vN); checked and approved by the clinician named." No vendor or model name is shown to patients or clinicians (owner, 2026-10-15). The model is kept on the row for provenance. |
 | Storage | `discharge_summaries` (migration 0008): one row per procedure × language × version |
 
 Request settings: model `claude-sonnet-5-5` (stored per row as the model that answered),
