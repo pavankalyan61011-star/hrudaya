@@ -4,8 +4,8 @@ Hrudaya is an open-source procedure record for Indian cardiac catheterisation la
 team enters a coronary angiogram or PCI on a phone in six short steps — patient, indication and
 access, angiography findings, intervention and devices (with stent lot numbers for traceability),
 procedure details and complications, and discharge — and gets a structured record that reads
-like a cath report. The data model is designed to export as FHIR R4 and to plug into India's
-Ayushman Bharat Digital Mission (ABDM).
+like a cath report. Every reviewed procedure exports as a validated **FHIR R4 document Bundle**,
+ready for India's Ayushman Bharat Digital Mission (ABDM).
 
 **Live demo:** <https://hrudaya.vercel.app> — demo login available on request.
 
@@ -71,6 +71,8 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `scripts/seed.ts` | Seeds the 20 synthetic cases |
 | `lib/queries/` | Every Supabase query |
 | `lib/validation/` | Zod schemas for each form step |
+| `lib/fhir/` | FHIR codes (verified), loader, mapper, export logic and their tests |
+| `docs/fhir-mapping.md` | Hrudaya → FHIR R4 mapping, codes, validation results |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
 ## Week 1 definition of done
@@ -85,10 +87,61 @@ From [docs/week1-spec.md §7](docs/week1-spec.md):
 - [x] README has the scope statement and a "synthetic data only" notice
 - [ ] 60-second Friday progress video recorded
 
+## FHIR R4 export (Week 2)
+
+Every reviewed procedure exports as one FHIR R4 **document Bundle** — Composition, Patient,
+Encounter, Organization, Location, Practitioner, Condition, Procedure, Device, Observation,
+MedicationAdministration and MedicationRequest — from the **Export FHIR** button on the report or
+`GET /api/fhir/procedures/<id>` (signed in; drafts are refused). Field-by-field mapping, every
+code with how it was verified, and the known validator warnings: [docs/fhir-mapping.md](docs/fhir-mapping.md).
+
+- **Validated:** all 21 reviewed cases pass the official HL7 FHIR validator with **0 errors**.
+- **Interoperable:** PCI-2026-001's Bundle round-trips through the public HAPI FHIR R4 server
+  (Bundle `124023`):
+
+  ![HAPI FHIR returning Bundle 124023](docs/images/hapi-bundle-124023.jpg)
+
+  Public HAPI is a shared test server: synthetic data only, and every Bundle is tagged so.
+
+Commands:
+
+```bash
+npm test
+```
+
+```bash
+npm run fhir:verify-codes
+```
+
+```bash
+npm run fhir:validate
+```
+
+```bash
+npm run fhir:hapi
+```
+
+`fhir:validate` needs Java 17 (`brew install openjdk@17`) and the HL7 validator JAR at
+`tools/validator_cli.jar` (see [docs/fhir-mapping.md §5](docs/fhir-mapping.md)). There is no CI
+runner in this repo, so run it before each release. `fhir:validate` and `fhir:hapi` read
+`.env.local` and use the service-role key — developer machine only.
+
+## Week 2 definition of done
+
+From [docs/week2-fhir-spec.md §8](docs/week2-fhir-spec.md):
+
+- [x] `docs/fhir-mapping.md` complete, every code either verified (with a link) or marked text-only
+- [x] All seeded cases export; validator reports 0 errors (21 reviewed cases, 0 errors)
+- [x] One Bundle round-trips through public HAPI; screenshot in README
+- [ ] Export button works on phone; preview readable — tested at 375 px in a browser, not yet on a phone
+- [x] API route refuses unauthenticated and draft requests (tests)
+- [x] Unit tests on the mapper: three-state Observations, DAPT extension, not-yet-discharged Encounter, device focalDevice links, stable ids on re-export
+- [ ] Pavan can explain the eight resources in two sentences each
+
 ## Roadmap
 
 - **Week 1 — built and deployed:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases. Remaining checks above.
-- **Week 2 — FHIR R4 export** of a completed procedure.
+- **Week 2 — FHIR R4 export, built:** document Bundle per reviewed procedure, HL7 validator 0 errors, HAPI round-trip. Remaining checks above.
 - **Week 3 — ABDM:** ABHA number and address, Health Information Provider (HIP) integration.
 - **Week 4 — AI discharge summary**, design polish, and tighter row-level security.
 
