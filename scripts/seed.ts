@@ -146,7 +146,7 @@ const STATUS_NOT_RECORDED = "Not recorded";
 const OPD = "Cardiology OPD";
 
 /**
- * Standard red flags (owner-approved data correction, 2026-10-15) for the 11 discharges that had
+ * Standard red flags (owner-approved data corrections, 2026-10-15) for the 11 discharges that had
  * none. Two urgency groups, each led by its heading item (an item ending in ":"); the report page
  * shows heading items as sub-headings and the summary prompt keeps items under their heading.
  * `onBlood` is the bracket on the GI-bleeding item; null leaves the bracket out (CAG-2026-018 is
@@ -164,10 +164,11 @@ function standardRedFlags(site: "wrist" | "groin", onBlood: "blood-thinning tabl
     `Bleeding from the ${site} puncture site that does not stop after 10 minutes of firm pressure`,
     "A rapidly growing swelling at the puncture site",
     `The ${limb} on that side becoming cold, pale, numb or very painful`,
+    // Owner correction 2026-10-15: haematemesis and melaena on antiplatelets are emergencies.
+    onBlood ? `Black or bloody stools, or vomiting blood (you are on ${onBlood})` : "Black or bloody stools, or vomiting blood",
     RED_FLAGS_CONTACT,
     "Increasing pain, redness, warmth or discharge at the puncture site",
     "Fever",
-    onBlood ? `Black or bloody stools, or vomiting blood (you are on ${onBlood})` : "Black or bloody stools, or vomiting blood",
   ];
 }
 

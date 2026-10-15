@@ -104,6 +104,20 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
     - PCI-2026-021 (user-entered) untouched.
   - **FHIR:** all 21 reviewed cases still validate with 0 errors. But see the next item: none of
     the corrected fields is in the Bundle.
+- **2026-10-15 (second): GI bleeding is an emergency.** In the 11 standard red-flag lists, "Black
+  or bloody stools, or vomiting blood (…)" moved from the contact-within-a-day group to the end of
+  the emergency group (owner: haematemesis and melaena on antiplatelets are emergencies). Data
+  only, same method as above (`supabase/data-corrections/2026-10-15-2-gi-bleeding-to-emergency.sql`):
+  - each update matched the seeded row and its exact previous list;
+  - the generator confirmed every change is a pure reorder;
+  - the reviewed-record guard on `discharges` was off for those statements only;
+  - 11 `data_corrected` events, with the change and the owner-approval note;
+  - rehearsed locally first (the guard refused an ordinary edit afterwards, and a second run
+    rolled back).
+
+  Verified on production: 11/11 lists identical to the seed builder, 23 `data_corrected` events
+  in all, 0 triggers disabled, and PCI-2026-021 untouched. Found in the Telugu native-reader
+  check on CAG-2026-018.
 - **FHIR export omits complication onset time, haemostasis method and red flags.** The 005
   corrections therefore do not reach the Bundle. Map them when the export is next extended.
 

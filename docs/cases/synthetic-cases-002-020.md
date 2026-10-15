@@ -19,10 +19,13 @@ Applied to `scripts/seed.ts` and the live database, and logged in `docs/backlog.
   - Bleeding from the [wrist|groin] puncture site that does not stop after 10 minutes of firm pressure
   - A rapidly growing swelling at the puncture site
   - The [hand|foot] on that side becoming cold, pale, numb or very painful
+  - Black or bloody stools, or vomiting blood (you are on [blood-thinning tablets|aspirin])
 - **Contact the cardiology team within a day for:**
   - Increasing pain, redness, warmth or discharge at the puncture site
   - Fever
-  - Black or bloody stools, or vomiting blood (you are on [blood-thinning tablets|aspirin])
+
+Second correction, same day: the bleeding item moved from the "within a day" group to the end of
+the emergency group (owner: vomiting blood or black stools on antiplatelets is an emergency).
 
 The radial cases use wrist and hand, including 006 and 016, which are left radial. 012 (femoral)
 uses groin and foot. 019 says "aspirin" and the rest say "blood-thinning tablets". 018 is on no
