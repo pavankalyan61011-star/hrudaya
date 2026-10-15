@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "../fhir/test-fixture.ts";
 import { buildSummaryInput, inputHash } from "./input.ts";
+import { PROMPT_VERSION } from "./prompt.ts";
 import { generateSummary, saveSummary, DAILY_CAP, type GenerateDeps, type ApproveDeps, type LogEvent } from "./api.ts";
 import { SummaryModelError, type ModelCall, type ModelReply, type SummaryRow } from "./generate.ts";
 
@@ -80,7 +81,7 @@ test("201: drafts, audits, stores version, logs no text", async () => {
   assert.equal(model.calls, 1);
   const row = saved[0] as Record<string, unknown>;
   assert.equal(row.language, "te");
-  assert.equal(row.prompt_version, "v1");
+  assert.equal(row.prompt_version, PROMPT_VERSION);
   assert.equal(row.input_hash, inputHash(buildSummaryInput(fixture())));
   assert.equal(row.tokens_in, 1400);
   assert.equal(row.tokens_out, 700);

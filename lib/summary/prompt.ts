@@ -8,7 +8,13 @@ import type { SummaryInput } from "./input.ts";
 
 /** Current Sonnet (checked on docs.claude.com/en/docs/about-claude/models, 2026-10-15). */
 export const SUMMARY_MODEL = "claude-sonnet-5-5";
-export const PROMPT_VERSION = "v1";
+/**
+ * v1 — first eval, 15 Oct 2026.
+ * v2 — sections 4 and 7 are left out when the record has nothing for them, and no section may
+ *      say that something does not apply. v1 wrote "When to come back urgently" for 36 of 66
+ *      drafts whose record has no red flags, usually adding "contact your doctor".
+ */
+export const PROMPT_VERSION = "v2";
 
 export const LANGUAGES = {
   en: "English",
@@ -33,14 +39,14 @@ FACTS
 Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown".
 
 SECTIONS
-Use exactly these sections, in this order, each as a Markdown "## " heading written in ${L}. Do not number the headings and add no other headings.
+Use these sections, in this order, each as a Markdown "## " heading written in ${L}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.
 1. Why you were in hospital: the diagnosis, in plain words.
 2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel).
 3. What we found: each vessel and its % narrowing, in plain language.
 4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
 5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in ${L}). Copy the drug name, the dose with its unit, and the frequency exactly as given. Write "(DAPT)" after the name of each DAPT medicine. Leave "For how long" empty when the record gives no duration. After the table, write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
-7. When to come back urgently: the red-flag items. Add nothing.
+7. When to come back urgently: the red-flag items. Add nothing. If the record has no red_flags, leave this section out entirely.
 8. Follow-up: the follow-up date and clinic.
 9. Your team: the operator and the facility.
 
