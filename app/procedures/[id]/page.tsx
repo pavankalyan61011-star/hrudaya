@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProcedureFull, type ProcedureFull } from "@/lib/queries/procedures";
 import { ageOn, formatDate } from "@/lib/dates";
 import { label, timi } from "@/lib/labels";
+import { NOT_RECORDED, guidewireText, lesionName, medicationLine, orNotRecorded, phaseHeading } from "@/lib/report-format";
 import { Facts, Section, StatusBadge } from "@/components/report/section";
 import { SyntheticNotice } from "@/components/synthetic-notice";
 import { STEPS } from "../new/step-header";
@@ -12,14 +13,25 @@ export const dynamic = "force-dynamic";
 
 type Device = ProcedureFull["interventions"][number]["devices_used"][number];
 
-const yesNo = (v: boolean | null) => (v === null ? "Not known" : v ? "Yes" : "No");
+const yesNo = (v: boolean | null) => (v === null ? NOT_RECORDED : v ? "Yes" : "No");
 const num = (v: number | null, unit: string) => (v === null ? null : `${v} ${unit}`);
+/** Enum value for display; null → "Not recorded". */
+const en = (v: string | null) => (v ? label(v) : NOT_RECORDED);
 
 function deviceLine(d: Device) {
   const size = `${d.diameter_mm} × ${d.length_mm} mm`;
   const atm = d.inflation_atm ? ` @ ${d.inflation_atm} atm` : "";
   const qty = d.quantity > 1 ? ` ×${d.quantity}` : "";
-  return `${d.product_name} (${label(d.category)}) ${size}${atm}${qty}`;
+  return `${d.product_name} ${size}${atm}${qty}`;
+}
+
+function CulpritTag() {
+  return (
+    <>
+      {" · "}
+      <span className="rounded bg-red-700 px-1.5 py-0.5 text-xs font-semibold text-white">Culprit lesion</span>
+    </>
+  );
 }
 
 export default async function ProcedureDetailPage({ params }: { params: { id: string } }) {
@@ -39,10 +51,7 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
 
   const pt = p.patient;
   const vesselById = new Map(p.vessel_findings.map((v) => [v.id, v]));
-  const vesselName = (id: string) => {
-    const v = vesselById.get(id);
-    return v ? [label(v.vessel), v.segment ? label(v.segment).toLowerCase() : null].filter(Boolean).join(" ") : "—";
-  };
+  const lesionOf = (id: string) => vesselById.get(id);
 
   return (
     <article className="space-y-4">
@@ -55,7 +64,7 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
           <StatusBadge status={p.status} />
         </div>
         <p className="text-slate-700">
-          {label(p.procedure_type)} · {formatDate(p.procedure_date)} · {p.operator?.full_name ?? "Operator not recorded"}
+          {en(p.procedure_type)} · {p.procedure_date ? formatDate(p.procedure_date) : NOT_RECORDED} · {p.operator?.full_name ?? "Operator not recorded"}
         </p>
       </header>
 
@@ -98,19 +107,19 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
             )}
           </>
         ) : (
-          <p>—</p>
+          <p>{NOT_RECORDED}</p>
         )}
       </Section>
 
       <Section title="Presentation">
-        <Facts items={[["Indication", label(p.indication)], ["Troponin elevated", yesNo(p.troponin_elevated)], ["ECG", p.ecg_findings]]} />
-        <p className="mt-3 whitespace-pre-line">{p.presentation_notes ?? "—"}</p>
+        <Facts items={[["Indication", en(p.indication)], ["Troponin elevated", yesNo(p.troponin_elevated)], ["ECG", p.ecg_findings]]} />
+        <p className="mt-3 whitespace-pre-line">{orNotRecorded(p.presentation_notes)}</p>
       </Section>
 
       <Section title="Access">
         <Facts
           items={[
-            ["Access site", label(p.access_site)],
+            ["Access site", en(p.access_site)],
             ["Sheath", p.sheath_size_fr ? `${p.sheath_size_fr}F` : null],
             ["Diagnostic catheters", p.diagnostic_catheters.length ? p.diagnostic_catheters.join(", ") : null],
             ["Guiding catheter", p.guiding_catheter],
@@ -128,16 +137,15 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
               <tr>
                 <th scope="col" className="w-2/5 pb-2 font-medium">Vessel</th>
                 <th scope="col" className="pb-2 font-medium">Stenosis</th>
-                <th scope="col" className="pb-2 font-medium">Flow</th>
+                <th scope="col" className="pb-2 font-medium">Pre-intervention TIMI flow</th>
               </tr>
             </thead>
             <tbody>
               {p.vessel_findings.map((v) => (
                 <tr key={v.id} className={`border-t border-slate-100 align-top ${v.is_culprit ? "bg-red-50" : ""}`}>
                   <td className="py-2 pr-2">
-                    <span className="font-semibold">{label(v.vessel)}</span>
-                    {v.segment && <span className="text-slate-700"> {label(v.segment).toLowerCase()}</span>}
-                    {v.is_culprit && <span className="ml-1 rounded bg-red-700 px-1.5 py-0.5 text-xs font-semibold text-white">Culprit</span>}
+                    <span className="font-semibold">{lesionName(v.vessel, v.segment)}</span>
+                    {v.is_culprit && <CulpritTag />}
                     {v.lesion_notes && <span className="block break-words text-xs text-slate-600">{v.lesion_notes}</span>}
                   </td>
                   <td className="py-2">{v.stenosis_pct === 0 ? "0% (normal)" : `${v.stenosis_pct}%`}</td>
@@ -157,11 +165,22 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
             {p.interventions.map((iv) => (
               <div key={iv.id} className="space-y-3">
                 <h3 className="font-semibold">
-                  {vesselName(iv.vessel_finding_id)} — {label(iv.intervention_type)}
+                  {(() => {
+                    const v = lesionOf(iv.vessel_finding_id);
+                    return v ? (
+                      <>
+                        {lesionName(v.vessel, v.segment)}
+                        {v.is_culprit && <CulpritTag />}
+                      </>
+                    ) : (
+                      NOT_RECORDED
+                    );
+                  })()}
+                  <span className="block text-sm font-normal text-slate-700">{label(iv.intervention_type)}</span>
                 </h3>
                 <Facts
                   items={[
-                    ["Guidewire", iv.guidewire],
+                    ["Guidewire", guidewireText(iv.guidewire)],
                     ["Residual stenosis", `${iv.residual_stenosis_pct}%`],
                     ["Final flow", timi(iv.timi_flow_post)],
                     ["Result", iv.success ? "Successful" : "Not successful"],
@@ -176,7 +195,7 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
                         .filter((d) => d.phase === phase)
                         .map((d) => (
                           <li key={d.id} className="rounded-lg border border-slate-200 p-2 text-sm">
-                            <span className="block text-xs font-semibold uppercase text-slate-600">{label(phase)}</span>
+                            <span className="block text-xs font-semibold uppercase text-slate-600">{phaseHeading(phase, d.category)}</span>
                             <span className="block break-words">{deviceLine(d)}</span>
                             {d.lot_number && <span className="block font-mono text-xs">Lot {d.lot_number}</span>}
                           </li>
@@ -195,11 +214,11 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
         <Facts
           items={[
             ["Contrast", num(p.contrast_volume_ml, "mL")],
-            ["Duration", num(p.procedure_duration_min, "min")],
+            ["Procedure duration", num(p.procedure_duration_min, "min")],
             ["Fluoroscopy", num(p.fluoroscopy_time_min, "min")],
-            ["Radiation dose", num(p.radiation_dose_mgy, "mGy")],
+            ["Radiation dose (mGy)", p.radiation_dose_mgy],
             ["LVEF", p.lvef_pct === null ? null : `${p.lvef_pct}%`],
-            ["Haemostasis", label(p.haemostasis_method)],
+            ["Haemostasis", en(p.haemostasis_method)],
           ]}
         />
       </Section>
@@ -219,7 +238,7 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
       </Section>
 
       <Section title="Final impression">
-        <p className="whitespace-pre-line">{p.outcome_summary ?? "—"}</p>
+        <p className="whitespace-pre-line">{orNotRecorded(p.outcome_summary)}</p>
       </Section>
 
       <Section title="Discharge">
@@ -243,10 +262,13 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
                 <ul className="divide-y divide-slate-100">
                   {p.discharge.discharge_medications.map((m) => (
                     <li key={m.id} className="py-2">
-                      <span className="font-semibold">{m.drug_name}</span>
-                      {m.dose !== null && ` ${m.dose} ${label(m.dose_unit)}`} {label(m.frequency)}
-                      {m.route !== "oral" && ` ${label(m.route)}`}
-                      {m.is_dapt && <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-900">DAPT</span>}
+                      <span>{medicationLine(m)}</span>
+                      {m.is_dapt && (
+                        <>
+                          {" "}
+                          <span className="ml-1 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-900">DAPT</span>
+                        </>
+                      )}
                       {(m.duration || m.purpose) && (
                         <span className="block text-sm text-slate-600">{[m.purpose, m.duration].filter(Boolean).join(" · ")}</span>
                       )}

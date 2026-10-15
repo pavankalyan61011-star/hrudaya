@@ -1,3 +1,5 @@
+import { NOT_RECORDED } from "@/lib/report-format";
+
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="card break-inside-avoid">
@@ -14,7 +16,7 @@ export function Facts({ items }: { items: [string, React.ReactNode][] }) {
       {items.map(([k, v]) => (
         <div key={k} className="flex justify-between gap-3 border-b border-slate-100 pb-1 sm:block sm:border-0 sm:pb-0">
           <dt className="text-sm text-slate-600">{k}</dt>
-          <dd className="text-right font-medium sm:text-left">{v === null || v === undefined || v === "" ? "—" : v}</dd>
+          <dd className="text-right font-medium sm:text-left">{v === null || v === undefined || v === "" ? NOT_RECORDED : v}</dd>
         </div>
       ))}
     </dl>
