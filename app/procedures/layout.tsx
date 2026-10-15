@@ -26,6 +26,10 @@ export default async function ProceduresLayout({ children }: { children: React.R
             </form>
           </div>
         </div>
+        {/* Phones: a slim strip that stays with the sticky header on every screen, form steps included. */}
+        <p className="border-t border-amber-200 bg-amber-100 px-4 py-1 text-center text-xs font-medium text-amber-900 sm:hidden">
+          Synthetic data only — do not enter real patient information
+        </p>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-4">{children}</main>
     </div>

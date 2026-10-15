@@ -13,9 +13,26 @@ export function ErrorBanner({ message }: { message?: string }) {
 }
 
 /** Back + Next, sticky to the bottom of the screen on phones so Next is always reachable. */
-export function StepActions({ backHref, nextLabel = "Save & next", pendingLabel = "Saving…" }: { backHref?: string; nextLabel?: string; pendingLabel?: string }) {
+export function StepActions({
+  backHref,
+  nextLabel = "Save & next",
+  pendingLabel = "Saving…",
+  errorCount = 0,
+}: {
+  backHref?: string;
+  nextLabel?: string;
+  pendingLabel?: string;
+  /** Fields that failed validation on the last save — shown beside the button. */
+  errorCount?: number;
+}) {
   return (
-    <div className="sticky bottom-0 -mx-4 mt-6 flex gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+    <div className="sticky bottom-0 -mx-4 mt-6 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+      {errorCount > 0 && (
+        <p role="status" className="mb-2 text-right text-sm font-medium text-red-700">
+          {errorCount === 1 ? "1 field needs attention" : `${errorCount} fields need attention`}
+        </p>
+      )}
+      <div className="flex gap-3">
       {backHref ? (
         <Link href={backHref} className="btn-secondary flex-1">
           Back
@@ -28,6 +45,7 @@ export function StepActions({ backHref, nextLabel = "Save & next", pendingLabel 
       <SubmitButton className="btn-primary flex-[2]" pendingLabel={pendingLabel}>
         {nextLabel}
       </SubmitButton>
+      </div>
     </div>
   );
 }

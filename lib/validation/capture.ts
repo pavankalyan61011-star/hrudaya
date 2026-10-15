@@ -209,7 +209,7 @@ export const InterventionSchema = z.object({
   guidewire: text,
   residual_stenosis_pct: int(0, 100),
   timi_flow_post: int(0, 3),
-  success: z.boolean(),
+  success: z.boolean({ error: "Choose Successful or Not successful" }), // never defaulted
   dissection: z.boolean(),
   perforation: z.boolean(),
   notes: optionalText,
@@ -268,9 +268,11 @@ export const DetailsStepSchema = z
     haemostasis_method: z.enum(ENUMS.haemostasis_method, { error: "Required" }),
     outcome_summary: text,
     procedure_medications: z.array(ProcedureMedicationSchema),
+    // Explicit choices — the form never defaults these (phone test, 2026-10-15).
+    complications_choice: z.enum(["none", "yes"], { error: "Choose None or Yes" }),
     complications: z.array(ComplicationSchema),
-    post_procedure_condition: optionalEnum(ENUMS.post_procedure_condition),
-    post_procedure_destination: optionalEnum(ENUMS.post_procedure_destination),
+    post_procedure_condition: z.enum(ENUMS.post_procedure_condition, { error: "Required" }),
+    post_procedure_destination: z.enum(ENUMS.post_procedure_destination, { error: "Required" }),
     immediate_care_notes: optionalText,
     lvef_status: z.enum(ENUMS.measurement_status),
     lvef_pct: optionalInt(0, 100),
@@ -285,11 +287,16 @@ export const DetailsStepSchema = z
       ctx.addIssue({ code: "custom", path: ["ended_at"], message: "Must be after the start" });
     }
     threeState(v.lvef_status, v.lvef_pct, ctx, "lvef_pct");
+    if (v.complications_choice === "yes" && v.complications.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["complications_choice"], message: "Add the complication, or choose None" });
+    }
   })
   .transform((v) => {
     const recorded = v.lvef_status === "recorded";
+    const { complications_choice: _choice, ...rest } = v;
     return {
-      ...v,
+      ...rest,
+      complications: v.complications_choice === "none" ? [] : v.complications,
       lvef_pct: recorded ? v.lvef_pct : null,
       lvef_source: recorded ? v.lvef_source : null,
       lvef_measured_on: recorded ? v.lvef_measured_on : null,

@@ -9,6 +9,7 @@ import { EnumSelect } from "@/components/form/enum-select";
 import { TextArea, TextInput } from "@/components/form/text-input";
 import { CheckRow, Segmented } from "@/components/form/yes-no";
 import { ErrorBanner, RemoveButton, StepActions, type StepState } from "@/components/form/form-status";
+import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { saveDetailsStep } from "../actions";
 import { THREE_STATE, type MeasurementStatus } from "./angiography-step";
 
@@ -64,7 +65,11 @@ export type DetailsValues = {
   outcome_summary: string;
 };
 
-type Props = { procedureId: string; initial: DetailsValues; operators: { id: string; full_name: string }[] };
+/** stepSaved: this step was saved before, so zero complications then meant an explicit "None". */
+type Props = { procedureId: string; initial: DetailsValues; operators: { id: string; full_name: string }[]; stepSaved: boolean };
+
+/** ACT is only meaningful after an anticoagulant. */
+const isAnticoagulant = (drug: string) => /heparin|bivalirudin|enoxaparin/i.test(drug);
 
 const blankComplication = (): ComplicationRow => ({
   key: newKey(), complication: "", severity: "", management: "", onset: "", onset_at: "", outcome: "",
@@ -91,11 +96,15 @@ function durationText(start: string, end: string) {
   return min > 0 ? `Procedure duration ${min} min` : undefined;
 }
 
-export function DetailsStep({ procedureId, initial, operators }: Props) {
+export function DetailsStep({ procedureId, initial, operators, stepSaved }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveDetailsStep, {});
+  useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
   const [v, setV] = useState<DetailsValues>(initial);
-  const [hasComplications, setHasComplications] = useState<"none" | "yes">(initial.complications.length > 0 ? "yes" : "none");
+  // No default: a new procedure starts with neither None nor Yes chosen.
+  const [hasComplications, setHasComplications] = useState<"none" | "yes" | "">(
+    initial.complications.length > 0 ? "yes" : stepSaved ? "none" : "",
+  );
   type Scalar = Exclude<keyof DetailsValues, "complications" | "procedure_medications" | "findings_communicated_to_team" | "lvef_status">;
   const set = (k: Scalar) => (x: string) => setV((s) => ({ ...s, [k]: x }));
   const setComplication = (key: string, patch: Partial<ComplicationRow>) =>
@@ -106,8 +115,11 @@ export function DetailsStep({ procedureId, initial, operators }: Props) {
 
   const payload = {
     ...v,
-    procedure_medications: v.procedure_medications.map(({ key: _k, ...m }) => m),
-    complications: hasComplications === "none" ? [] : v.complications.map(({ key: _k, ...c }) => c),
+    procedure_medications: v.procedure_medications.map(({ key: _k, ...m }) =>
+      isAnticoagulant(m.drug_name) ? m : { ...m, act_seconds: "", act_measured_at: "" },
+    ),
+    complications_choice: hasComplications,
+    complications: hasComplications === "yes" ? v.complications.map(({ key: _k, ...c }) => c) : [],
   };
 
   const dt = (k: Scalar, text: string, required = false, hint?: string) => (
@@ -180,12 +192,16 @@ export function DetailsStep({ procedureId, initial, operators }: Props) {
                 <Field label="Given at" htmlFor={id("at")} error={me("administered_at")} className="col-span-2">
                   <TextInput id={id("at")} type="datetime-local" value={m.administered_at} onChange={(x) => setMed(m.key, { administered_at: x })} invalid={!!me("administered_at")} />
                 </Field>
-                <Field label="ACT after dose (s)" htmlFor={id("act")} error={me("act_seconds")}>
-                  <TextInput id={id("act")} inputMode="numeric" value={m.act_seconds} onChange={(x) => setMed(m.key, { act_seconds: x })} invalid={!!me("act_seconds")} />
-                </Field>
-                <Field label="ACT measured at" htmlFor={id("actat")} error={me("act_measured_at")}>
-                  <TextInput id={id("actat")} type="datetime-local" value={m.act_measured_at} onChange={(x) => setMed(m.key, { act_measured_at: x })} invalid={!!me("act_measured_at")} />
-                </Field>
+                {isAnticoagulant(m.drug_name) && (
+                  <>
+                    <Field label="ACT after dose (s)" htmlFor={id("act")} error={me("act_seconds")}>
+                      <TextInput id={id("act")} inputMode="numeric" value={m.act_seconds} onChange={(x) => setMed(m.key, { act_seconds: x })} invalid={!!me("act_seconds")} />
+                    </Field>
+                    <Field label="ACT measured at" htmlFor={id("actat")} error={me("act_measured_at")}>
+                      <TextInput id={id("actat")} type="datetime-local" value={m.act_measured_at} onChange={(x) => setMed(m.key, { act_measured_at: x })} invalid={!!me("act_measured_at")} />
+                    </Field>
+                  </>
+                )}
               </div>
               <Field label="Notes" htmlFor={id("notes")}>
                 <TextInput id={id("notes")} value={m.notes} onChange={(x) => setMed(m.key, { notes: x })} placeholder="e.g. Loading dose, for no-reflow" />
@@ -221,7 +237,7 @@ export function DetailsStep({ procedureId, initial, operators }: Props) {
       </section>
 
       <section className="card space-y-3">
-        <Segmented name="complications" legend="Complications" value={hasComplications}
+        <Segmented name="complications" legend="Complications" value={hasComplications} required error={errors.complications_choice}
           onChange={(x) => {
             setHasComplications(x);
             if (x === "yes" && v.complications.length === 0) setV((s) => ({ ...s, complications: [blankComplication()] }));
@@ -267,13 +283,14 @@ export function DetailsStep({ procedureId, initial, operators }: Props) {
       </section>
 
       <section className="card grid gap-3 sm:grid-cols-2">
-        <h2 className="font-semibold sm:col-span-2">Immediate outcome <span className="text-sm font-normal text-slate-600">(optional)</span></h2>
-        <Field label="Condition" htmlFor="condition">
-          <EnumSelect id="condition" value={v.post_procedure_condition} onChange={set("post_procedure_condition")} options={ENUMS.post_procedure_condition} placeholder="—" />
+        <h2 className="font-semibold sm:col-span-2">Immediate outcome</h2>
+        <Field label="Condition" htmlFor="condition" required error={errors.post_procedure_condition}>
+          <EnumSelect id="condition" value={v.post_procedure_condition} onChange={set("post_procedure_condition")} options={ENUMS.post_procedure_condition}
+            invalid={!!errors.post_procedure_condition} />
         </Field>
-        <Field label="Destination" htmlFor="destination">
-          <EnumSelect id="destination" value={v.post_procedure_destination} onChange={set("post_procedure_destination")}
-            options={ENUMS.post_procedure_destination.map((d) => ({ value: d, label: d === "ccu" ? "CCU" : d === "icu" ? "ICU" : label(d) }))} placeholder="—" />
+        <Field label="Destination" htmlFor="destination" required error={errors.post_procedure_destination}>
+          <EnumSelect id="destination" value={v.post_procedure_destination} onChange={set("post_procedure_destination")} invalid={!!errors.post_procedure_destination}
+            options={ENUMS.post_procedure_destination.map((d) => ({ value: d, label: d === "ccu" ? "CCU" : d === "icu" ? "ICU" : label(d) }))} />
         </Field>
         <Field label="Immediate post-procedure plan" htmlFor="care_notes" className="sm:col-span-2">
           <TextArea id="care_notes" rows={2} value={v.immediate_care_notes} onChange={set("immediate_care_notes")} />
@@ -312,7 +329,7 @@ export function DetailsStep({ procedureId, initial, operators }: Props) {
         </Field>
       </section>
 
-      <StepActions backHref={`/procedures/new?id=${procedureId}&step=4`} />
+      <StepActions errorCount={errorCount(state)} backHref={`/procedures/new?id=${procedureId}&step=4`} />
     </form>
   );
 }

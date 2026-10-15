@@ -8,6 +8,7 @@ import { EnumSelect } from "@/components/form/enum-select";
 import { TextArea, TextInput } from "@/components/form/text-input";
 import { Segmented } from "@/components/form/yes-no";
 import { ErrorBanner, StepActions, type StepState } from "@/components/form/form-status";
+import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { saveIndicationStep } from "../actions";
 
 type YesNoUnknown = "yes" | "no" | "unknown";
@@ -57,6 +58,7 @@ const YES_NO_UNKNOWN = [
 
 export function IndicationStep({ procedureId, initial, operators, facilities }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveIndicationStep, {});
+  useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
   const [v, setV] = useState<IndicationValues>(initial);
   const set = (k: keyof IndicationValues) => (value: string) => setV((s) => ({ ...s, [k]: value }));
@@ -169,7 +171,7 @@ export function IndicationStep({ procedureId, initial, operators, facilities }: 
         </Field>
       </section>
 
-      <StepActions backHref={`/procedures/new?id=${procedureId}&step=1`} />
+      <StepActions errorCount={errorCount(state)} backHref={`/procedures/new?id=${procedureId}&step=1`} />
     </form>
   );
 }

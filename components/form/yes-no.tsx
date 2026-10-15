@@ -3,22 +3,29 @@ type Option<T extends string> = { value: T; label: string };
 type Props<T extends string> = {
   name: string;
   legend: string;
-  value: T;
+  /** "" = nothing chosen yet (no default). */
+  value: T | "";
   onChange: (value: T) => void;
   options: Option<T>[];
+  error?: string;
+  required?: boolean;
 };
 
 /** Segmented choice with large tap targets — used for yes/no style fields. */
-export function Segmented<T extends string>({ name, legend, value, onChange, options }: Props<T>) {
+export function Segmented<T extends string>({ name, legend, value, onChange, options, error, required }: Props<T>) {
+  const errorId = `${name}-error`;
   return (
-    <fieldset>
-      <legend className="label">{legend}</legend>
+    <fieldset aria-describedby={error ? errorId : undefined}>
+      <legend className="label">
+        {legend}
+        {required && <span className="text-red-700"> *</span>}
+      </legend>
       <div className="flex flex-wrap gap-2">
         {options.map((o) => (
           <label
             key={o.value}
-            className={`btn min-w-16 cursor-pointer border text-sm ${
-              value === o.value ? "border-sky-700 bg-sky-700 text-white" : "border-slate-300 bg-white text-slate-800"
+            className={`btn min-w-16 cursor-pointer border text-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky-600 ${
+              value === o.value ? "border-sky-700 bg-sky-700 text-white" : error ? "border-red-600 bg-white text-slate-800" : "border-slate-300 bg-white text-slate-800"
             }`}
           >
             <input
@@ -27,12 +34,18 @@ export function Segmented<T extends string>({ name, legend, value, onChange, opt
               value={o.value}
               checked={value === o.value}
               onChange={() => onChange(o.value)}
+              aria-invalid={error ? true : undefined}
               className="sr-only"
             />
             {o.label}
           </label>
         ))}
       </div>
+      {error && (
+        <p id={errorId} className="mt-1 text-sm text-red-700">
+          {error}
+        </p>
+      )}
     </fieldset>
   );
 }

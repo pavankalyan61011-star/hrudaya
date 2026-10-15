@@ -7,8 +7,9 @@ import { newKey } from "@/lib/client-keys";
 import { Field } from "@/components/form/field";
 import { EnumSelect } from "@/components/form/enum-select";
 import { TextInput } from "@/components/form/text-input";
-import { CheckRow } from "@/components/form/yes-no";
+import { CheckRow, Segmented } from "@/components/form/yes-no";
 import { ErrorBanner, RemoveButton, StepActions, type StepState } from "@/components/form/form-status";
+import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { saveInterventionStep } from "../actions";
 
 export type DeviceRow = {
@@ -32,7 +33,7 @@ export type InterventionRow = {
   guidewire: string;
   residual_stenosis_pct: string;
   timi_flow_post: string;
-  success: boolean;
+  success: boolean | null; // null = not chosen yet; never defaulted
   dissection: boolean;
   perforation: boolean;
   notes: string;
@@ -63,16 +64,41 @@ const blankDevice = (phase: Enums["device_phase"], category: string): DeviceRow 
 
 const blankIntervention = (lesionId: string): InterventionRow => ({
   key: newKey(), vessel_finding_id: lesionId, intervention_type: "", guidewire: "", residual_stenosis_pct: "", timi_flow_post: "",
-  success: true, dissection: false, perforation: false, notes: "", devices: [],
+  success: null, dissection: false, perforation: false, notes: "", devices: [],
 });
+
+/** Everything a device row needs before it can fold away into a one-line summary. */
+const deviceComplete = (d: DeviceRow) =>
+  !!d.category && !!d.product_name.trim() && !!d.diameter_mm.trim() && !!d.length_mm.trim() && !!d.quantity.trim() &&
+  (d.category !== "stent" || !!d.lot_number.trim());
+
+function deviceSummary(d: DeviceRow) {
+  const atm = d.inflation_atm.trim() ? ` @ ${d.inflation_atm} atm` : "";
+  const qty = d.quantity.trim() && d.quantity.trim() !== "1" ? ` ×${d.quantity}` : "";
+  const lot = d.lot_number.trim() ? ` · Lot ${d.lot_number.trim()}` : "";
+  return `${d.product_name} ${d.diameter_mm} × ${d.length_mm} mm${atm}${qty}${lot}`;
+}
 
 export function InterventionStep({ procedureId, diagnosticOnly, lesions, initial }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveInterventionStep, {});
+  useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
   const culprit = lesions.find((l) => l.is_culprit)?.id ?? "";
   const [items, setItems] = useState<InterventionRow[]>(
     initial.length > 0 ? initial : diagnosticOnly ? [] : [blankIntervention(culprit)],
   );
+
+  // Saved rows that are already complete start folded; new rows start open.
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(initial.flatMap((it) => it.devices.filter(deviceComplete).map((d) => d.key))),
+  );
+  const fold = (key: string, on: boolean) =>
+    setCollapsed((s) => {
+      const next = new Set(s);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
 
   const updateItem = (key: string, patch: Partial<InterventionRow>) =>
     setItems((xs) => xs.map((x) => (x.key === key ? { ...x, ...patch } : x)));
@@ -138,8 +164,28 @@ export function InterventionStep({ procedureId, diagnosticOnly, lesions, initial
                       const de = (f: string) => errors[`interventions.${i}.devices.${idx}.${f}`];
                       const id = (f: string) => `d-${d.key}-${f}`;
                       const isStent = d.category === "stent";
+                      const hasError = Object.keys(errors).some((k) => k.startsWith(`interventions.${i}.devices.${idx}.`));
+                      if (collapsed.has(d.key) && deviceComplete(d) && !hasError) {
+                        return (
+                          <div key={d.key} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 pl-3">
+                            <p className="min-w-0 break-words text-sm">
+                              <span className="font-medium">{label(d.category)}</span> · {deviceSummary(d)}
+                            </p>
+                            <button type="button" className="btn-secondary shrink-0 px-3 text-sm" onClick={() => fold(d.key, false)}>
+                              Edit<span className="sr-only"> {d.product_name}</span>
+                            </button>
+                          </div>
+                        );
+                      }
                       return (
-                        <div key={d.key} className="space-y-3 rounded-lg border border-slate-200 p-3">
+                        <div
+                          key={d.key}
+                          className="space-y-3 rounded-lg border border-slate-200 p-3"
+                          onBlur={(ev) => {
+                            // Fold once complete and focus has left the row.
+                            if (!ev.currentTarget.contains(ev.relatedTarget as Node | null) && deviceComplete(d)) fold(d.key, true);
+                          }}
+                        >
                           <div className="flex items-end gap-2">
                             <Field label="Device" htmlFor={id("category")} required error={de("category")} className="flex-1">
                               <EnumSelect id={id("category")} value={d.category} onChange={(x) => updateDevice(it.key, d.key, { category: x })} options={ENUMS.device_category} invalid={!!de("category")} />
@@ -198,8 +244,11 @@ export function InterventionStep({ procedureId, diagnosticOnly, lesions, initial
                   <EnumSelect id={`i-${it.key}-timi`} value={it.timi_flow_post} onChange={(x) => updateItem(it.key, { timi_flow_post: x })} options={TIMI_OPTIONS} invalid={!!e("timi_flow_post")} />
                 </Field>
               </div>
+              <Segmented name={`i-${it.key}-success`} legend="Result" required error={e("success")}
+                value={it.success === null ? "" : it.success ? "yes" : "no"}
+                onChange={(x) => updateItem(it.key, { success: x === "yes" })}
+                options={[{ value: "yes", label: "Successful" }, { value: "no", label: "Not successful" }]} />
               <div>
-                <CheckRow id={`i-${it.key}-success`} checked={it.success} onChange={(c) => updateItem(it.key, { success: c })}>Successful</CheckRow>
                 <CheckRow id={`i-${it.key}-dissection`} checked={it.dissection} onChange={(c) => updateItem(it.key, { dissection: c })}>Dissection</CheckRow>
                 <CheckRow id={`i-${it.key}-perforation`} checked={it.perforation} onChange={(c) => updateItem(it.key, { perforation: c })}>Perforation</CheckRow>
               </div>
@@ -217,7 +266,7 @@ export function InterventionStep({ procedureId, diagnosticOnly, lesions, initial
         </button>
       )}
 
-      <StepActions backHref={`/procedures/new?id=${procedureId}&step=3`} />
+      <StepActions errorCount={errorCount(state)} backHref={`/procedures/new?id=${procedureId}&step=3`} />
     </form>
   );
 }

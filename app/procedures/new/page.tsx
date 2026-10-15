@@ -173,6 +173,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
           <DetailsStep
             procedureId={p.id}
             operators={operators}
+            stepSaved={p.started_at !== null}
             initial={{
               consent_obtained_at: toISTInput(p.consent_obtained_at),
               consent_by_operator_id: p.consent_by_operator_id ?? "",

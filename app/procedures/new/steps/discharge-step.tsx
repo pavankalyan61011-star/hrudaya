@@ -9,6 +9,7 @@ import { EnumSelect } from "@/components/form/enum-select";
 import { TextInput } from "@/components/form/text-input";
 import { CheckRow, Segmented } from "@/components/form/yes-no";
 import { ErrorBanner, RemoveButton, StepActions, type StepState } from "@/components/form/form-status";
+import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { saveDischargeStep } from "../actions";
 
 export type MedicationRow = {
@@ -89,6 +90,7 @@ function Checklist({ name, legend, options, value, onChange }: { name: string; l
 
 export function DischargeStep({ procedureId, initial }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveDischargeStep, {});
+  useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
   const [v, setV] = useState<DischargeValues>(initial);
   const set = (k: "discharged_at" | "dapt_planned_months" | "dapt_review_date" | "clinical_status" | "follow_up_date" | "follow_up_clinic") => (x: string) =>
@@ -201,7 +203,7 @@ export function DischargeStep({ procedureId, initial }: Props) {
         </>
       )}
 
-      <StepActions backHref={`/procedures/new?id=${procedureId}&step=5`} nextLabel="Complete procedure" pendingLabel="Completing…" />
+      <StepActions errorCount={errorCount(state)} backHref={`/procedures/new?id=${procedureId}&step=5`} nextLabel="Complete procedure" pendingLabel="Completing…" />
     </form>
   );
 }

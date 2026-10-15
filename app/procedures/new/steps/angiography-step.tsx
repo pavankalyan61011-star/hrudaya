@@ -9,6 +9,7 @@ import { EnumSelect } from "@/components/form/enum-select";
 import { TextInput } from "@/components/form/text-input";
 import { CheckRow, Segmented } from "@/components/form/yes-no";
 import { ErrorBanner, RemoveButton, StepActions, type StepState } from "@/components/form/form-status";
+import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { saveAngiographyStep } from "../actions";
 
 export type VesselRow = {
@@ -54,13 +55,23 @@ const blankVessel = (): VesselRow => ({
 
 export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy, treatedIds }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveAngiographyStep, {});
+  useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
   const [rows, setRows] = useState<VesselRow[]>(initial);
   const [anatomy, setAnatomy] = useState<AnatomyValues>(initialAnatomy);
   const setA = (k: keyof AnatomyValues) => (x: string) => setAnatomy((s) => ({ ...s, [k]: x }));
 
   const update = (key: string, patch: Partial<VesselRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const payload = { ...anatomy, vessels: rows.map(({ key: _key, ...r }) => r) };
+  // A normal vessel (0%) has no lesion: its lesion-only fields are hidden and saved empty.
+  const isNormal = (r: VesselRow) => r.stenosis_pct.trim() === "0";
+  const payload = {
+    ...anatomy,
+    vessels: rows.map(({ key: _key, ...r }) =>
+      isNormal({ key: "", ...r })
+        ? { ...r, is_culprit: false, lesion_length_mm: "", calcification: "", thrombus: false, bifurcation: false }
+        : r,
+    ),
+  };
 
   return (
     <form action={formAction} className="space-y-4">
@@ -125,21 +136,25 @@ export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy,
                 <EnumSelect id={`v-${r.key}-timi`} value={r.timi_flow} onChange={(x) => update(r.key, { timi_flow: x })} options={TIMI_OPTIONS} invalid={!!e("timi_flow")} />
               </Field>
             </div>
-            <CheckRow id={`v-${r.key}-culprit`} checked={r.is_culprit} onChange={(c) => update(r.key, { is_culprit: c })}>
-              Culprit lesion
-            </CheckRow>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Lesion length (mm)" htmlFor={`v-${r.key}-len`} error={e("lesion_length_mm")}>
-                <TextInput id={`v-${r.key}-len`} inputMode="decimal" value={r.lesion_length_mm} onChange={(x) => update(r.key, { lesion_length_mm: x })} invalid={!!e("lesion_length_mm")} />
-              </Field>
-              <Field label="Calcification" htmlFor={`v-${r.key}-calc`}>
-                <EnumSelect id={`v-${r.key}-calc`} value={r.calcification} onChange={(x) => update(r.key, { calcification: x })} options={ENUMS.calcification_grade} placeholder="—" />
-              </Field>
-            </div>
-            <div className="flex flex-wrap gap-x-6">
-              <CheckRow id={`v-${r.key}-thrombus`} checked={r.thrombus} onChange={(c) => update(r.key, { thrombus: c })}>Thrombus</CheckRow>
-              <CheckRow id={`v-${r.key}-bifurcation`} checked={r.bifurcation} onChange={(c) => update(r.key, { bifurcation: c })}>Bifurcation</CheckRow>
-            </div>
+            {!isNormal(r) && (
+              <>
+                <CheckRow id={`v-${r.key}-culprit`} checked={r.is_culprit} onChange={(c) => update(r.key, { is_culprit: c })}>
+                  Culprit lesion
+                </CheckRow>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Lesion length (mm)" htmlFor={`v-${r.key}-len`} error={e("lesion_length_mm")}>
+                    <TextInput id={`v-${r.key}-len`} inputMode="decimal" value={r.lesion_length_mm} onChange={(x) => update(r.key, { lesion_length_mm: x })} invalid={!!e("lesion_length_mm")} />
+                  </Field>
+                  <Field label="Calcification" htmlFor={`v-${r.key}-calc`}>
+                    <EnumSelect id={`v-${r.key}-calc`} value={r.calcification} onChange={(x) => update(r.key, { calcification: x })} options={ENUMS.calcification_grade} placeholder="—" />
+                  </Field>
+                </div>
+                <div className="flex flex-wrap gap-x-6">
+                  <CheckRow id={`v-${r.key}-thrombus`} checked={r.thrombus} onChange={(c) => update(r.key, { thrombus: c })}>Thrombus</CheckRow>
+                  <CheckRow id={`v-${r.key}-bifurcation`} checked={r.bifurcation} onChange={(c) => update(r.key, { bifurcation: c })}>Bifurcation</CheckRow>
+                </div>
+              </>
+            )}
             <Field label="Lesion notes (optional)" htmlFor={`v-${r.key}-notes`}>
               <TextInput id={`v-${r.key}-notes`} value={r.lesion_notes} onChange={(x) => update(r.key, { lesion_notes: x })} placeholder="Calcification, thrombus, bifurcation…" />
             </Field>
@@ -151,7 +166,7 @@ export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy,
         + Add vessel
       </button>
 
-      <StepActions backHref={`/procedures/new?id=${procedureId}&step=2`} />
+      <StepActions errorCount={errorCount(state)} backHref={`/procedures/new?id=${procedureId}&step=2`} />
     </form>
   );
 }

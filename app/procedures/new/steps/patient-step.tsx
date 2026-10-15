@@ -9,6 +9,7 @@ import { EnumSelect } from "@/components/form/enum-select";
 import { TextInput } from "@/components/form/text-input";
 import { CheckRow } from "@/components/form/yes-no";
 import { ErrorBanner, StepActions, type StepState } from "@/components/form/form-status";
+import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { getPatientRiskFactorsAction, savePatientStep, searchPatientsAction } from "../actions";
 import type { PatientSearchResult } from "@/lib/queries/patients";
 
@@ -26,6 +27,7 @@ const toRiskState = (rows: { factor: RiskFactor; detail: string | null }[]): Ris
 
 export function PatientStep({ procedureId, today, initialPatient }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(savePatientStep, {});
+  useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
 
   const [mode, setMode] = useState<"existing" | "new">("existing");
@@ -109,7 +111,9 @@ export function PatientStep({ procedureId, today, initialPatient }: Props) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="e.g. SYN-MRN-0001"
                 autoComplete="off"
-                className="input"
+                aria-invalid={errors.patient_id ? true : undefined}
+                aria-describedby={errors.patient_id ? "patient-search-error" : undefined}
+                className={`input ${errors.patient_id ? "border-red-600" : ""}`}
               />
             </Field>
           )}
@@ -187,7 +191,7 @@ export function PatientStep({ procedureId, today, initialPatient }: Props) {
         </ul>
       </section>
 
-      <StepActions />
+      <StepActions errorCount={errorCount(state)} />
     </form>
   );
 }
