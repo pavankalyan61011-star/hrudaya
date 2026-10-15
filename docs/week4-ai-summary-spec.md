@@ -18,6 +18,9 @@ The sections below are left as originally written. What was built differs in the
   "Looking after yourself" only with advice, and "Your heart pump" only with an LVEF. In the first
   run the model rightly left out the red-flag section for the 11 seeded discharges that record
   none, and the flat 8/9 rule flagged it. The prompt is unchanged (v1).
+- **§5.1 prompt is now v2.** v1 sometimes wrote "When to come back urgently" with no red flags
+  recorded, and once "Your heart pump" with no LVEF. v2 leaves empty sections out and never says
+  something does not apply. Warnings went from 37 to 0 (`docs/ai-summary.md` → Eval).
 - **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
   400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
 

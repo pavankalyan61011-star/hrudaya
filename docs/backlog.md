@@ -22,6 +22,10 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   (Shockwave IVL), cutting balloon, scoring balloon, high-pressure NC balloon; with a calcium
   severity grade; three-state rule applies. Today a Shockwave balloon can only be recorded as a
   device row. Pairs with the IVUS/OCT item above — same future migration.
+- **Red flags should be required on every discharge — 11 of 19 seeded cases have none.** Found by
+  the Week 4 eval: those leaflets have no "When to come back urgently" section, because prompt v2
+  leaves out what the record does not hold. Needs a validation change, and clinical wording for
+  the existing seeded discharges.
 - **FFR / iFR** — conditional physiology per lesion.
 - **Left ventriculography** — conditional; would become an `lvef_source` that can carry a value.
 - **Mechanical circulatory support** — IABP, Impella, ECMO; conditional.
@@ -37,11 +41,6 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
 
 ## Found while building Week 4 (AI discharge summary)
 
-- **Red flags are optional at discharge.** 11 of the 19 seeded discharges record no red-flag
-  items, so their leaflets have no "When to come back urgently" section. The model rightly
-  invents none, and the audit no longer expects one. Clinically every leaflet should have one:
-  make at least one red flag required on discharge, or default a standard set. This is an owner
-  decision, and needs a validation change and, for the default, clinical sign-off on the wording.
 - **Clinical read-through.** Telugu: Pavan to read five cases. Hindi, Tamil, Kannada and
   Malayalam: no native reader yet. See `docs/ai-summary.md`.
 - **Approved summary on the FHIR Bundle.** An approved summary could be a `DocumentReference` (or

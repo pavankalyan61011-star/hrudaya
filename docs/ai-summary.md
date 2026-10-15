@@ -36,7 +36,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 | Step | File |
 |---|---|
 | Record → PHI-minimal input + sha256 | `lib/summary/input.ts` |
-| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v1"`) |
+| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v2"`) |
 | Claude API call, server-only | `lib/summary/generate.ts` |
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
@@ -55,10 +55,11 @@ the draft.
 builds and runs, and the Generate button is disabled with "AI summary not configured on this
 server".
 
-## The prompt (v1)
+## The prompt (v2)
 
 The same English instructions for every language; `{LANGUAGE}` is filled in. The user message is
-the input JSON and nothing else.
+the input JSON and nothing else. v2 differs from v1 in two places: the sentence after the
+SECTIONS heading, and the last sentence of section 7. The reason is under [Eval](#eval).
 
 ```text
 You write a discharge summary for the patient and their family, from a cardiac catheterisation (cath lab) record, for a hospital in India.
@@ -70,14 +71,14 @@ FACTS
 Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown".
 
 SECTIONS
-Use exactly these sections, in this order, each as a Markdown "## " heading written in {LANGUAGE}. Do not number the headings and add no other headings.
+Use these sections, in this order, each as a Markdown "## " heading written in {LANGUAGE}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.
 1. Why you were in hospital: the diagnosis, in plain words.
 2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel).
 3. What we found: each vessel and its % narrowing, in plain language.
 4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
 5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in {LANGUAGE}). Copy the drug name, the dose with its unit, and the frequency exactly as given. Write "(DAPT)" after the name of each DAPT medicine. Leave "For how long" empty when the record gives no duration. After the table, write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
-7. When to come back urgently: the red-flag items. Add nothing.
+7. When to come back urgently: the red-flag items. Add nothing. If the record has no red_flags, leave this section out entirely.
 8. Follow-up: the follow-up date and clinic.
 9. Your team: the operator and the facility.
 
@@ -111,88 +112,77 @@ scripts. The route tests use a mocked model for 401, 404, 409, 503, 429 and 422.
 ## Eval
 
 `npm run summary:eval` (estimate) → `-- --confirm` (generate) → `-- --reaudit` (re-score saved
-drafts, no model call). Run on 15 Oct 2026: every seeded discharged case × six languages, prompt
-v1, `max_tokens` 3000. **114 scheduled, 114 generated, 0 failed or cut off.** Only
-`claude-sonnet-5-5` answered (the fallback never ran). Flags below are from the current audit.
+drafts, no model call). Each run: every seeded discharged case × six languages (19 × 6 = 114),
+`max_tokens` 3000. Only `claude-sonnet-5-5` answered in either run; the fallback never ran.
 
-**Zero error flags in all 114 drafts:** no missing drug, no extra drug, no invented number and no
-dose mismatch, in any language.
+### Before and after: prompt v1 → v2 (15 Oct 2026)
 
-| Language | Generated | Avg tokens in | Avg tokens out | Max out | Avg $ | With an error flag |
-|---|---|---|---|---|---|---|
-| English | 19 | 1761 | 701 | 811 | 0.0105 | 0 |
-| Telugu | 19 | 1773 | 1352 | 1588 | 0.0171 | 0 |
-| Hindi | 19 | 1773 | 1136 | 1287 | 0.0149 | 0 |
-| Tamil | 19 | 1773 | 1462 | 1642 | 0.0182 | 0 |
-| Kannada | 19 | 1773 | 2275 | 2657 | 0.0263 | 0 |
-| Malayalam | 19 | 1777 | 1667 | 1937 | 0.0202 | 0 |
+| | v1 | v2 |
+|---|---|---|
+| Generated / failed or cut off | 114 / 0 | 114 / 0 |
+| **Error flags** (drug missing/extra, unknown number, dose mismatch) | **0** | **0** |
+| **Warnings** | **37** (all `section_extra`) | **0** |
+| "When to come back" written although the record has no red flags (of 66) | 36 | **0** |
+| "Your heart pump" written although no LVEF is recorded (of 84) | 1 | **0** |
+| English drafts saying something "does not apply" / "was not listed" | 4 | **0** |
+| Cost of the run | $2.04 | $1.98 |
+
+**v1 warnings, by language (before):**
 
 | Flag | en | te | hi | ta | kn | ml | Total |
 |---|---|---|---|---|---|---|---|
 | section_extra | 4 | 6 | 4 | 10 | 6 | 7 | 37 |
 
-| Case | en | te | hi | ta | kn | ml |
-|---|---|---|---|---|---|---|
-| CAG-2026-018 | — | section_extra | section_extra | section_extra | section_extra | section_extra |
-| CAG-2026-019 | — | — | section_extra | section_extra | — | section_extra |
-| PCI-2026-001 | — | — | — | — | — | — |
-| PCI-2026-002 | — | — | — | section_extra | — | section_extra |
-| PCI-2026-003 | — | — | — | — | — | — |
-| PCI-2026-004 | — | — | — | section_extra | — | section_extra |
-| PCI-2026-005 | — | — | — | — | — | — |
-| PCI-2026-006 | — | — | — | section_extra | — | — |
-| PCI-2026-007 | — | — | — | section_extra | section_extra | — |
-| PCI-2026-008 | — | — | — | — | — | — |
-| PCI-2026-009 | section_extra | section_extra | — | section_extra | section_extra | — |
-| PCI-2026-010 | — | — | — | — | — | — |
-| PCI-2026-011 | section_extra | section_extra | — | section_extra | section_extra | section_extra |
-| PCI-2026-012 | section_extra | section_extra | section_extra | section_extra | section_extra | section_extra |
-| PCI-2026-013 | — | — | — | — | — | — |
-| PCI-2026-014 | — | section_extra | — | section_extra | section_extra | section_extra |
-| PCI-2026-015 | — | — | — | — | — | — |
-| PCI-2026-016 | — | section_extra | section_extra | — | — | — |
-| PCI-2026-017 | section_extra | — | — | — | — | — |
+**v2 warnings, by language (after):**
 
-**What the 37 warnings are.** Every one is the same behaviour: the model wrote a section the
-record leaves empty. In 36 the record has no red flags, and the model still wrote "When to come back
-urgently". In one (PCI-2026-017, English) the record has no LVEF, and it wrote "Your heart pump"
-to say the section does not apply. In the same cases the model leaves the section out about half
-the time, which is what the prompt intends. When it does write the section, it usually says the
-record lists no warning signs and adds a general "contact your doctor or the hospital if you feel
-unwell". That sentence is not in the record. It is benign, but it breaks the FACTS rule, and it
-tells the patient "not recorded" in other words.
+| Flag | en | te | hi | ta | kn | ml | Total |
+|---|---|---|---|---|---|---|---|
+| (none) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
-The cause is in the prompt: v1 says what to do with an empty LVEF (section 4), but not with empty
-advice or red flags (sections 6 and 7). **Proposed v2 (not applied, needs owner approval because
-it is a paid re-run, about $2):** "Sections 6 and 7 only when the record has items for them;
-otherwise leave the section out entirely. Never write that something is missing from the
-record." The real fix is in the data: 11 of 19 seeded discharges record no red flags (see
-`docs/backlog.md`).
+**What v1 did.** For a record with no red flags, v1 left the section out about half the time,
+which was the intent. The rest of the time it wrote the heading anyway, usually saying the record
+lists no warning signs and adding a general "contact your doctor or the hospital if you feel
+unwell". That sentence is not in the record. Once (PCI-2026-017, English) it wrote "Your heart
+pump" to say there was no LVEF. v1 told the model what to do with a missing LVEF, but not with
+missing red flags.
 
-The first sample run (PCI-2026-001 at `max_tokens` 1500) is the reason the limit is now 3000;
-see Decisions.
+**v2** says that sections 4 and 7 are left out entirely when the record has nothing for them, and
+that no section may say something does not apply or is not in the record.
+
+**How the zeros were checked.** The audit counts sections from the record. Separately, a script
+read every v2 draft directly: none of the 66 drafts without red flags has the section, none of the
+84 drafts without an LVEF mentions LVEF, and no English draft says "not listed" or "does not
+apply". The same script run on the saved v1 drafts finds 36, 1 and 4, so the zeros are not an
+artefact of the check.
+
+The cost of v2: 11 of the 19 leaflets now have no "When to come back urgently" section at all,
+because their records hold no red flags. That belongs in the data, not the prompt: see
+`docs/backlog.md`, "Red flags should be required on every discharge".
+
+The first sample run (PCI-2026-001 at `max_tokens` 1500) is why the limit is 3000; see
+Decisions.
 
 ## Cost per summary
 
 Price for `claude-sonnet-5-5`: $2 per million input tokens, $10 per million output
-(platform.claude.com, 15 Oct 2026). Input is about 1,770 tokens in every language: the prompt
-and the record JSON. Output is what differs, because Indian scripts take several times more tokens
-per word than English.
+(platform.claude.com, 15 Oct 2026). Input is about 1,830 tokens in every language: the prompt and
+the record JSON. Output is what differs, because Indian scripts take several times more tokens per
+word than English. Prompt v2 figures, with v1 for comparison:
 
-| | Tokens in / out | Cost per summary |
-|---|---|---|
-| **English**, average of 19 | 1,761 / 701 | **$0.0105** (range $0.0081–$0.0118) |
-| **Longest Indian-language case** (PCI-2026-009, Kannada) | 1,847 / 2,657 | **$0.0303** |
-| Telugu, average | 1,773 / 1,352 | $0.0171 |
-| Hindi, average | 1,773 / 1,136 | $0.0149 |
-| Tamil, average | 1,773 / 1,462 | $0.0182 |
-| Kannada, average | 1,773 / 2,275 | $0.0263 |
-| Malayalam, average | 1,777 / 1,667 | $0.0202 |
+| | Tokens in / out (v2) | Cost per summary, v2 | v1 |
+|---|---|---|---|
+| **English**, average of 19 | 1,827 / 683 | **$0.0105** (range $0.0080–$0.0115) | $0.0105 |
+| **Longest Indian-language case** (v2: PCI-2026-012, Kannada) | 1,909 / 2,557 | **$0.0294** | $0.0303 (PCI-2026-009, Kannada) |
+| Telugu, average | 1,839 / 1,319 | $0.0169 | $0.0171 |
+| Hindi, average | 1,839 / 1,066 | $0.0143 | $0.0149 |
+| Tamil, average | 1,839 / 1,358 | $0.0173 | $0.0182 |
+| Kannada, average | 1,839 / 2,188 | $0.0256 | $0.0263 |
+| Malayalam, average | 1,843 / 1,597 | $0.0197 | $0.0202 |
 
-The worst case is about 3× English. Kannada is the longest language throughout. All six languages
-for one case average $0.107. The full eval cost $2.04 (201,946 in / 163,252 out), plus $0.11 for
-the two sample runs before it. Time per summary averages 6 s in English and 9–13 s in the Indian
-languages, 24 s at most. The route allows 60 s.
+The worst case is about 3× English, and Kannada is the longest language in both runs. All six
+languages for one case average $0.104. Spend so far: v1 run $2.04, v2 run $1.98, sample runs
+$0.11. Time per summary averages 5 s in English and 8–13 s in the Indian languages, 18 s at most.
+The route allows 60 s.
 
 ## Clinical read-through
 

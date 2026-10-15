@@ -194,21 +194,32 @@ prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
   red banner reads "AI draft — not reviewed. Do not give to patient." Then audit flags, then Edit
   and approve, then Print. **Print** is `/procedures/<id>/print`: an A4 clinician report (MRN and
   initials only) plus one page per approved summary.
-- **Eval (15 Oct 2026):** 19 seeded discharged cases × 6 languages = 114 drafts, all generated,
-  **0 error flags**. 37 warnings, all one behaviour: a section written for a part of the record
-  that is empty, mostly "When to come back" where no red flags are recorded. A prompt v2 is
-  proposed in the docs.
+- **Eval (15 Oct 2026):** 19 seeded discharged cases × 6 languages = 114 drafts per run, all
+  generated, **0 error flags** in both runs. Prompt v1 had 37 warnings, all one behaviour: it wrote
+  a section for an empty part of the record, mostly "When to come back urgently" with no red flags
+  recorded, often with an added "contact your doctor". Prompt v2 leaves empty sections out:
+  **0 warnings**.
 
-  | Language | Avg output tokens | Cost per summary | Error flags | Warnings |
-  |---|---|---|---|---|
-  | English | 701 | $0.0105 | 0 | 4 |
-  | Telugu | 1,352 | $0.0171 | 0 | 6 |
-  | Hindi | 1,136 | $0.0149 | 0 | 4 |
-  | Tamil | 1,462 | $0.0182 | 0 | 10 |
-  | Kannada | 2,275 | $0.0263 | 0 | 6 |
-  | Malayalam | 1,667 | $0.0202 | 0 | 7 |
+  Before and after, warnings by language:
 
-  Longest Indian-language case: PCI-2026-009 in Kannada, **$0.0303**. Whole eval: $2.04.
+  | Prompt | en | te | hi | ta | kn | ml | Total |
+  |---|---|---|---|---|---|---|---|
+  | v1 (before) | 4 | 6 | 4 | 10 | 6 | 7 | 37 |
+  | v2 (after) | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
+
+  Cost per summary (v2):
+
+  | Language | Avg output tokens | Cost per summary |
+  |---|---|---|
+  | English | 683 | $0.0105 |
+  | Telugu | 1,319 | $0.0169 |
+  | Hindi | 1,066 | $0.0143 |
+  | Tamil | 1,358 | $0.0173 |
+  | Kannada | 2,188 | $0.0256 |
+  | Malayalam | 1,597 | $0.0197 |
+
+  Longest Indian-language case: PCI-2026-012 in Kannada, **$0.0294**, about 3× English. A whole
+  run costs about $2 ($2.04 for v1, $1.98 for v2).
 - **Read by people:** Telugu, pending (Pavan, five cases). Hindi, **Tamil, Kannada and Malayalam
   are not yet read by a native speaker.** The audit checks drugs, doses and numbers; it cannot
   judge the prose.
@@ -236,7 +247,7 @@ From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
   same code path, but not yet through the deployed button.
 - [x] Approve blocked while an error flag exists, and an approved row is immutable (tested locally
   in the browser and against the trigger)
-- [x] Eval: 114 drafts, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra`, zero `number_unknown`
+- [x] Eval: 114 drafts per run, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra` / `number_unknown`; prompt v2 also zero warnings
 - [ ] Print page renders A4 from Chrome on Mac and phone, with glyphs correct in print preview for
   all five Indian scripts. Not yet checked: needs a real print preview.
 - [x] `docs/ai-summary.md` written
