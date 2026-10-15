@@ -99,18 +99,30 @@ type SeedCase = {
     diagnostic_catheters: string[];
     guiding_catheter?: string;
     contrast_volume_ml: number;
+    /** From the case file; used to derive ended_at (duration is not stored since 0006). */
     procedure_duration_min: number;
     fluoroscopy_time_min: number;
-    radiation_dose_mgy?: number;
+    /** Case-file LVEF; stored with lvef_status = recorded (three-state rule). */
     lvef_pct?: number;
     haemostasis_method: Enums["haemostasis_method"];
     outcome_summary: string;
   };
   vessels: SeedVessel[];
   interventions: SeedIntervention[]; // empty for diagnostic-only
-  complications: { complication: Enums["complication_type"]; severity: Enums["complication_severity"]; management: string }[];
+  complications: {
+    complication: Enums["complication_type"];
+    severity: Enums["complication_severity"];
+    management: string;
+    onset?: Enums["complication_onset"];
+    /** Hours after ended_at, when the onset time is known. */
+    onset_after_end_hours?: number;
+    outcome?: string;
+  }[];
+  immediate_care_notes?: string;
+  communication_notes?: string;
   /** null = patient remains admitted; no discharge row. */
   discharge: {
+    /** The stay stated in the case file: discharged_at = admitted_at + this (owner, 0005). */
     length_of_stay_hours: number;
     clinical_status: string;
     /** Days after the PROCEDURE date. */
@@ -248,7 +260,7 @@ const CASES: SeedCase[] = [
         mg("Aspirin", 75, "od", { is_dapt: true }),
         mg("Ticagrelor", 90, "bd", { is_dapt: true }),
         mg("Atorvastatin", 80, "od"),
-        mg("Metoprolol", 25, "bd"),
+        mg("Metoprolol tartrate", 25, "bd"), // tablet BD is tartrate (owner, 0005)
         mg("Pantoprazole", 40, "od"),
       ],
     },
@@ -360,6 +372,9 @@ const CASES: SeedCase[] = [
         severity: "minor", // ASSUMPTION: severity not stated (Hb stable, managed conservatively).
         management:
           "3-cm groin haematoma after sheath removal; compression and observation; haemoglobin stable, ultrasound excluded pseudoaneurysm.",
+        onset: "inpatient",
+        onset_after_end_hours: 3,
+        outcome: "Resolved with compression; no intervention",
       },
     ],
     discharge: {
@@ -509,6 +524,8 @@ const CASES: SeedCase[] = [
         complication: "no_reflow",
         severity: "minor", // ASSUMPTION: severity not stated (transient, resolved with treatment).
         management: "Transient no-reflow, TIMI I; dissection excluded; intracoronary vasodilator treatment restored TIMI III.",
+        onset: "intraprocedural",
+        outcome: "Resolved, TIMI III restored",
       },
     ],
     discharge: {
@@ -810,11 +827,175 @@ const CASES: SeedCase[] = [
     vessels: [v("lmca", "distal", 60, 3), v("lad", "proximal", 90, 3), v("lcx", "proximal", 80, 3), v("rca", "mid", 85, 3)],
     interventions: [],
     complications: [],
+    immediate_care_notes: "Awaiting cardiac surgical review",
+    communication_notes: "Heart Team discussion; CABG recommended; patient and family counselled",
     // Remains admitted: no discharge row. NOT STORED: inpatient medications (aspirin 75 OD, atorvastatin
     // 80 OD, bisoprolol 2.5 OD, isosorbide mononitrate 30 OD) — the schema only holds discharge medications.
     discharge: null,
   },
 ];
+
+// ─── Derived and authored fields (0005–0007) ──────────────────────────────────
+//
+// Two kinds of value are added below to every case:
+//  * DERIVED by the owner's rules (2026-10-15): urgency, admission time, discharge time, review,
+//    consent/time-out, access technique, procedure medications, immediate outcome, communication,
+//    DAPT plan, balloon lot numbers, LVEF/LVEDP status.
+//  * AUTHORED synthetic values that are not in the case files at all: labs, haemodynamics,
+//    radiation, coronary dominance, LVEDP values, start times. These are deliberately invented
+//    for a synthetic demo and are marked ASSUMPTION.
+
+const IST_OFFSET_MIN = 330;
+const at = (date: string, hh: number, mm = 0) =>
+  new Date(`${date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+05:30`);
+const plusMin = (d: Date, min: number) => new Date(d.getTime() + min * 60_000);
+const istDate = (d: Date) => new Date(d.getTime() + IST_OFFSET_MIN * 60_000).toISOString().slice(0, 10);
+
+const caseNo = (c: SeedCase) => Number(c.case_code.slice(-3));
+type Acuity = "stemi" | "urgent" | "elective";
+const acuity = (c: SeedCase): Acuity =>
+  c.procedure.indication === "stemi" ? "stemi"
+  : c.procedure.indication === "nstemi" || c.procedure.indication === "unstable_angina" ? "urgent"
+  : "elective";
+const isPci = (c: SeedCase) => c.procedure.procedure_type !== "diagnostic_angiography";
+const isFemoral = (c: SeedCase) => c.procedure.access_site.endsWith("femoral");
+
+function ageOn(dob: string, on: string) {
+  const [by, bm, bd] = dob.split("-").map(Number);
+  const [y, m, d] = on.split("-").map(Number);
+  return y - by - (m < bm || (m === bm && d < bd) ? 1 : 0);
+}
+
+function timeline(c: SeedCase) {
+  const D = c.procedure.procedure_date;
+  const a = acuity(c);
+  // Owner rule: 08:00 IST on the procedure date, minus 4 h (STEMI) or 1 day (NSTEMI/unstable).
+  const admitted = a === "stemi" ? at(D, 4) : a === "urgent" ? at(addDays(D, -1), 8) : at(D, 8);
+  // ASSUMPTION: start times are not in the case files — STEMI 75 min after arrival, others 10:00 IST.
+  const started = a === "stemi" ? plusMin(admitted, 75) : at(D, 10);
+  const ended = plusMin(started, c.procedure.procedure_duration_min);
+  return { admitted, started, ended };
+}
+
+/** ASSUMPTION: authored synthetic baseline, haemodynamics and radiation — plausible, not from the case files. */
+function authored(c: SeedCase) {
+  const n = caseNo(c);
+  const j = (n * 37) % 11; // deterministic per-case variation, 0–10
+  const male = c.patient.sex === "male";
+  const diabetic = c.risk_factors.some((r) => r.factor === "diabetes_t2" || r.factor === "diabetes_t1");
+  const age = ageOn(c.patient.date_of_birth, c.procedure.procedure_date);
+  const a = acuity(c);
+  const [sys, dia, hr] =
+    a === "stemi" ? [116 + j, 72 + (j % 5), 86 + (j % 8)] : a === "urgent" ? [136 + j, 82 + (j % 6), 76 + (j % 7)] : [130 + j, 78 + (j % 6), 68 + (j % 8)];
+  const LVEDP: Record<number, number> = { 8: 18, 9: 24, 10: 22, 11: 16, 12: 26 };
+  return {
+    allergies: "None known",
+    creatinine_umol_l: (male ? 82 : 64) + j * 2 + (diabetic ? 12 : 0),
+    egfr: Math.round((diabetic ? 70 : 88) - Math.max(0, age - 60) * 0.5 - j * 0.6), // diabetics slightly lower
+    haemoglobin_g_dl: Math.round(((male ? 13.6 : 12.1) + j * 0.12) * 10) / 10,
+    platelets_x10e9_l: 190 + j * 12,
+    baseline_bp_systolic: sys,
+    baseline_bp_diastolic: dia,
+    baseline_heart_rate: hr,
+    aortic_pressure_systolic: sys - 6,
+    aortic_pressure_diastolic: dia - 4,
+    lvedp_mmhg: a === "stemi" ? LVEDP[n] : null,
+    // Owner: right 17, left 2, co-dominant 1. ASSUMPTION: which cases — the two LCX-culprit cases are left.
+    dominance: (n === 6 || n === 11 ? "left" : n === 7 ? "co_dominant" : "right") as Enums["coronary_dominance"],
+    contrast_agent: "Iohexol 350",
+    // Scaled to fluoroscopy time.
+    air_kerma_mgy: Math.round(c.procedure.fluoroscopy_time_min * 85),
+    dap_gy_cm2: Math.round(c.procedure.fluoroscopy_time_min * 65) / 10,
+  };
+}
+
+const VESSEL_UP: Record<Enums["vessel"], string> = {
+  lmca: "LMCA", lad: "LAD", d1: "D1", d2: "D2", lcx: "LCX", om1: "OM1", om2: "OM2", ramus: "Ramus",
+  rca: "RCA", pda: "PDA", plv: "PLV", graft: "graft", other: "other vessel",
+};
+
+/** Owner (0007 item 4): state untreated non-obstructive disease and that it is for medical management. */
+function finalImpression(c: SeedCase) {
+  if (!isPci(c)) return c.procedure.outcome_summary;
+  const treated = new Set(c.interventions.map((i) => i.vessel_index));
+  const mild = c.vessels.filter((v, i) => !treated.has(i) && v.stenosis_pct > 0 && v.stenosis_pct < 50);
+  if (mild.length === 0) return c.procedure.outcome_summary;
+  const items = mild.map(
+    (v) => `${v.segment ? `${v.segment} ` : ""}${VESSEL_UP[v.vessel]} (${v.stenosis_pct === 10 ? "mild irregularities" : `${v.stenosis_pct}%`})`,
+  );
+  const list = items.length === 1 ? items[0] : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  return `${c.procedure.outcome_summary} Non-obstructive disease in ${list} — for medical management.`;
+}
+
+/** Owner (0007 item 4 of the device round): fictional SYN- lot numbers on every balloon too. */
+function withLots(c: SeedCase): SeedIntervention[] {
+  const PREFIX: Partial<Record<Enums["device_category"], string>> = {
+    balloon_sc: "SCB", balloon_nc: "NCB", balloon_scoring: "SCO", balloon_dcb: "DCB", guidewire: "GW", other: "DEV",
+  };
+  let k = 0;
+  const nnn = c.case_code.slice(-3);
+  return c.interventions.map((iv) => ({
+    ...iv,
+    devices: iv.devices.map((d) =>
+      d.lot_number ? d : { ...d, lot_number: `SYN-${PREFIX[d.category] ?? "DEV"}-26${nnn}${String.fromCharCode(97 + k++)}` },
+    ),
+  }));
+}
+
+type ProcMed = {
+  drug_name: string; dose: number | null; dose_unit: Enums["dose_unit"] | null; route: Enums["medication_route"];
+  timing: Enums["medication_timing"]; act_seconds: number | null; notes: string | null;
+  administered_at: string | null; act_measured_at: string | null;
+};
+
+function procedureMeds(c: SeedCase, t: ReturnType<typeof timeline>): ProcMed[] {
+  const n = caseNo(c);
+  const med = (m: Partial<ProcMed> & Pick<ProcMed, "drug_name" | "route" | "timing">): ProcMed => ({
+    dose: null, dose_unit: null, act_seconds: null, notes: null, administered_at: null, act_measured_at: null, ...m,
+  });
+  const out: ProcMed[] = [];
+  if (isPci(c)) {
+    const loadAt = plusMin(t.admitted, 30).toISOString();
+    const p2y12 = c.discharge?.medications.find((m) => /ticagrelor|clopidogrel|prasugrel/i.test(m.drug_name))?.drug_name;
+    const LOAD: Record<string, number> = { Ticagrelor: 180, Clopidogrel: 600, Prasugrel: 60 };
+    if (p2y12) {
+      out.push(med({ drug_name: p2y12, dose: LOAD[p2y12], dose_unit: "mg", route: "oral", timing: "pre_procedure", notes: "Loading dose", administered_at: loadAt }));
+    }
+    // ASSUMPTION (owner 3a): aspirin load for every PCI case except 015, taken as already on aspirin (prior RCA DES).
+    if (n !== 15) {
+      out.push(med({ drug_name: "Aspirin", dose: 300, dose_unit: "mg", route: "oral", timing: "pre_procedure", notes: "Loading dose", administered_at: loadAt }));
+    }
+    // Weight-based dose stored as units/kg (owner 2a) — no total is invented without a weight.
+    out.push(med({
+      drug_name: "Unfractionated heparin", dose: 70, dose_unit: "units_per_kg", route: "iv", timing: "intra_procedure",
+      act_seconds: 250 + ((n * 13) % 51), // owner: 250–300, varied per case
+      administered_at: plusMin(t.started, 10).toISOString(), act_measured_at: plusMin(t.started, 15).toISOString(),
+    }));
+    if (n === 10) {
+      out.push(med({ drug_name: "Intracoronary adenosine", route: "intra_arterial", timing: "intra_procedure", notes: "for no-reflow" }));
+    }
+  }
+  // Every case, at the start of the procedure.
+  out.push(med({ drug_name: "Midazolam", dose: 1, dose_unit: "mg", route: "iv", timing: "intra_procedure", notes: "Sedation", administered_at: t.started.toISOString() }));
+  out.push(med({ drug_name: "Lidocaine 2%", dose: 5, dose_unit: "ml", route: "sc", timing: "intra_procedure", notes: "Local anaesthetic", administered_at: t.started.toISOString() }));
+  return out;
+}
+
+function destination(c: SeedCase): Enums["post_procedure_destination"] {
+  if (c.case_code === "CAG-2026-020") return "ward";
+  const a = acuity(c);
+  return a === "stemi" ? "ccu" : a === "urgent" ? "ward" : "day_case_recovery";
+}
+
+/** Measurement status per the three-state rule (owner, 0007). */
+function lvefFields(c: SeedCase) {
+  if (c.procedure.lvef_pct !== undefined) {
+    // STEMI cases (owner rule) and — ASSUMPTION — CAG-2026-020, whose case file states LVEF 50%:
+    // a stated value cannot be 'not performed', so it is kept as recorded by echo the next day.
+    return { lvef_status: "recorded" as const, lvef_pct: c.procedure.lvef_pct, lvef_source: "echo" as const, lvef_measured_on: addDays(c.procedure.procedure_date, 1) };
+  }
+  return { lvef_status: (isPci(c) ? "not_recorded" : "not_performed") as Enums["measurement_status"], lvef_pct: null, lvef_source: null, lvef_measured_on: null };
+}
 
 // ─── Runner ────────────────────────────────────────────────────────────────────
 
@@ -843,23 +1024,25 @@ function validate(cases: SeedCase[]): string[] {
   const codes = cases.map((c) => c.case_code);
   codes.forEach((code, i) => codes.indexOf(code) !== i && problems.push(`duplicate case code ${code}`));
   for (const c of cases) {
-    for (const iv of c.interventions) {
+    const t = timeline(c);
+    for (const iv of withLots(c)) {
       if (!c.vessels[iv.vessel_index]) problems.push(`${c.case_code}: vessel_index ${iv.vessel_index} out of range`);
       for (const d of iv.devices) {
-        if ((d.category === "stent" || d.category === "balloon_dcb") && !d.lot_number?.startsWith("SYN-")) {
-          problems.push(`${c.case_code}: ${d.category} without a SYN- lot number`);
-        }
+        if (!d.lot_number?.startsWith("SYN-")) problems.push(`${c.case_code}: ${d.category} without a SYN- lot number`);
       }
     }
-    if (c.procedure.procedure_type === "diagnostic_angiography" && c.interventions.length > 0) {
-      problems.push(`${c.case_code}: diagnostic-only case has interventions`);
-    }
+    if (!isPci(c) && c.interventions.length > 0) problems.push(`${c.case_code}: diagnostic-only case has interventions`);
     if (!c.procedure.procedure_date.match(/^2026-(09|10)-/)) problems.push(`${c.case_code}: date outside Sept–Oct 2026`);
+    if (istDate(t.started) !== c.procedure.procedure_date) problems.push(`${c.case_code}: start is not on the procedure date (IST)`);
+    if (c.discharge && plusMin(t.admitted, c.discharge.length_of_stay_hours * 60) <= t.ended) problems.push(`${c.case_code}: discharged before the procedure ended`);
     const meds = c.discharge?.medications ?? [];
     const hasP2y12 = meds.some((m) => /ticagrelor|clopidogrel|prasugrel/i.test(m.drug_name));
     for (const m of meds) {
       const shouldBeDapt = hasP2y12 && /aspirin|ticagrelor|clopidogrel|prasugrel/i.test(m.drug_name);
       if (Boolean(m.is_dapt) !== shouldBeDapt) problems.push(`${c.case_code}: is_dapt wrong on ${m.drug_name}`);
+    }
+    if (isPci(c) && !procedureMeds(c, t).some((m) => m.notes === "Loading dose" && /ticagrelor|clopidogrel|prasugrel/i.test(m.drug_name))) {
+      problems.push(`${c.case_code}: PCI without a P2Y12 loading dose`);
     }
   }
   return problems;
@@ -872,6 +1055,14 @@ async function getOrCreateOperator(db: Db, op: SeedCase["operator"]) {
   );
   if (found.length > 0) return found[0].id;
   return must("insert operator", await db.from("operators").insert(op).select("id").single()).id;
+}
+
+async function getFacility(db: Db) {
+  // Created by migration 0006.
+  return must(
+    "find facility",
+    await db.from("facilities").select("id").eq("name", "Synthetic District Hospital").eq("cath_lab_name", "Cath Lab 1").single(),
+  ).id;
 }
 
 async function getOrCreatePatient(db: Db, c: SeedCase) {
@@ -897,7 +1088,7 @@ async function getOrCreatePatient(db: Db, c: SeedCase) {
   return patientId;
 }
 
-async function insertCaseBody(db: Db, c: SeedCase, procedureId: string) {
+async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operatorId: string, t: ReturnType<typeof timeline>) {
   // One insert per vessel, so each id is known to belong to its row (bulk RETURNING order
   // is not guaranteed by Postgres).
   const vesselIds: string[] = [];
@@ -914,6 +1105,8 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string) {
           timi_flow: v.timi_flow,
           is_culprit: v.is_culprit ?? false,
           lesion_notes: v.lesion_notes ?? null,
+          // Owner: thrombus from the case text (the thrombotic occlusions); nothing else is stated.
+          thrombus: /thromb/i.test(v.lesion_notes ?? ""),
         })
         .select("id")
         .single(),
@@ -921,7 +1114,7 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string) {
     vesselIds.push(row.id);
   }
 
-  for (const iv of c.interventions) {
+  for (const iv of withLots(c)) {
     const intervention = must(
       "insert intervention",
       await db
@@ -965,31 +1158,53 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string) {
     }
   }
 
+  must(
+    "insert procedure medications",
+    await db.from("procedure_medications").insert(procedureMeds(c, t).map((m) => ({ ...m, procedure_id: procedureId }))).select("id"),
+  );
+
   if (c.complications.length > 0) {
     must(
       "insert complications",
       await db
         .from("complications")
-        .insert(c.complications.map((x) => ({ procedure_id: procedureId, ...x })))
+        .insert(
+          c.complications.map(({ onset_after_end_hours, ...x }) => ({
+            procedure_id: procedureId,
+            complication: x.complication,
+            severity: x.severity,
+            management: x.management,
+            onset: x.onset ?? null,
+            onset_at: onset_after_end_hours === undefined ? null : plusMin(t.ended, onset_after_end_hours * 60).toISOString(),
+            outcome: x.outcome ?? null,
+          })),
+        )
         .select("id"),
     );
   }
 
   if (c.discharge) {
     const dis = c.discharge;
+    const dischargedAt = plusMin(t.admitted, dis.length_of_stay_hours * 60);
+    const dischargeDate = istDate(dischargedAt);
+    const p2y12 = dis.medications.find((m) => m.is_dapt && !/aspirin/i.test(m.drug_name));
+    const months = p2y12?.duration ? Number(/^(\d+)\s*month/.exec(p2y12.duration)?.[1]) || null : null;
     const discharge = must(
       "insert discharge",
       await db
         .from("discharges")
         .insert({
           procedure_id: procedureId,
-          discharge_date: addDays(c.procedure.procedure_date, Math.floor(dis.length_of_stay_hours / 24)),
-          length_of_stay_hours: dis.length_of_stay_hours,
+          discharged_at: dischargedAt.toISOString(),
+          discharge_date: dischargeDate,
           clinical_status: dis.clinical_status,
           follow_up_date: addDays(c.procedure.procedure_date, dis.follow_up_after_days),
           follow_up_clinic: dis.follow_up_clinic,
           advice: dis.advice,
           red_flags: dis.red_flags,
+          // Owner: "planned N months" → N; PCI-2026-015's 1-month plan is reviewed 28 days after discharge.
+          dapt_planned_months: months,
+          dapt_review_date: c.case_code === "PCI-2026-015" ? addDays(dischargeDate, 28) : null,
         })
         .select("id")
         .single(),
@@ -1018,28 +1233,75 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string) {
     }
   }
 
-  // Last: the completion trigger checks the record is whole.
+  // The completion trigger checks the record is whole.
   must("complete procedure", await db.from("procedures").update({ status: "completed" }).eq("id", procedureId).select("id").single());
+
+  // Owner: every seeded case reviewed by its primary operator the day after (ASSUMPTION: 09:00 IST).
+  // reviewed_by stays null — there is no signed-in user behind the seed.
+  must(
+    "mark reviewed",
+    await db
+      .from("procedures")
+      .update({ status: "reviewed", reviewing_clinician_id: operatorId, reviewed_at: at(addDays(c.procedure.procedure_date, 1), 9).toISOString() })
+      .eq("id", procedureId)
+      .select("id")
+      .single(),
+  );
 }
 
-async function seedCase(db: Db, c: SeedCase): Promise<"inserted" | "skipped"> {
+async function seedCase(db: Db, c: SeedCase, facilityId: string): Promise<"inserted" | "skipped"> {
   const existing = must("check case", await db.from("procedures").select("id").eq("case_code", c.case_code).limit(1));
   if (existing.length > 0) return "skipped";
 
   const operatorId = await getOrCreateOperator(db, c.operator);
   const patientId = await getOrCreatePatient(db, c);
+  const t = timeline(c);
+  const { procedure_duration_min: _duration, lvef_pct: _lvef, outcome_summary: _summary, ...fields } = c.procedure;
+  const a = authored(c);
+  const n = caseNo(c);
 
   const procedure = must(
     "insert procedure",
     await db
       .from("procedures")
-      .insert({ ...c.procedure, case_code: c.case_code, patient_id: patientId, primary_operator_id: operatorId, status: "draft" })
+      .insert({
+        ...fields,
+        ...a,
+        ...lvefFields(c),
+        lvedp_status: a.lvedp_mmhg === null ? "not_performed" : "recorded",
+        outcome_summary: finalImpression(c),
+        case_code: c.case_code,
+        patient_id: patientId,
+        primary_operator_id: operatorId,
+        facility_id: facilityId,
+        referring_clinician: null,
+        urgency: acuity(c) === "stemi" ? "emergency" : acuity(c) === "urgent" ? "urgent" : "elective",
+        admitted_at: t.admitted.toISOString(),
+        started_at: t.started.toISOString(),
+        ended_at: t.ended.toISOString(),
+        // Owner: consent 30–60 min before start, time-out 5 min before, both by the primary operator.
+        consent_obtained_at: plusMin(t.started, -(30 + ((n * 7) % 31))).toISOString(),
+        consent_by_operator_id: operatorId,
+        timeout_completed_at: plusMin(t.started, -5).toISOString(),
+        timeout_by_operator_id: operatorId,
+        // Owner: ultrasound for the two femoral cases; 2 attempts for 005; femoral sheath out 4 h after.
+        access_ultrasound_guided: isFemoral(c),
+        access_attempts: n === 5 ? 2 : 1,
+        sheath_removed_at: (isFemoral(c) ? plusMin(t.ended, 240) : t.ended).toISOString(),
+        post_procedure_condition: "stable",
+        post_procedure_destination: destination(c),
+        immediate_care_notes: c.immediate_care_notes ?? null,
+        findings_communicated_to_patient_at: plusMin(t.ended, 60).toISOString(),
+        findings_communicated_to_team: true,
+        communication_notes: c.communication_notes ?? null,
+        status: "draft",
+      })
       .select("id")
       .single(),
   );
 
   try {
-    await insertCaseBody(db, c, procedure.id);
+    await insertCaseBody(db, c, procedure.id, operatorId, t);
   } catch (err) {
     // Remove only the procedure this run just created; its children cascade.
     await db.from("procedures").delete().eq("id", procedure.id);
@@ -1063,13 +1325,14 @@ async function main() {
   }
 
   const db = createClient<Database>(url, serviceKey, { auth: { persistSession: false } });
+  const facilityId = await getFacility(db);
 
   let inserted = 0;
   let skipped = 0;
   let failed = 0;
   for (const c of CASES) {
     try {
-      const result = await seedCase(db, c);
+      const result = await seedCase(db, c, facilityId);
       if (result === "inserted") inserted++;
       else skipped++;
       console.log(`${result.padEnd(8)} ${c.case_code}`);
