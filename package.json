@@ -14,7 +14,8 @@
     "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/fhir/*.test.ts lib/summary/input.test.ts lib/summary/audit.test.ts lib/summary/generate.test.ts lib/summary/api.test.ts lib/summary/markdown.test.ts",
     "fhir:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/fhir-validate.ts",
     "fhir:hapi": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/fhir-hapi.ts",
-    "test:seeded": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local lib/summary/input.seeded.test.ts"
+    "test:seeded": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local lib/summary/input.seeded.test.ts",
+    "summary:eval": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/summary-eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.134.0",

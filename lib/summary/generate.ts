@@ -83,6 +83,8 @@ export function createModelCall(apiKey = process.env.ANTHROPIC_API_KEY): ModelCa
       if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
         throw new SummaryModelError("not_configured", "The AI service rejected this server's key");
       }
+      // A 400 names the request parameter at fault (never the prompt text): keep it for diagnosis.
+      if (e instanceof Anthropic.BadRequestError) throw new SummaryModelError("failed", `AI service error 400: ${e.message.slice(0, 300)}`);
       if (e instanceof Anthropic.APIError) throw new SummaryModelError("failed", `AI service error ${e.status ?? ""}`.trim());
       throw new SummaryModelError("failed", "Could not reach the AI service");
     }
