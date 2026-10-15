@@ -14,7 +14,7 @@
  *  - temperature is NOT sent. claude-sonnet-5-5 rejects any non-default sampling value with a 400,
  *    so `temperature: 0` cannot be honoured. It never guaranteed identical output anyway; the
  *    audit, not the sampler, is what holds the draft to the record.
- *  - thinking { type: "between_tools" }: no extended thinking, so the whole 1500-token budget is
+ *  - thinking { type: "between_tools" }: no extended thinking, so the whole token budget is
  *    the draft itself. This is a transcription task over a small JSON record.
  *  - Server-side refusal fallback (`fallbacks: "default"`, beta server-side-fallback-2026-07-01).
  *    If it ever runs, `response.model` names the model that wrote the draft, and that is what is
