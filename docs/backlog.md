@@ -22,10 +22,15 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   (Shockwave IVL), cutting balloon, scoring balloon, high-pressure NC balloon; with a calcium
   severity grade; three-state rule applies. Today a Shockwave balloon can only be recorded as a
   device row. Pairs with the IVUS/OCT item above — same future migration.
-- **Red flags should be required on every discharge — 11 of 19 seeded cases have none.** Found by
-  the Week 4 eval: those leaflets have no "When to come back urgently" section, because prompt v2
-  leaves out what the record does not hold. Needs a validation change, and clinical wording for
-  the existing seeded discharges.
+- **Red flags should be required on every discharge — 11 of 19 seeded cases had none.** Found by
+  the Week 4 eval: those leaflets had no "When to come back urgently" section, because prompt v2
+  leaves out what the record does not hold. The seeded records are now corrected (see "Data
+  corrections" below). Still open: a validation rule, so that a new discharge cannot be saved
+  without red flags.
+- **Urgency category on red flags (emergency vs prompt contact) instead of heading items.** Today
+  the two urgency groups are stored as heading items ending in ":" inside `discharges.red_flags`
+  (owner, 2026-10-15). The report page and the summary prompt both read them by convention. A
+  category per item would need a migration, so the capture form could offer the standard set.
 - **FFR / iFR** — conditional physiology per lesion.
 - **Left ventriculography** — conditional; would become an `lvef_source` that can carry a value.
 - **Mechanical circulatory support** — IABP, Impella, ECMO; conditional.
@@ -69,6 +74,38 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   matters.
 - **`drug_extra` aliases.** A model that writes "glyceryl trinitrate" for a record's "GTN" is
   flagged as an extra drug. Correct but noisy; an alias map would quieten it.
+
+## Data corrections (owner-approved, synthetic records)
+
+- **2026-10-15: red flags and PCI-2026-005 timeline.** Data only, no schema change. Applied to
+  `scripts/seed.ts`, `docs/cases/synthetic-cases-002-020.md` and the live database in one
+  transaction (`supabase/data-corrections/2026-10-15-red-flags-and-005.sql`). The transaction
+  switched the reviewed-record guards off for these statements only and back on before commit; a
+  final check refused to commit unless every count matched. It was rehearsed first on a local
+  copy loaded from the previous seed. There, an ordinary edit was refused again afterwards, and a
+  second run was refused and rolled back.
+  - **Standard red flags** were added to the 11 seeded discharges that had none: 002, 004, 006,
+    007, 009, 011, 012, 014, 016, 018 and 019. That is two urgency headings plus 9 items, worded
+    as in the case docs. 012 uses groin/foot and the rest wrist/hand. 019 says "aspirin" and the
+    rest "blood-thinning tablets". 018 has no antiplatelet, so its bleeding item has no bracket
+    (owner choice).
+  - **PCI-2026-005:**
+    - the access-site haematoma onset moved from 13:49 to 15:10 IST. It had been recorded before
+      the sheath was removed at 14:49;
+    - haemostasis changed from "other" (a seed assumption) to `manual_compression`. The enum
+      allows it, so no backlog item is needed.
+  - **Audit trail:** one `procedure_events` row per corrected procedure (12 in all), event
+    `data_corrected`, with a payload naming the fields changed and "owner-approved synthetic data
+    correction 2026-10-15".
+  - **Verified on production afterwards:**
+    - 0 seeded discharges without red flags, and all 11 texts are identical to the seed builder's;
+    - 005 at 15:10 with `manual_compression`;
+    - 12 events, 0 triggers left disabled;
+    - PCI-2026-021 (user-entered) untouched.
+  - **FHIR:** all 21 reviewed cases still validate with 0 errors. But see the next item: none of
+    the corrected fields is in the Bundle.
+- **FHIR export omits complication onset time, haemostasis method and red flags.** The 005
+  corrections therefore do not reach the Bundle. Map them when the export is next extended.
 
 ## Process
 

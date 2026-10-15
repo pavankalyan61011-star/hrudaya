@@ -145,6 +145,32 @@ const WIRE_NOT_RECORDED = "Not recorded";
 const STATUS_NOT_RECORDED = "Not recorded";
 const OPD = "Cardiology OPD";
 
+/**
+ * Standard red flags (owner-approved data correction, 2026-10-15) for the 11 discharges that had
+ * none. Two urgency groups, each led by its heading item (an item ending in ":"); the report page
+ * shows heading items as sub-headings and the summary prompt keeps items under their heading.
+ * `onBlood` is the bracket on the GI-bleeding item; null leaves the bracket out (CAG-2026-018 is
+ * on no antiplatelet).
+ */
+const RED_FLAGS_EMERGENCY = "Go to the nearest hospital emergency department or call 108 immediately if you have:";
+const RED_FLAGS_CONTACT = "Contact the cardiology team within a day for:";
+function standardRedFlags(site: "wrist" | "groin", onBlood: "blood-thinning tablets" | "aspirin" | null): string[] {
+  const limb = site === "wrist" ? "hand" : "foot";
+  return [
+    RED_FLAGS_EMERGENCY,
+    "Chest pain or pressure lasting more than a few minutes, or coming back",
+    "Severe breathlessness",
+    "Fainting or collapse",
+    `Bleeding from the ${site} puncture site that does not stop after 10 minutes of firm pressure`,
+    "A rapidly growing swelling at the puncture site",
+    `The ${limb} on that side becoming cold, pale, numb or very painful`,
+    RED_FLAGS_CONTACT,
+    "Increasing pain, redness, warmth or discharge at the puncture site",
+    "Fever",
+    onBlood ? `Black or bloody stools, or vomiting blood (you are on ${onBlood})` : "Black or bloody stools, or vomiting blood",
+  ];
+}
+
 const v = (
   vessel: Enums["vessel"],
   segment: Enums["vessel_segment"] | null,
@@ -286,7 +312,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 48, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 14, follow_up_clinic: OPD,
       advice: ["Rehabilitation referral", "Access-site care", "DAPT adherence"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od"), mg("Ramipril", 2.5, "od")],
     },
   },
@@ -342,7 +368,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 72, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 14, follow_up_clinic: OPD,
       advice: ["Smoking cessation", "Rehabilitation", "DAPT adherence"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od"), mg("Ramipril", 2.5, "od")],
     },
   },
@@ -359,8 +385,8 @@ const CASES: SeedCase[] = [
         "NSTEMI; chest pain 10 h, elevated troponin. Radial access unsuitable on ultrasound. History: hypertension, dyslipidaemia; no anticoagulant use.",
       troponin_elevated: true, access_site: "right_femoral", sheath_size_fr: 6, diagnostic_catheters: [],
       contrast_volume_ml: 115, procedure_duration_min: 49, fluoroscopy_time_min: 10.6,
-      // ASSUMPTION: haemostasis method not stated for this femoral case; recorded as "other".
-      haemostasis_method: "other",
+      // Owner correction 2026-10-15: manual compression (was "other", an assumption).
+      haemostasis_method: "manual_compression",
       outcome_summary:
         "PCI to mid RCA with a zotarolimus DES (3.0 × 26 mm) via right femoral access. Final RCA residual <10%, TIMI III. Groin haematoma after sheath removal, managed with compression and observation.",
     },
@@ -373,7 +399,8 @@ const CASES: SeedCase[] = [
         management:
           "3-cm groin haematoma after sheath removal; compression and observation; haemoglobin stable, ultrasound excluded pseudoaneurysm.",
         onset: "inpatient",
-        onset_after_end_hours: 3,
+        // Owner correction 2026-10-15: 15:10 IST, after sheath removal at 14:49 (was 13:49, before it).
+        onset_after_end_hours: 4.35,
         outcome: "Resolved with compression; no intervention",
       },
     ],
@@ -407,7 +434,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 48, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 14, follow_up_clinic: OPD,
       advice: ["Diabetes review", "Rehabilitation referral", "DAPT adherence"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od")],
     },
   },
@@ -433,7 +460,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 48, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 14, follow_up_clinic: OPD,
       advice: ["Rehabilitation referral", "Bleeding precautions", "Access-site care"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Ticagrelor", "12 months with bleeding reassessment"), mg("Atorvastatin", 80, "od"), mg("Amlodipine", 5, "od")],
     },
   },
@@ -491,7 +518,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 96, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 14, follow_up_clinic: OPD,
       advice: ["Rehabilitation referral", "Medication review", "Repeat echocardiogram at 8–12 weeks"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [
         ...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od"), mg("Ramipril", 2.5, "od"), mg("Bisoprolol", 2.5, "od"),
       ],
@@ -560,7 +587,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 72, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 14, follow_up_clinic: OPD,
       advice: ["Rehabilitation", "Smoking cessation", "DAPT adherence"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od")],
     },
   },
@@ -587,7 +614,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 96, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 7, follow_up_clinic: OPD,
       advice: ["Follow-up to arrange LCX management", "Groin care", "Rehabilitation", "DAPT adherence"],
-      red_flags: [],
+      red_flags: standardRedFlags("groin", "blood-thinning tablets"),
       medications: [
         ...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od"), mg("Ramipril", 2.5, "od"), mg("Bisoprolol", 2.5, "od"),
       ],
@@ -645,7 +672,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 24, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["DAPT adherence", "Access-site care", "Activity advice"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od"), gtnPrn()],
     },
   },
@@ -718,7 +745,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 24, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["Activity advice", "Access-site care", "DAPT adherence"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
       medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od"), gtnPrn()],
     },
   },
@@ -775,7 +802,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 6, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["Assess persistent symptoms for microvascular/vasospastic or non-cardiac causes", "Access-site care"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", null),
       medications: [mg("Amlodipine", 5, "od", { duration: "Continue" })],
     },
   },
@@ -802,7 +829,7 @@ const CASES: SeedCase[] = [
     discharge: {
       length_of_stay_hours: 6, clinical_status: STATUS_NOT_RECORDED, follow_up_after_days: 28, follow_up_clinic: OPD,
       advice: ["Risk-factor optimisation", "Symptom reassessment", "Access-site care", "Continue established diabetes therapy"],
-      red_flags: [],
+      red_flags: standardRedFlags("wrist", "aspirin"),
       // Aspirin alone is not DAPT, so is_dapt stays false (source: "no DAPT").
       medications: [mg("Aspirin", 75, "od"), mg("Atorvastatin", 40, "od")],
     },
@@ -1190,7 +1217,7 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
             severity: x.severity,
             management: x.management,
             onset: x.onset ?? null,
-            onset_at: onset_after_end_hours === undefined ? null : plusMin(t.ended, onset_after_end_hours * 60).toISOString(),
+            onset_at: onset_after_end_hours === undefined ? null : plusMin(t.ended, Math.round(onset_after_end_hours * 60)).toISOString(),
             outcome: x.outcome ?? null,
           })),
         )

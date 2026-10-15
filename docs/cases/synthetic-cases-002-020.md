@@ -5,6 +5,32 @@
 > Mix: 6 NSTEMI (002–007) · 5 STEMI (008–012) · 4 stable angina (013–016) · 1 unstable angina (017) · 3 diagnostic-only (018–020).
 > Femoral access: 005, 012 · Two stents: 004, 014 · Drug-coated balloon: 015 · Complications: 005 (haematoma), 010 (no-reflow).
 
+## Owner-approved data corrections (15 Oct 2026)
+
+Applied to `scripts/seed.ts` and the live database, and logged in `docs/backlog.md`.
+
+**Standard red flags** for the 11 discharges that had none (002, 004, 006, 007, 009, 011, 012, 014,
+016, 018, 019). They are stored in this order, with each heading as its own item:
+
+- **Go to the nearest hospital emergency department or call 108 immediately if you have:**
+  - Chest pain or pressure lasting more than a few minutes, or coming back
+  - Severe breathlessness
+  - Fainting or collapse
+  - Bleeding from the [wrist|groin] puncture site that does not stop after 10 minutes of firm pressure
+  - A rapidly growing swelling at the puncture site
+  - The [hand|foot] on that side becoming cold, pale, numb or very painful
+- **Contact the cardiology team within a day for:**
+  - Increasing pain, redness, warmth or discharge at the puncture site
+  - Fever
+  - Black or bloody stools, or vomiting blood (you are on [blood-thinning tablets|aspirin])
+
+The radial cases use wrist and hand, including 006 and 016, which are left radial. 012 (femoral)
+uses groin and foot. 019 says "aspirin" and the rest say "blood-thinning tablets". 018 is on no
+antiplatelet, so its item has no bracket.
+
+**PCI-2026-005:** the haematoma onset is 15:10, after sheath removal at 14:49 (it was recorded
+at 13:49, before removal). Haemostasis is manual compression (it was "other", an assumption).
+
 ## PCI-2026-002 | NSTEMI
 ```text
 64F | NSTEMI; chest pain 12 h, elevated troponin | Right radial 6F
@@ -15,6 +41,7 @@ Final LAD residual <10%, TIMI III. Contrast 105 mL; procedure 46 min; fluoro 9.8
 Complications: none. Haemostasis: radial compression band.
 Discharge 48 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months; atorvastatin 80 OD; ramipril 2.5 OD.
 Follow-up 2 weeks; rehabilitation referral, access-site care and DAPT adherence advice.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-003 | NSTEMI
@@ -39,6 +66,7 @@ LAD: pre-dil 2.0×15 @12 → everolimus DES 3.0×20 @14, lot SYN-DES-260004B →
 Both treated lesions residual <10%, TIMI III. Contrast 165 mL; 74 min; fluoro 17.4 min. Dr Arjun Reddy. No complications; radial band.
 Discharge 72 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months; atorvastatin 80 OD; ramipril 2.5 OD.
 Follow-up 2 weeks; smoking cessation, rehabilitation and DAPT adherence advice.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-005 | NSTEMI — access-site haematoma
@@ -48,7 +76,8 @@ History: hypertension, dyslipidaemia; no anticoagulant use.
 LM normal; LAD mid 40%, LCX normal, both TIMI III; RCA mid 90%, TIMI II (culprit).
 Pre-dil 2.5×15 @10 → zotarolimus DES 3.0×26 @14, lot SYN-DES-260005 → NC 3.25×12 @16.
 Final RCA residual <10%, TIMI III. Contrast 115 mL; procedure 49 min; fluoro 10.6 min. Dr Meera Shah.
-Complication: 3-cm groin haematoma after sheath removal; compression and observation; haemoglobin stable, ultrasound excluded pseudoaneurysm.
+Complication: 3-cm groin haematoma after sheath removal (sheath out 14:49; haematoma 15:10); compression and observation; haemoglobin stable, ultrasound excluded pseudoaneurysm.
+Haemostasis: manual compression.
 Discharge 72 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months with bleeding review; atorvastatin 80 OD; amlodipine 5 OD.
 Access-site review 1 week; cardiology 2 weeks; advice on swelling, bleeding and recurrent chest pain.
 ```
@@ -63,6 +92,7 @@ Final LCX residual <10%, TIMI III. Contrast 95 mL; procedure 41 min; fluoro 8.7 
 Complications: none. Haemostasis: radial compression band.
 Discharge 48 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months; atorvastatin 80 OD.
 Follow-up 2 weeks; diabetes review, rehabilitation referral and DAPT adherence advice.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-007 | NSTEMI
@@ -75,6 +105,7 @@ Final RCA residual <10%, TIMI III. Contrast 90 mL; procedure 43 min; fluoro 9.1 
 Complications: none. Haemostasis: radial compression band.
 Discharge 48 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months with bleeding reassessment; atorvastatin 80 OD; amlodipine 5 OD.
 Follow-up 2 weeks; rehabilitation referral, bleeding precautions and access-site advice.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-008 | Inferior STEMI — primary PCI
@@ -99,6 +130,7 @@ Final LAD residual <10%, TIMI III. Contrast 130 mL; procedure 51 min; fluoro 11.
 Complications: none. Haemostasis: radial band. LVEF 45%; no clinical heart failure.
 Discharge 96 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months; atorvastatin 80 OD; ramipril 2.5 OD; bisoprolol 2.5 OD.
 Follow-up 2 weeks; rehabilitation referral, medication review and repeat echocardiogram at 8–12 weeks.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-010 | Inferior STEMI — primary PCI with no-reflow
@@ -123,6 +155,7 @@ Final LCX residual <10%, TIMI III. Contrast 105 mL; procedure 39 min; fluoro 8.2
 Complications: none. Haemostasis: radial band. LVEF 55%.
 Discharge 72 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months; atorvastatin 80 OD.
 Follow-up 2 weeks; rehabilitation, smoking cessation and DAPT adherence advice.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-012 | Anterior STEMI — primary PCI
@@ -135,6 +168,7 @@ Final LAD residual <10%, TIMI III. Contrast 135 mL; procedure 54 min; fluoro 12.
 Complications: none. Manual compression after sheath removal. LVEF 45%; staged LCX assessment planned.
 Discharge 96 h: aspirin 75 OD + ticagrelor 90 BD, planned 12 months; atorvastatin 80 OD; ramipril 2.5 OD; bisoprolol 2.5 OD.
 Follow-up 1 week to arrange LCX management; groin care, rehabilitation and DAPT adherence advice.
+Red flags: standard set (groin, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-013 | Stable angina
@@ -159,6 +193,7 @@ RCA: pre-dil 2.5×15 @12 → zotarolimus DES 3.5×26 @14, lot SYN-DES-260014B �
 Both residual <10%, TIMI III. Contrast 155 mL; 69 min; fluoro 16.1 min. Dr Arjun Reddy. No complications; radial band.
 Discharge 24 h: aspirin 75 OD + clopidogrel 75 OD, planned 6 months; atorvastatin 40 OD; amlodipine 5 OD; sublingual GTN as needed.
 Follow-up 4 weeks; DAPT adherence, access-site care and activity advice.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-015 | Stable angina — drug-coated balloon
@@ -183,6 +218,7 @@ Final RCA residual <10%, TIMI III. Contrast 80 mL; procedure 35 min; fluoro 7.2 
 Complications: none. Haemostasis: radial compression band.
 Discharge 24 h: aspirin 75 OD + clopidogrel 75 OD, planned 6 months; atorvastatin 40 OD; amlodipine 5 OD; sublingual GTN as needed.
 Follow-up 4 weeks; activity advice, access-site care and DAPT adherence.
+Red flags: standard set (wrist, blood-thinning tablets), owner correction 15 Oct 2026.
 ```
 
 ## PCI-2026-017 | Unstable angina
@@ -207,6 +243,7 @@ Contrast 45 mL; procedure 22 min; fluoro 3.5 min. Dr Arjun Reddy.
 Complications: none. Haemostasis: radial compression band.
 Discharge same day: continue amlodipine 5 OD; no antiplatelet initiated solely for angiography.
 Follow-up 4 weeks; assess persistent symptoms for microvascular/vasospastic or non-cardiac causes; access-site advice.
+Red flags: standard set (wrist, no bracket on the bleeding item), owner correction 15 Oct 2026.
 ```
 
 ## CAG-2026-019 | Diagnostic-only — non-obstructive disease
@@ -219,6 +256,7 @@ Contrast 55 mL; procedure 25 min; fluoro 4.2 min. Dr Meera Shah.
 Complications: none. Haemostasis: radial compression band.
 Discharge same day: aspirin 75 OD after bleeding-risk review; atorvastatin 40 OD; continue established diabetes therapy; no DAPT.
 Follow-up 4 weeks; risk-factor optimisation, symptom reassessment and access-site advice.
+Red flags: standard set (wrist, aspirin), owner correction 15 Oct 2026.
 ```
 
 ## CAG-2026-020 | Diagnostic-only — referred for CABG

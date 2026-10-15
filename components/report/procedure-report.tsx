@@ -55,6 +55,21 @@ function SubHeading({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 mt-4 text-sm font-semibold text-slate-700 first:mt-0">{children}</h3>;
 }
 
+/**
+ * Red flags may carry heading items ending in ":" (urgency groups, owner 2026-10-15; no category
+ * column yet — see backlog). A heading leads the items after it; items before any heading form a
+ * group of their own.
+ */
+export function groupRedFlags(items: string[]) {
+  const groups: { heading: string | null; items: string[] }[] = [];
+  for (const it of items) {
+    if (it.trim().endsWith(":")) groups.push({ heading: it, items: [] });
+    else if (groups.length) groups[groups.length - 1].items.push(it);
+    else groups.push({ heading: null, items: [it] });
+  }
+  return groups.filter((g) => g.heading || g.items.length);
+}
+
 /** "Synthetic Test Patient" → "S. T. P."; words that are not names ("001") are skipped. */
 export function initials(name: string) {
   return name
@@ -433,11 +448,16 @@ export function ProcedureReport({ p, print = false }: { p: ProcedureFull; print?
               </div>
             )}
             {p.discharge.red_flags.length > 0 && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <h3 className="mb-1 text-sm font-semibold text-red-900">Seek emergency care for</h3>
-                <ul className="list-disc space-y-1 pl-5 text-red-950">
-                  {p.discharge.red_flags.map((r) => <li key={r}>{r}</li>)}
-                </ul>
+              <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                <h3 className="text-sm font-semibold text-red-900">When to seek help</h3>
+                {groupRedFlags(p.discharge.red_flags).map((g, i) => (
+                  <div key={i}>
+                    {g.heading && <p className="mb-1 text-sm font-semibold text-red-950">{g.heading}</p>}
+                    <ul className="list-disc space-y-1 pl-5 text-red-950">
+                      {g.items.map((r) => <li key={r}>{r}</li>)}
+                    </ul>
+                  </div>
+                ))}
               </div>
             )}
           </div>
