@@ -69,6 +69,7 @@ export default async function PrintPage({ params, searchParams }: { params: { id
 
       <article className="space-y-4">
         <header className="space-y-1 border-b-2 border-slate-800 pb-3">
+          <SyntheticLine />
           {p.facility && (
             <p className="text-sm font-semibold text-slate-800">
               {p.facility.name} — {p.facility.cath_lab_name}, {p.facility.city}
@@ -92,6 +93,7 @@ export default async function PrintPage({ params, searchParams }: { params: { id
       {approved.map((s) => (
         <article key={s.id} className="print-summary space-y-3 border-t-2 border-slate-800 pt-4 print:border-t-0 print:pt-0">
           <header className="border-b border-slate-300 pb-2">
+            <SyntheticLine />
             <p className="text-sm text-slate-700">
               {p.facility?.name ?? "Hrudaya"} · <span className="font-mono">{p.case_code}</span> · MRN <span className="font-mono">{p.patient?.mrn ?? NOT_RECORDED}</span>
             </p>
@@ -106,4 +108,9 @@ export default async function PrintPage({ params, searchParams }: { params: { id
       ))}
     </div>
   );
+}
+
+/** In the body as well as the @page footer: Safari does not print margin boxes. */
+function SyntheticLine() {
+  return <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">Synthetic data — Hrudaya demo</p>;
 }

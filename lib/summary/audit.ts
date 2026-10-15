@@ -99,8 +99,15 @@ export function auditDraft(input: SummaryInput, draft: string, language: Summary
     }
   }
 
-  // section_missing / section_extra — 8 "##" headings, 9 when LVEF is present.
-  const expected = input.measurements.lvef_pct !== undefined ? 9 : 8;
+  // section_missing / section_extra — the prompt's 9 sections, less those the record leaves empty:
+  // "Your heart pump" needs an LVEF, "Looking after yourself" advice, "When to come back" red flags.
+  // (Spec §5.2 said a flat 8/9; the first eval run showed the model rightly omitting the red-flag
+  // section for the 11 seeded cases that record none, so the count follows the record.)
+  const expected =
+    9 -
+    (input.measurements.lvef_pct === undefined ? 1 : 0) -
+    (input.discharge?.advice.length ? 0 : 1) -
+    (input.discharge?.red_flags.length ? 0 : 1);
   const headings = draft.split("\n").filter((l) => /^##\s+\S/.test(l)).length;
   if (headings < expected) flags.push({ code: "section_missing", severity: "warning", detail: `${headings} sections, expected ${expected}` });
   if (headings > expected) flags.push({ code: "section_extra", severity: "warning", detail: `${headings} sections, expected ${expected}` });

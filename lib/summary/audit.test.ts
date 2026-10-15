@@ -170,6 +170,17 @@ test("section count: 9 with LVEF, 8 without", () => {
   assert.equal(hasErrors(auditDraft(input, noPump, "en")), false);
 });
 
+test("section count follows the record: no red flags or no advice means one section fewer", () => {
+  const noRed = buildSummaryInput(fixture({ discharge: { ...fixture().discharge, red_flags: [] } }));
+  const withoutRed = EN.replace(/## When to come back urgently\n.*\n\n/, "");
+  assert.deepEqual(codes(auditDraft(noRed, withoutRed, "en")), []);
+  assert.deepEqual(codes(auditDraft(noRed, EN, "en")), ["section_extra"]);
+  const noAdvice = buildSummaryInput(fixture({ discharge: { ...fixture().discharge, advice: [] } }));
+  assert.deepEqual(codes(auditDraft(noAdvice, EN.replace(/## Looking after yourself\n.*\n\n/, ""), "en")), []);
+  // With red flags recorded, leaving the section out is still flagged.
+  assert.deepEqual(codes(auditDraft(input, withoutRed, "en")), ["section_missing"]);
+});
+
 test("forbidden phrases are warnings", () => {
   const flags = auditDraft(input, EN.replace("Please stop smoking.", "Please stop smoking. Weight: not recorded. Height N/A."), "en");
   assert.deepEqual(codes(flags), ["forbidden_phrase", "forbidden_phrase"]);

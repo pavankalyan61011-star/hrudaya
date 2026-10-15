@@ -4,6 +4,7 @@
  *   npm run summary:eval                 # estimate only: counts input tokens (free), prints cost, stops
  *   npm run summary:eval -- --confirm    # generates — THIS COSTS REAL MONEY
  *   npm run summary:eval -- --confirm --only PCI-2026-001 --lang te   # a subset
+ *   npm run summary:eval -- --reaudit    # re-score the saved drafts with the current audit (no model call)
  *
  * Reads the database read-only (seeded = created_by is null, reviewed, discharged). Stores nothing
  * in the database. Writes tmp/summaries/<case>.<lang>.md, tmp/summaries/results.json and
@@ -12,13 +13,13 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadProcedureForFhir } from "../lib/fhir/load.ts";
 import { buildSummaryInput, inputHash, type SummaryInput } from "../lib/summary/input.ts";
 import { buildMessages, LANGUAGES, PROMPT_VERSION, SUMMARY_MODEL, type SummaryLanguage } from "../lib/summary/prompt.ts";
 import { createModelCall, draftSummary, MAX_TOKENS, SummaryModelError } from "../lib/summary/generate.ts";
-import type { AuditFlag } from "../lib/summary/audit.ts";
+import { auditDraft, type AuditFlag } from "../lib/summary/audit.ts";
 
 const OUT = "tmp/summaries";
 // claude-sonnet-5-5, per million tokens (platform.claude.com/docs/en/models/overview, 2026-10-15).
@@ -27,6 +28,7 @@ const CONCURRENCY = 3;
 
 const args = process.argv.slice(2);
 const confirm = args.includes("--confirm");
+const reaudit = args.includes("--reaudit");
 const argOf = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
 const only = argOf("--only");
 const langs = (argOf("--lang")?.split(",") ?? Object.keys(LANGUAGES)) as SummaryLanguage[];
@@ -34,7 +36,7 @@ const langs = (argOf("--lang")?.split(",") ?? Object.keys(LANGUAGES)) as Summary
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.");
-if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set (an empty value in the shell also hides .env.local).");
+if (!reaudit && !process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set (an empty value in the shell also hides .env.local).");
 
 const db = createClient(url, key, { auth: { persistSession: false } });
 const { data: rows, error } = await db
@@ -74,7 +76,7 @@ const dollars = (tin: number, tout: number) => (tin * PRICE.in + tout * PRICE.ou
 
 // ─── Estimate (free: the token-counting endpoint does not generate) ───────────
 
-if (!confirm) {
+if (!confirm && !reaudit) {
   const client = new Anthropic();
   const counts = await pool(jobs, 4, async (j) => {
     const { system, messages } = buildMessages(j.input, j.language);
@@ -101,11 +103,30 @@ type Result = {
 };
 
 mkdirSync(OUT, { recursive: true });
+let results: Result[];
+let runAt = new Date().toISOString();
+
+if (reaudit) {
+  // The drafts and token counts from the last run; only the flags are recomputed. A draft whose
+  // record has changed since (different input hash) is reported, not silently re-scored.
+  const saved = JSON.parse(readFileSync(join(OUT, "results.json"), "utf8")) as { at: string; prompt_version: string; results: Result[] };
+  if (saved.prompt_version !== PROMPT_VERSION) throw new Error(`results.json is prompt ${saved.prompt_version}, code is ${PROMPT_VERSION}: re-run, don't re-audit`);
+  runAt = saved.at;
+  const byKey = new Map(jobs.map((j) => [`${j.case_code}.${j.language}`, j]));
+  results = saved.results.map((r) => {
+    const j = byKey.get(`${r.case_code}.${r.language}`);
+    if (!r.ok || !j) return r;
+    if (inputHash(j.input) !== r.input_hash) return { ...r, ok: false, failure: "record changed since generation — not re-audited" };
+    const text = readFileSync(join(OUT, `${r.case_code}.${r.language}.md`), "utf8").replace(/\n$/, "");
+    return { ...r, flags: auditDraft(j.input, text, r.language) };
+  });
+  console.log(`Re-audited ${results.filter((r) => r.ok).length} saved drafts from ${runAt}.`);
+} else {
 const call = createModelCall();
 let consecutiveFailures = 0;
 let stopped = false;
 
-const results = await pool(jobs, CONCURRENCY, async (j, i): Promise<Result> => {
+const runResults = await pool(jobs, CONCURRENCY, async (j, i): Promise<Result> => {
   const base = { case_code: j.case_code, language: j.language, input_hash: inputHash(j.input) };
   if (stopped) return { ...base, ok: false, failure: "not run (stopped after repeated failures)", tokens_in: 0, tokens_out: 0, latency_ms: 0, flags: [] };
   const t0 = Date.now();
@@ -125,7 +146,9 @@ const results = await pool(jobs, CONCURRENCY, async (j, i): Promise<Result> => {
   }
 });
 
-writeFileSync(join(OUT, "results.json"), JSON.stringify({ model: SUMMARY_MODEL, prompt_version: PROMPT_VERSION, at: new Date().toISOString(), results }, null, 2));
+results = runResults;
+writeFileSync(join(OUT, "results.json"), JSON.stringify({ model: SUMMARY_MODEL, prompt_version: PROMPT_VERSION, at: runAt, results }, null, 2));
+}
 
 // ─── Report ───────────────────────────────────────────────────────────────────
 
@@ -140,7 +163,7 @@ const allCodes = [...new Set(ok.flatMap((r) => r.flags.map((f) => f.code)))].sor
 
 const lines: string[] = [];
 lines.push(`# Summary eval — ${SUMMARY_MODEL}, prompt ${PROMPT_VERSION}`, "");
-lines.push(`Run ${new Date().toISOString()}. ${jobs.length} scheduled, ${ok.length} generated, ${results.filter((r) => !r.ok).length} failed or not run.`);
+lines.push(`Run ${runAt}${reaudit ? `, flags re-audited ${new Date().toISOString()}` : ""}. ${results.length} scheduled, ${ok.length} generated, ${results.filter((r) => !r.ok).length} failed or not run.`);
 const models = [...new Set(ok.map((r) => r.model))];
 lines.push(`Models that answered: ${models.join(", ") || "none"}.`, "");
 lines.push(`Billed tokens (all calls, including refused/cut off): ${tin.toLocaleString()} in, ${tout.toLocaleString()} out — $${dollars(tin, tout).toFixed(2)}.`);
