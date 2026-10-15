@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { LANGUAGES, type SummaryLanguage } from "@/lib/summary/prompt";
 import { auditDraft, hasErrors, type AuditFlag } from "@/lib/summary/audit";
 import type { SummaryInput } from "@/lib/summary/input";
 import type { ClientSummary as SummaryRow } from "@/lib/summary/api";
-import { SUMMARY_FONT_VARIABLES, summaryFontFamily } from "@/lib/summary/fonts";
+import { SUMMARY_FONT_VARIABLES } from "@/lib/summary/fonts";
 import { formatDateTime } from "@/lib/report-format";
 import { SummaryMarkdown } from "./summary-markdown";
+import { SummaryEditor } from "./summary-editor";
+import type { SectionKey } from "@/lib/summary/sections";
 
 /** Each language in its own script, so a reader finds theirs without knowing English. */
 const NATIVE: Record<SummaryLanguage, string> = { en: "English", te: "తెలుగు", hi: "हिन्दी", ta: "தமிழ்", kn: "ಕನ್ನಡ", ml: "മലയാളം" };
@@ -47,7 +49,17 @@ export function DischargeSummaryCard(props: Props) {
 
   const versions = useMemo(() => rows.filter((r) => r.language === language).sort((a, b) => b.version - a.version), [rows, language]);
   const current = versions[0] ?? null;
-  const liveFlags = useMemo(() => (editing && input ? auditDraft(input, text, language) : []), [editing, input, text, language]);
+  // The audit re-runs on the text 400 ms after the last edit (spec §6). Until it has caught up,
+  // Approve stays disabled, so nothing is approved against a stale audit; the server re-audits too.
+  const [auditedText, setAuditedText] = useState("");
+  const [editSession, setEditSession] = useState(0);
+  const [, setFocusedSection] = useState<SectionKey>("why");
+  useEffect(() => {
+    const t = setTimeout(() => setAuditedText(text), 400);
+    return () => clearTimeout(t);
+  }, [text]);
+  const auditPending = editing && auditedText !== text;
+  const liveFlags = useMemo(() => (editing && input ? auditDraft(input, auditedText, language) : []), [editing, input, auditedText, language]);
   const operatorName = (id: string | null) => operators.find((o) => o.id === id)?.full_name ?? "a clinician";
 
   if (blocker || !input) {
@@ -94,7 +106,10 @@ export function DischargeSummaryCard(props: Props) {
   }
 
   function startEdit(row: SummaryRow) {
-    setText(row.approved_text ?? row.draft_text);
+    const start = row.approved_text ?? row.draft_text;
+    setText(start);
+    setAuditedText(start);
+    setEditSession((n) => n + 1);
     setError(null);
     setEditing(true);
   }
@@ -225,28 +240,16 @@ export function DischargeSummaryCard(props: Props) {
             </>
           ) : (
             <div className="space-y-3">
-              <div>
-                <label htmlFor="summary-text" className="label">Summary text (Markdown)</label>
-                <textarea
-                  id="summary-text"
-                  lang={language}
-                  className="input min-h-[24rem] leading-relaxed"
-                  style={{ fontFamily: summaryFontFamily(language) }}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  aria-describedby="live-audit"
-                />
-              </div>
-              <div id="live-audit" className={`rounded-lg border p-3 text-sm ${hasErrors(liveFlags) ? "border-red-300 bg-red-50 text-red-950" : "border-slate-200 bg-slate-50 text-slate-800"}`}>
-                <p className="font-medium">
-                  {hasErrors(liveFlags)
-                    ? "Approve is disabled until these errors are fixed:"
-                    : liveFlags.length
-                      ? "No errors. Warnings to check:"
-                      : "Audit of this text: no flags."}
-                </p>
-                {liveFlags.length > 0 && <FlagList flags={liveFlags} />}
-              </div>
+              <SummaryEditor
+                key={`${current.id}:${editSession}`}
+                initialText={text}
+                input={input}
+                language={language}
+                flags={liveFlags}
+                onChange={setText}
+                onFocusSection={setFocusedSection}
+                disabled={busy !== null}
+              />
               <div>
                 <label htmlFor="approving-clinician" className="label">Approving clinician</label>
                 <select id="approving-clinician" className="input min-h-11 sm:w-72" value={clinician} onChange={(e) => setClinician(e.target.value)}>
@@ -260,7 +263,7 @@ export function DischargeSummaryCard(props: Props) {
                 <button
                   type="button"
                   className="btn-primary min-h-11 w-full sm:w-auto"
-                  disabled={busy !== null || hasErrors(liveFlags) || !clinician || !text.trim()}
+                  disabled={busy !== null || auditPending || hasErrors(liveFlags) || !clinician || !text.trim()}
                   onClick={() => save(true)}
                 >
                   {busy === "save" ? "Saving…" : "Approve and save"}
