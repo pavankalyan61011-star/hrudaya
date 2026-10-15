@@ -180,6 +180,84 @@ export type Database = {
           },
         ]
       }
+      discharge_summaries: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_text: string | null
+          approving_clinician_id: string | null
+          audit_flags: Json
+          draft_text: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          input_hash: string
+          language: Database["public"]["Enums"]["summary_language"]
+          model: string
+          procedure_id: string
+          prompt_version: string
+          status: Database["public"]["Enums"]["summary_status"]
+          tokens_in: number | null
+          tokens_out: number | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_text?: string | null
+          approving_clinician_id?: string | null
+          audit_flags?: Json
+          draft_text: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          input_hash: string
+          language: Database["public"]["Enums"]["summary_language"]
+          model: string
+          procedure_id: string
+          prompt_version: string
+          status?: Database["public"]["Enums"]["summary_status"]
+          tokens_in?: number | null
+          tokens_out?: number | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_text?: string | null
+          approving_clinician_id?: string | null
+          audit_flags?: Json
+          draft_text?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          input_hash?: string
+          language?: Database["public"]["Enums"]["summary_language"]
+          model?: string
+          procedure_id?: string
+          prompt_version?: string
+          status?: Database["public"]["Enums"]["summary_status"]
+          tokens_in?: number | null
+          tokens_out?: number | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discharge_summaries_approving_clinician_id_fkey"
+            columns: ["approving_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discharge_summaries_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discharges: {
         Row: {
           advice: string[]
@@ -457,6 +535,7 @@ export type Database = {
           at: string
           event: string
           id: string
+          payload: Json | null
           procedure_id: string
         }
         Insert: {
@@ -464,6 +543,7 @@ export type Database = {
           at?: string
           event: string
           id?: string
+          payload?: Json | null
           procedure_id: string
         }
         Update: {
@@ -471,6 +551,7 @@ export type Database = {
           at?: string
           event?: string
           id?: string
+          payload?: Json | null
           procedure_id?: string
         }
         Relationships: [
@@ -976,6 +1057,8 @@ export type Database = {
         | "prior_mi"
         | "other"
       sex: "male" | "female" | "other"
+      summary_language: "en" | "te" | "hi" | "ta" | "kn" | "ml"
+      summary_status: "draft" | "approved"
       urgency: "elective" | "urgent" | "emergency"
       vessel:
         | "lmca"
@@ -1225,6 +1308,8 @@ export const Constants = {
         "other",
       ],
       sex: ["male", "female", "other"],
+      summary_language: ["en", "te", "hi", "ta", "kn", "ml"],
+      summary_status: ["draft", "approved"],
       urgency: ["elective", "urgent", "emergency"],
       vessel: [
         "lmca",
