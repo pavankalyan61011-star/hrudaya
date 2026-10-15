@@ -60,3 +60,39 @@ body {
     color: rgb(71 85 105);
   }
 }
+
+/* Print report (Week 4 spec §8): A4, 18 mm margins, page numbers and the synthetic-data footer on
+   every page. Margin boxes print in Chrome (desktop and Android); Safari ignores them. */
+@page {
+  size: A4;
+  margin: 18mm;
+  @bottom-left {
+    content: "Synthetic data — Hrudaya demo";
+    font-size: 8pt;
+    color: #334155;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 8pt;
+    color: #334155;
+  }
+}
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+  .print-report .card {
+    border-color: #cbd5e1;
+    padding: 0.5rem 0;
+    border-width: 0 0 1px 0;
+    border-radius: 0;
+  }
+  .print-summary {
+    break-before: page;
+  }
+  /* Two columns of facts on paper even though A4 at 96 dpi is narrower than the sm breakpoint. */
+  .print-report dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
