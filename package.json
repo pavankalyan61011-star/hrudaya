@@ -11,7 +11,9 @@
     "db:types": "supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > lib/database.types.ts",
     "seed": "node --env-file=.env.local scripts/seed.ts",
     "fhir:verify-codes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fhir-verify-codes.ts",
-    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/fhir/*.test.ts"
+    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/fhir/*.test.ts",
+    "fhir:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/fhir-validate.ts",
+    "fhir:hapi": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/fhir-hapi.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -28,6 +28,7 @@ export const SYSTEM = {
   observationCategory: "http://terminology.hl7.org/CodeSystem/observation-category",
   listEmptyReason: "http://terminology.hl7.org/CodeSystem/list-empty-reason",
   attestationMode: "http://hl7.org/fhir/composition-attestation-mode",
+  conditionCategory: "http://terminology.hl7.org/CodeSystem/condition-category",
 } as const;
 
 export type CodeEntry = {
@@ -94,6 +95,11 @@ export const RISK_FACTOR: Record<Enums["risk_factor"], CodeEntry | null> = {
   prior_cabg: sct("399261000", "History of coronary artery bypass grafting"),
   prior_mi: sct("399211009", "History of myocardial infarction"),
   other: null,
+};
+
+export const CONDITION_CATEGORY = {
+  encounterDiagnosis: hl7(SYSTEM.conditionCategory, "encounter-diagnosis", "Encounter Diagnosis", "https://hl7.org/fhir/R4/codesystem-condition-category.html"),
+  problemListItem: hl7(SYSTEM.conditionCategory, "problem-list-item", "Problem List Item", "https://hl7.org/fhir/R4/codesystem-condition-category.html"),
 };
 
 export const CLINICAL_ACTIVE = hl7(SYSTEM.conditionClinical, "active", "Active", "https://hl7.org/fhir/R4/codesystem-condition-clinical.html");

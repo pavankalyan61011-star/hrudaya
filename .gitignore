@@ -153,3 +153,7 @@ next-env.d.ts
 .vercel
 *.pem
 .claude/
+
+# Week 2: validator JAR and FHIR exports (synthetic data)
+tools/
+tmp/

@@ -166,5 +166,7 @@ test("medication given with no recorded time is bounded by its phase, not given 
   const adenosine = resources<{ medicationCodeableConcept: { text: string }; effectiveDateTime?: string; effectivePeriod?: { start?: string; end?: string } }>(b, "MedicationAdministration")
     .find((m) => m.medicationCodeableConcept.text === "Intracoronary adenosine")!;
   assert.equal(adenosine.effectiveDateTime, undefined);
+  assert.equal((adenosine as { dosage?: unknown }).dosage, undefined, "mad-1: no dosage without a dose");
+  assert.match((adenosine as { note?: { text: string }[] }).note?.[0].text ?? "", /Intra-arterial/);
   assert.deepEqual(adenosine.effectivePeriod, { start: "2026-09-30T23:45:00+00:00", end: "2026-10-01T00:30:00+00:00" });
 });

@@ -35,6 +35,7 @@ import type { FhirSource } from "./load.ts";
 import {
   CLINICAL_ACTIVE,
   COMPLICATION,
+  CONDITION_CATEGORY,
   DATA_ABSENT_NOT_PERFORMED,
   DOSE_UNIT_UCUM,
   EMPTY_REASON,
@@ -184,7 +185,7 @@ export function conditionResources(p: P): Condition[] {
       resourceType: "Condition",
       id: ids(p).indication,
       clinicalStatus: { coding: [coding(CLINICAL_ACTIVE)] },
-      category: [{ text: "Indication for procedure" }],
+      category: [{ coding: [coding(CONDITION_CATEGORY.encounterDiagnosis)], text: "Indication for procedure" }],
       code: concept(INDICATION[p.indication], p.indication === "stemi" ? "STEMI" : p.indication === "nstemi" ? "NSTEMI" : humanize(p.indication)),
       subject,
       encounter: ref(ids(p).encounter),
@@ -196,7 +197,7 @@ export function conditionResources(p: P): Condition[] {
       resourceType: "Condition",
       id: r.id,
       clinicalStatus: { coding: [coding(CLINICAL_ACTIVE)] },
-      category: [{ text: "Risk factor" }],
+      category: [{ coding: [coding(CONDITION_CATEGORY.problemListItem)], text: "Risk factor" }],
       code: concept(RISK_FACTOR[r.factor], text),
       subject,
     });
@@ -430,8 +431,9 @@ function threeState(
 }
 
 export function lvefObservation(p: P): Observation | null {
+  // Spec §4.6: the measured time where we have one, otherwise started_at.
   const o = threeState(p, p.lvef_status, ids(p).lvef, OBSERVATION_CATEGORY.imaging, concept(LOINC.lvef, "Left ventricular ejection fraction"),
-    p.lvef_status === "recorded" ? p.lvef_measured_on : null);
+    (p.lvef_status === "recorded" ? p.lvef_measured_on : null) ?? p.started_at);
   if (!o) return null;
   if (p.lvef_status !== "recorded" || p.lvef_pct === null) return o;
   return {
@@ -467,7 +469,7 @@ export function actObservations(p: P): Observation[] {
   return p.procedure_medications
     .filter((m) => m.act_seconds !== null)
     .map((m) => ({
-      ...obsBase(p, stableId(m.id, "act"), OBSERVATION_CATEGORY.laboratory, concept(LOINC.act, "Activated clotting time"), m.act_measured_at),
+      ...obsBase(p, stableId(m.id, "act"), OBSERVATION_CATEGORY.laboratory, concept(LOINC.act, "Activated clotting time"), m.act_measured_at ?? m.administered_at ?? p.started_at),
       valueQuantity: qty(m.act_seconds as number, UCUM.s),
       partOf: [ref(m.id, m.drug_name)],
     }));
@@ -502,7 +504,10 @@ export function medicationAdministrations(p: P): MedicationAdministration[] {
       context: ref(ids(p).encounter),
       ...effective,
       ...(m.notes ? { reasonCode: [{ text: m.notes }] } : {}),
-      dosage: { route: { text: ROUTE_TEXT[m.route] ?? humanize(m.route) }, ...(dose ? { dose } : {}) },
+      // mad-1: a dosage must carry a dose or rate. With no recorded dose, the route goes in a note.
+      ...(dose
+        ? { dosage: { route: { text: ROUTE_TEXT[m.route] ?? humanize(m.route) }, dose } }
+        : { note: [{ text: `Route: ${ROUTE_TEXT[m.route] ?? humanize(m.route)}; dose not recorded` }] }),
     };
   });
 }
