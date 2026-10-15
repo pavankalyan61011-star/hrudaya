@@ -95,6 +95,9 @@ export function fixture(overrides: Record<string, unknown> = {}): FhirSource {
       discharge_date: "2026-10-04",
       follow_up_date: "2026-10-15",
       follow_up_clinic: "Cardiology OPD",
+      clinical_status: "Clinically stable",
+      advice: ["Strict DAPT adherence", "Smoking cessation"],
+      red_flags: ["Recurrent chest pain", "Significant bleeding"],
       dapt_planned_months: 12,
       dapt_review_date: "2027-09-01",
       discharge_medications: [
