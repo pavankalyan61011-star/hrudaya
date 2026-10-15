@@ -73,6 +73,9 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `lib/validation/` | Zod schemas for each form step |
 | `lib/fhir/` | FHIR codes (verified), loader, mapper, export logic and their tests |
 | `docs/fhir-mapping.md` | Hrudaya → FHIR R4 mapping, codes, validation results |
+| `lib/summary/` | AI discharge summary: input builder, prompt, audit, generator, API logic |
+| `docs/ai-summary.md` | The guards, prompt, audit rules, eval and cost |
+| `scripts/summary-eval.ts` | The six-language eval (`npm run summary:eval`) |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
 ## Week 1 definition of done
@@ -173,12 +176,79 @@ From [docs/week2-fhir-spec.md §8](docs/week2-fhir-spec.md):
 - [x] Unit tests on the mapper: three-state Observations, DAPT extension, not-yet-discharged Encounter, device focalDevice links, stable ids on re-export
 - [ ] Pavan can explain the eight resources in two sentences each
 
+## Week 4 — AI discharge summary
+
+A reviewed, discharged procedure can have a **patient discharge summary** drafted by Claude
+(`claude-sonnet-5-5`) in English, Telugu (తెలుగు), Hindi (हिन्दी), Tamil (தமிழ்), Kannada (ಕನ್ನಡ) or
+Malayalam (മലയാളം). The model drafts, the code audits, the clinician signs. Full write-up, with the
+prompt, audit rules and eval: [docs/ai-summary.md](docs/ai-summary.md).
+
+- **Four guards:**
+  1. The model sees structured fields only: no name, DOB, MRN, lot, expiry or UDI.
+  2. A deterministic audit flags every missing or extra drug, every number that is not in the
+     record, and every dose that does not follow its drug.
+  3. Nothing reaches a patient until a named clinician approves. An error flag blocks approval, and
+     an approved row is immutable by trigger.
+  4. Drug names and doses are never translated.
+- **On the report page:** a Discharge summary card. Choose the language, then Generate draft. The
+  red banner reads "AI draft — not reviewed. Do not give to patient." Then audit flags, then Edit
+  and approve, then Print. **Print** is `/procedures/<id>/print`: an A4 clinician report (MRN and
+  initials only) plus one page per approved summary.
+- **Eval (15 Oct 2026):** 19 seeded discharged cases × 6 languages = 114 drafts, all generated,
+  **0 error flags**. 37 warnings, all one behaviour: a section written for a part of the record
+  that is empty, mostly "When to come back" where no red flags are recorded. A prompt v2 is
+  proposed in the docs.
+
+  | Language | Avg output tokens | Cost per summary | Error flags | Warnings |
+  |---|---|---|---|---|
+  | English | 701 | $0.0105 | 0 | 4 |
+  | Telugu | 1,352 | $0.0171 | 0 | 6 |
+  | Hindi | 1,136 | $0.0149 | 0 | 4 |
+  | Tamil | 1,462 | $0.0182 | 0 | 10 |
+  | Kannada | 2,275 | $0.0263 | 0 | 6 |
+  | Malayalam | 1,667 | $0.0202 | 0 | 7 |
+
+  Longest Indian-language case: PCI-2026-009 in Kannada, **$0.0303**. Whole eval: $2.04.
+- **Read by people:** Telugu, pending (Pavan, five cases). Hindi, **Tamil, Kannada and Malayalam
+  are not yet read by a native speaker.** The audit checks drugs, doses and numbers; it cannot
+  judge the prose.
+
+Setup: put `ANTHROPIC_API_KEY` in `.env.local` and in Vercel as a plain environment variable,
+**never** `NEXT_PUBLIC_`. Without it, the app runs and Generate is disabled with the reason shown.
+
+```bash
+npm run summary:eval
+```
+
+This only counts input tokens and prints the estimated cost. Add `-- --confirm` to generate, which
+costs real money (about $2 for all 114). Add `-- --reaudit` to re-score the saved drafts in
+`tmp/summaries/` without calling the model.
+
+## Week 4 definition of done
+
+From [docs/week4-ai-summary-spec.md §9](docs/week4-ai-summary-spec.md):
+
+- [x] Migration 0008 applied on Supabase before the code deploy. The app runs with and without
+  `ANTHROPIC_API_KEY` (the without case was checked locally).
+- [x] `buildSummaryInput` unit-tested: no identifiers in any seeded case, nulls omitted, stable hash
+- [x] `auditDraft` unit-tested on hand-written English and Telugu drafts; `script_check` for all five scripts
+- [ ] Generate works live for PCI-2026-001 in all six languages. Proven by the eval script with the
+  same code path, but not yet through the deployed button.
+- [x] Approve blocked while an error flag exists, and an approved row is immutable (tested locally
+  in the browser and against the trigger)
+- [x] Eval: 114 drafts, `tmp/summaries/report.md`, zero `drug_missing` / `drug_extra`, zero `number_unknown`
+- [ ] Print page renders A4 from Chrome on Mac and phone, with glyphs correct in print preview for
+  all five Indian scripts. Not yet checked: needs a real print preview.
+- [x] `docs/ai-summary.md` written
+- [ ] Pavan's Telugu read-through of five cases; Tamil, Kannada and Malayalam readers
+
 ## Roadmap
 
 - **Week 1 — built and deployed:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases. Remaining checks above.
 - **Week 2 — FHIR R4 export, built:** document Bundle per reviewed procedure, HL7 validator 0 errors, HAPI round-trip. Remaining checks above.
 - **Week 3 — ABDM:** ABHA number and address, Health Information Provider (HIP) integration.
-- **Week 4 — AI discharge summary**, design polish, and tighter row-level security.
+- **Week 4 — AI discharge summary, built:** six languages, audit, clinician approval, print report. Remaining checks above.
+- **Next:** design polish and tighter row-level security.
 
 ## Licence
 

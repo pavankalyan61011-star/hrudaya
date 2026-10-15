@@ -5,6 +5,22 @@
 
 Drop this at `docs/week4-ai-summary-spec.md`. Read `docs/week1-spec.md` §3 and `docs/week2-fhir-spec.md` §3–4 first; the loader from Week 2 (`lib/fhir/load.ts`) is reused.
 
+## Corrections after build (15 Oct 2026)
+
+The sections below are left as originally written. What was built differs in these places:
+
+- **§2 `max_tokens`: 3000, not 1500.** The first eval sample (PCI-2026-001, six languages) was cut
+  off at 1500 for Kannada and Malayalam, and Tamil used 1485. These scripts take about 5.5 tokens a
+  word. 3000 is a ceiling, not a target: English still uses about 800. A draft cut off at the limit
+  is refused and never stored. (Owner decision.)
+- **§5.2 `section_missing` / `section_extra`:** the expected count follows the record. The
+  "When to come back urgently" section is expected only when the record has red flags; likewise
+  "Looking after yourself" only with advice, and "Your heart pump" only with an LVEF. In the first
+  run the model rightly left out the red-flag section for the 11 seeded discharges that record
+  none, and the flat 8/9 rule flagged it. The prompt is unchanged (v1).
+- **§2 `temperature`: not sent.** `claude-sonnet-5-5` rejects any non-default sampling value with a
+  400, so `temperature: 0` cannot be used. Details are in `docs/ai-summary.md` → Decisions.
+
 ---
 
 ## 0. Why this week matters (read this, Pavan)
