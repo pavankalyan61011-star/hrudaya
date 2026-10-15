@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.18"
-  }
   public: {
     Tables: {
       complications: {
@@ -21,6 +16,9 @@ export type Database = {
           created_by: string | null
           id: string
           management: string
+          onset: Database["public"]["Enums"]["complication_onset"] | null
+          onset_at: string | null
+          outcome: string | null
           procedure_id: string
           severity: Database["public"]["Enums"]["complication_severity"]
           updated_at: string
@@ -31,6 +29,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           management: string
+          onset?: Database["public"]["Enums"]["complication_onset"] | null
+          onset_at?: string | null
+          outcome?: string | null
           procedure_id: string
           severity: Database["public"]["Enums"]["complication_severity"]
           updated_at?: string
@@ -41,6 +42,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           management?: string
+          onset?: Database["public"]["Enums"]["complication_onset"] | null
+          onset_at?: string | null
+          outcome?: string | null
           procedure_id?: string
           severity?: Database["public"]["Enums"]["complication_severity"]
           updated_at?: string
@@ -182,11 +186,13 @@ export type Database = {
           clinical_status: string
           created_at: string
           created_by: string | null
+          dapt_planned_months: number | null
+          dapt_review_date: string | null
           discharge_date: string
+          discharged_at: string
           follow_up_clinic: string
           follow_up_date: string
           id: string
-          length_of_stay_hours: number
           procedure_id: string
           red_flags: string[]
           updated_at: string
@@ -196,11 +202,13 @@ export type Database = {
           clinical_status: string
           created_at?: string
           created_by?: string | null
+          dapt_planned_months?: number | null
+          dapt_review_date?: string | null
           discharge_date: string
+          discharged_at: string
           follow_up_clinic: string
           follow_up_date: string
           id?: string
-          length_of_stay_hours: number
           procedure_id: string
           red_flags?: string[]
           updated_at?: string
@@ -210,11 +218,13 @@ export type Database = {
           clinical_status?: string
           created_at?: string
           created_by?: string | null
+          dapt_planned_months?: number | null
+          dapt_review_date?: string | null
           discharge_date?: string
+          discharged_at?: string
           follow_up_clinic?: string
           follow_up_date?: string
           id?: string
-          length_of_stay_hours?: number
           procedure_id?: string
           red_flags?: string[]
           updated_at?: string
@@ -228,6 +238,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      facilities: {
+        Row: {
+          cath_lab_name: string
+          city: string
+          created_at: string
+          created_by: string | null
+          hfr_id: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          cath_lab_name: string
+          city: string
+          created_at?: string
+          created_by?: string | null
+          hfr_id?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          cath_lab_name?: string
+          city?: string
+          created_at?: string
+          created_by?: string | null
+          hfr_id?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       interventions: {
         Row: {
@@ -440,95 +483,297 @@ export type Database = {
           },
         ]
       }
+      procedure_medications: {
+        Row: {
+          act_measured_at: string | null
+          act_seconds: number | null
+          administered_at: string | null
+          created_at: string
+          created_by: string | null
+          dose: number | null
+          dose_unit: Database["public"]["Enums"]["dose_unit"] | null
+          drug_name: string
+          id: string
+          notes: string | null
+          procedure_id: string
+          route: Database["public"]["Enums"]["medication_route"]
+          timing: Database["public"]["Enums"]["medication_timing"]
+          updated_at: string
+        }
+        Insert: {
+          act_measured_at?: string | null
+          act_seconds?: number | null
+          administered_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dose?: number | null
+          dose_unit?: Database["public"]["Enums"]["dose_unit"] | null
+          drug_name: string
+          id?: string
+          notes?: string | null
+          procedure_id: string
+          route: Database["public"]["Enums"]["medication_route"]
+          timing: Database["public"]["Enums"]["medication_timing"]
+          updated_at?: string
+        }
+        Update: {
+          act_measured_at?: string | null
+          act_seconds?: number | null
+          administered_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dose?: number | null
+          dose_unit?: Database["public"]["Enums"]["dose_unit"] | null
+          drug_name?: string
+          id?: string
+          notes?: string | null
+          procedure_id?: string
+          route?: Database["public"]["Enums"]["medication_route"]
+          timing?: Database["public"]["Enums"]["medication_timing"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_medications_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       procedures: {
         Row: {
+          access_attempts: number | null
           access_site: Database["public"]["Enums"]["access_site"] | null
+          access_ultrasound_guided: boolean | null
+          admitted_at: string | null
+          air_kerma_mgy: number | null
+          allergies: string | null
+          aortic_pressure_diastolic: number | null
+          aortic_pressure_systolic: number | null
+          baseline_bp_diastolic: number | null
+          baseline_bp_systolic: number | null
+          baseline_heart_rate: number | null
           case_code: string
+          communication_notes: string | null
+          consent_by_operator_id: string | null
+          consent_obtained_at: string | null
+          contrast_agent: string | null
           contrast_volume_ml: number | null
           created_at: string
           created_by: string | null
+          creatinine_umol_l: number | null
+          dap_gy_cm2: number | null
           diagnostic_catheters: string[]
+          dominance: Database["public"]["Enums"]["coronary_dominance"] | null
           ecg_findings: string | null
+          egfr: number | null
+          ended_at: string | null
+          facility_id: string | null
+          findings_communicated_to_patient_at: string | null
+          findings_communicated_to_team: boolean
           fluoroscopy_time_min: number | null
           guiding_catheter: string | null
+          haemoglobin_g_dl: number | null
           haemostasis_method:
             | Database["public"]["Enums"]["haemostasis_method"]
             | null
           id: string
+          immediate_care_notes: string | null
           indication: Database["public"]["Enums"]["indication"] | null
+          lvedp_mmhg: number | null
+          lvedp_status: Database["public"]["Enums"]["measurement_status"]
+          lvef_measured_on: string | null
           lvef_pct: number | null
+          lvef_source: Database["public"]["Enums"]["lvef_source"] | null
+          lvef_status: Database["public"]["Enums"]["measurement_status"]
           outcome_summary: string | null
           patient_id: string
+          platelets_x10e9_l: number | null
+          post_procedure_condition:
+            | Database["public"]["Enums"]["post_procedure_condition"]
+            | null
+          post_procedure_destination:
+            | Database["public"]["Enums"]["post_procedure_destination"]
+            | null
           presentation_notes: string | null
           primary_operator_id: string | null
           procedure_date: string | null
-          procedure_duration_min: number | null
           procedure_type: Database["public"]["Enums"]["procedure_type"] | null
-          radiation_dose_mgy: number | null
+          referring_clinician: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewing_clinician_id: string | null
+          sheath_removed_at: string | null
           sheath_size_fr: number | null
+          started_at: string | null
           status: Database["public"]["Enums"]["procedure_status"]
+          timeout_by_operator_id: string | null
+          timeout_completed_at: string | null
           troponin_elevated: boolean | null
           updated_at: string
+          urgency: Database["public"]["Enums"]["urgency"] | null
         }
         Insert: {
+          access_attempts?: number | null
           access_site?: Database["public"]["Enums"]["access_site"] | null
+          access_ultrasound_guided?: boolean | null
+          admitted_at?: string | null
+          air_kerma_mgy?: number | null
+          allergies?: string | null
+          aortic_pressure_diastolic?: number | null
+          aortic_pressure_systolic?: number | null
+          baseline_bp_diastolic?: number | null
+          baseline_bp_systolic?: number | null
+          baseline_heart_rate?: number | null
           case_code: string
+          communication_notes?: string | null
+          consent_by_operator_id?: string | null
+          consent_obtained_at?: string | null
+          contrast_agent?: string | null
           contrast_volume_ml?: number | null
           created_at?: string
           created_by?: string | null
+          creatinine_umol_l?: number | null
+          dap_gy_cm2?: number | null
           diagnostic_catheters?: string[]
+          dominance?: Database["public"]["Enums"]["coronary_dominance"] | null
           ecg_findings?: string | null
+          egfr?: number | null
+          ended_at?: string | null
+          facility_id?: string | null
+          findings_communicated_to_patient_at?: string | null
+          findings_communicated_to_team?: boolean
           fluoroscopy_time_min?: number | null
           guiding_catheter?: string | null
+          haemoglobin_g_dl?: number | null
           haemostasis_method?:
             | Database["public"]["Enums"]["haemostasis_method"]
             | null
           id?: string
+          immediate_care_notes?: string | null
           indication?: Database["public"]["Enums"]["indication"] | null
+          lvedp_mmhg?: number | null
+          lvedp_status?: Database["public"]["Enums"]["measurement_status"]
+          lvef_measured_on?: string | null
           lvef_pct?: number | null
+          lvef_source?: Database["public"]["Enums"]["lvef_source"] | null
+          lvef_status?: Database["public"]["Enums"]["measurement_status"]
           outcome_summary?: string | null
           patient_id: string
+          platelets_x10e9_l?: number | null
+          post_procedure_condition?:
+            | Database["public"]["Enums"]["post_procedure_condition"]
+            | null
+          post_procedure_destination?:
+            | Database["public"]["Enums"]["post_procedure_destination"]
+            | null
           presentation_notes?: string | null
           primary_operator_id?: string | null
           procedure_date?: string | null
-          procedure_duration_min?: number | null
           procedure_type?: Database["public"]["Enums"]["procedure_type"] | null
-          radiation_dose_mgy?: number | null
+          referring_clinician?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewing_clinician_id?: string | null
+          sheath_removed_at?: string | null
           sheath_size_fr?: number | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["procedure_status"]
+          timeout_by_operator_id?: string | null
+          timeout_completed_at?: string | null
           troponin_elevated?: boolean | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["urgency"] | null
         }
         Update: {
+          access_attempts?: number | null
           access_site?: Database["public"]["Enums"]["access_site"] | null
+          access_ultrasound_guided?: boolean | null
+          admitted_at?: string | null
+          air_kerma_mgy?: number | null
+          allergies?: string | null
+          aortic_pressure_diastolic?: number | null
+          aortic_pressure_systolic?: number | null
+          baseline_bp_diastolic?: number | null
+          baseline_bp_systolic?: number | null
+          baseline_heart_rate?: number | null
           case_code?: string
+          communication_notes?: string | null
+          consent_by_operator_id?: string | null
+          consent_obtained_at?: string | null
+          contrast_agent?: string | null
           contrast_volume_ml?: number | null
           created_at?: string
           created_by?: string | null
+          creatinine_umol_l?: number | null
+          dap_gy_cm2?: number | null
           diagnostic_catheters?: string[]
+          dominance?: Database["public"]["Enums"]["coronary_dominance"] | null
           ecg_findings?: string | null
+          egfr?: number | null
+          ended_at?: string | null
+          facility_id?: string | null
+          findings_communicated_to_patient_at?: string | null
+          findings_communicated_to_team?: boolean
           fluoroscopy_time_min?: number | null
           guiding_catheter?: string | null
+          haemoglobin_g_dl?: number | null
           haemostasis_method?:
             | Database["public"]["Enums"]["haemostasis_method"]
             | null
           id?: string
+          immediate_care_notes?: string | null
           indication?: Database["public"]["Enums"]["indication"] | null
+          lvedp_mmhg?: number | null
+          lvedp_status?: Database["public"]["Enums"]["measurement_status"]
+          lvef_measured_on?: string | null
           lvef_pct?: number | null
+          lvef_source?: Database["public"]["Enums"]["lvef_source"] | null
+          lvef_status?: Database["public"]["Enums"]["measurement_status"]
           outcome_summary?: string | null
           patient_id?: string
+          platelets_x10e9_l?: number | null
+          post_procedure_condition?:
+            | Database["public"]["Enums"]["post_procedure_condition"]
+            | null
+          post_procedure_destination?:
+            | Database["public"]["Enums"]["post_procedure_destination"]
+            | null
           presentation_notes?: string | null
           primary_operator_id?: string | null
           procedure_date?: string | null
-          procedure_duration_min?: number | null
           procedure_type?: Database["public"]["Enums"]["procedure_type"] | null
-          radiation_dose_mgy?: number | null
+          referring_clinician?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewing_clinician_id?: string | null
+          sheath_removed_at?: string | null
           sheath_size_fr?: number | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["procedure_status"]
+          timeout_by_operator_id?: string | null
+          timeout_completed_at?: string | null
           troponin_elevated?: boolean | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["urgency"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "procedures_consent_by_operator_id_fkey"
+            columns: ["consent_by_operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procedures_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "procedures_patient_id_fkey"
             columns: ["patient_id"]
@@ -543,44 +788,76 @@ export type Database = {
             referencedRelation: "operators"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "procedures_reviewing_clinician_id_fkey"
+            columns: ["reviewing_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procedures_timeout_by_operator_id_fkey"
+            columns: ["timeout_by_operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vessel_findings: {
         Row: {
+          bifurcation: boolean
+          calcification:
+            | Database["public"]["Enums"]["calcification_grade"]
+            | null
           created_at: string
           created_by: string | null
           id: string
           is_culprit: boolean
+          lesion_length_mm: number | null
           lesion_notes: string | null
           procedure_id: string
           segment: Database["public"]["Enums"]["vessel_segment"] | null
           stenosis_pct: number
+          thrombus: boolean
           timi_flow: number
           updated_at: string
           vessel: Database["public"]["Enums"]["vessel"]
         }
         Insert: {
+          bifurcation?: boolean
+          calcification?:
+            | Database["public"]["Enums"]["calcification_grade"]
+            | null
           created_at?: string
           created_by?: string | null
           id?: string
           is_culprit?: boolean
+          lesion_length_mm?: number | null
           lesion_notes?: string | null
           procedure_id: string
           segment?: Database["public"]["Enums"]["vessel_segment"] | null
           stenosis_pct: number
+          thrombus?: boolean
           timi_flow: number
           updated_at?: string
           vessel: Database["public"]["Enums"]["vessel"]
         }
         Update: {
+          bifurcation?: boolean
+          calcification?:
+            | Database["public"]["Enums"]["calcification_grade"]
+            | null
           created_at?: string
           created_by?: string | null
           id?: string
           is_culprit?: boolean
+          lesion_length_mm?: number | null
           lesion_notes?: string | null
           procedure_id?: string
           segment?: Database["public"]["Enums"]["vessel_segment"] | null
           stenosis_pct?: number
+          thrombus?: boolean
           timi_flow?: number
           updated_at?: string
           vessel?: Database["public"]["Enums"]["vessel"]
@@ -611,6 +888,8 @@ export type Database = {
         | "right_ulnar"
         | "left_ulnar"
         | "other"
+      calcification_grade: "none" | "mild" | "moderate" | "severe"
+      complication_onset: "intraprocedural" | "inpatient"
       complication_severity: "minor" | "major"
       complication_type:
         | "dissection"
@@ -624,6 +903,7 @@ export type Database = {
         | "stroke"
         | "death"
         | "other"
+      coronary_dominance: "right" | "left" | "co_dominant"
       device_category:
         | "stent"
         | "balloon_sc"
@@ -634,7 +914,7 @@ export type Database = {
         | "balloon_scoring"
       device_phase: "pre_dilation" | "deployment" | "post_dilation" | "other"
       dose_frequency: "od" | "bd" | "tds" | "qds" | "prn" | "weekly"
-      dose_unit: "mg" | "mcg" | "g" | "ml" | "iu"
+      dose_unit: "mg" | "mcg" | "g" | "ml" | "iu" | "units" | "units_per_kg"
       haemostasis_method:
         | "radial_compression_band"
         | "manual_compression"
@@ -657,13 +937,29 @@ export type Database = {
         | "thrombectomy"
         | "rotational_atherectomy"
         | "other"
-      medication_route: "oral" | "sc" | "iv" | "topical" | "sublingual"
+      lvef_source: "echo" | "ventriculography" | "mri" | "other"
+      measurement_status: "not_recorded" | "not_performed" | "recorded"
+      medication_route:
+        | "oral"
+        | "sc"
+        | "iv"
+        | "topical"
+        | "sublingual"
+        | "intra_arterial"
+      medication_timing: "pre_procedure" | "intra_procedure" | "post_procedure"
       operator_role:
         | "interventional_cardiologist"
         | "fellow"
         | "cath_lab_technologist"
         | "nurse"
-      procedure_status: "draft" | "completed"
+      post_procedure_condition: "stable" | "unstable" | "deceased"
+      post_procedure_destination:
+        | "ward"
+        | "ccu"
+        | "icu"
+        | "day_case_recovery"
+        | "transferred"
+      procedure_status: "draft" | "completed" | "reviewed"
       procedure_type: "diagnostic_angiography" | "pci" | "angiography_and_pci"
       risk_factor:
         | "hypertension"
@@ -680,6 +976,7 @@ export type Database = {
         | "prior_mi"
         | "other"
       sex: "male" | "female" | "other"
+      urgency: "elective" | "urgent" | "emergency"
       vessel:
         | "lmca"
         | "lad"
@@ -710,12 +1007,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -739,11 +1036,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -764,11 +1061,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -789,11 +1086,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -806,11 +1103,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -831,6 +1128,8 @@ export const Constants = {
         "left_ulnar",
         "other",
       ],
+      calcification_grade: ["none", "mild", "moderate", "severe"],
+      complication_onset: ["intraprocedural", "inpatient"],
       complication_severity: ["minor", "major"],
       complication_type: [
         "dissection",
@@ -845,6 +1144,7 @@ export const Constants = {
         "death",
         "other",
       ],
+      coronary_dominance: ["right", "left", "co_dominant"],
       device_category: [
         "stent",
         "balloon_sc",
@@ -856,7 +1156,7 @@ export const Constants = {
       ],
       device_phase: ["pre_dilation", "deployment", "post_dilation", "other"],
       dose_frequency: ["od", "bd", "tds", "qds", "prn", "weekly"],
-      dose_unit: ["mg", "mcg", "g", "ml", "iu"],
+      dose_unit: ["mg", "mcg", "g", "ml", "iu", "units", "units_per_kg"],
       haemostasis_method: [
         "radial_compression_band",
         "manual_compression",
@@ -882,14 +1182,32 @@ export const Constants = {
         "rotational_atherectomy",
         "other",
       ],
-      medication_route: ["oral", "sc", "iv", "topical", "sublingual"],
+      lvef_source: ["echo", "ventriculography", "mri", "other"],
+      measurement_status: ["not_recorded", "not_performed", "recorded"],
+      medication_route: [
+        "oral",
+        "sc",
+        "iv",
+        "topical",
+        "sublingual",
+        "intra_arterial",
+      ],
+      medication_timing: ["pre_procedure", "intra_procedure", "post_procedure"],
       operator_role: [
         "interventional_cardiologist",
         "fellow",
         "cath_lab_technologist",
         "nurse",
       ],
-      procedure_status: ["draft", "completed"],
+      post_procedure_condition: ["stable", "unstable", "deceased"],
+      post_procedure_destination: [
+        "ward",
+        "ccu",
+        "icu",
+        "day_case_recovery",
+        "transferred",
+      ],
+      procedure_status: ["draft", "completed", "reviewed"],
       procedure_type: ["diagnostic_angiography", "pci", "angiography_and_pci"],
       risk_factor: [
         "hypertension",
@@ -907,6 +1225,7 @@ export const Constants = {
         "other",
       ],
       sex: ["male", "female", "other"],
+      urgency: ["elective", "urgent", "emergency"],
       vessel: [
         "lmca",
         "lad",
@@ -926,3 +1245,4 @@ export const Constants = {
     },
   },
 } as const
+

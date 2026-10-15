@@ -35,6 +35,14 @@ Not in Week 1: FHIR export (Week 2), ABDM (Week 3), AI discharge summary (Week 4
 
 Everything below maps directly to how a cath lab actually records a case. Every table has `id uuid pk`, `created_at`, `updated_at`, `created_by` (auth user id).
 
+> **Three-state rule for conditional measurements.** A measurement that is only sometimes taken
+> (today: LVEDP and LVEF) carries a `*_status` enum — `not_recorded`, `not_performed`, `recorded` —
+> alongside its value. The value is present exactly when the status is `recorded`. The report shows
+> "Not recorded", "Not performed", or the value. Every future conditional measurement follows the
+> same pattern. Plain nullable numerics elsewhere simply show "Not recorded" when empty.
+
+The Week 1 schema is frozen after migration 0007. Further changes go to `docs/backlog.md`.
+
 ### 3.1 `patients`
 | column | type | notes |
 |---|---|---|
@@ -110,10 +118,24 @@ The core record. One row per cath lab visit.
 | dap_gy_cm2 | numeric, nullable | dose-area product, Gy·cm² |
 | aortic_pressure_systolic | integer, nullable | mmHg |
 | aortic_pressure_diastolic | integer, nullable | mmHg |
-| lvedp_mmhg | integer, nullable | conditional measurement — see the three-state rule |
+| lvedp_status | enum measurement_status, default not_recorded | three-state rule |
+| lvedp_mmhg | integer, nullable | present exactly when lvedp_status = recorded |
 | dominance | enum: right, left, co_dominant, nullable | coronary dominance |
-| lvef_pct | integer 0–100, nullable | post-procedure LVEF, where recorded |
+| lvef_status | enum measurement_status, default not_recorded | three-state rule |
+| lvef_pct | integer 0–100, nullable | present exactly when lvef_status = recorded |
+| lvef_source | enum: echo, ventriculography, mri, other, nullable | never implied to come from the angiogram |
+| lvef_measured_on | date, nullable | |
 | primary_operator_id | fk operators | |
+| consent_obtained_at | timestamptz, nullable | |
+| consent_by_operator_id | fk operators, nullable | |
+| timeout_completed_at | timestamptz, nullable | WHO time-out |
+| timeout_by_operator_id | fk operators, nullable | |
+| access_ultrasound_guided | boolean, nullable | |
+| access_attempts | integer ≥ 1, nullable | |
+| sheath_removed_at | timestamptz, nullable | |
+| findings_communicated_to_patient_at | timestamptz, nullable | |
+| findings_communicated_to_team | boolean, default false | |
+| communication_notes | text, nullable | |
 | haemostasis_method | enum: radial_compression_band, manual_compression, vascular_closure_device, other | |
 | outcome_summary | text | the "final impression" paragraph |
 | post_procedure_condition | enum: stable, unstable, deceased, nullable | immediate outcome |
@@ -149,7 +171,7 @@ One row per treated lesion.
 | vessel_finding_id | fk vessel_findings | the lesion treated |
 | intervention_type | enum: pci_des, pci_bms, poba, drug_coated_balloon, thrombectomy, rotational_atherectomy, other | |
 | guidewire | text | "BMW Universal II 0.014" |
-| residual_stenosis_pct | integer 0–100 | |
+| residual_stenosis_pct | integer 0–100 | operator-entered, never defaulted; success = true requires it |
 | timi_flow_post | integer 0–3 | |
 | success | boolean | |
 | dissection | boolean, default false | |
@@ -168,7 +190,7 @@ Every implant and balloon, with lot number — this is the traceability table.
 | diameter_mm | numeric(4,2) | 3.5 |
 | length_mm | numeric(5,1) | 28 |
 | inflation_atm | integer, nullable | 14 |
-| lot_number | text, nullable | required when category = stent |
+| lot_number | text, nullable | required when category = stent; recorded for every device where available |
 | expiry_date | date, nullable | |
 | udi | text, nullable | Unique Device Identifier, if printed on box |
 | quantity | integer, default 1 | |
@@ -181,6 +203,9 @@ Zero rows = no complications.
 | complication | enum: dissection, perforation, no_reflow, access_site_haematoma, radial_occlusion, contrast_nephropathy, arrhythmia, cardiac_tamponade, stroke, death, other | |
 | severity | enum: minor, major | |
 | management | text | |
+| onset | enum: intraprocedural, inpatient, nullable | report groups "During procedure" / "After procedure" |
+| onset_at | timestamptz, nullable | |
+| outcome | text, nullable | "Resolved, TIMI III restored" |
 
 ### 3.9 `discharges`
 At most one per procedure. Optional: a patient who remains admitted has no row, and the detail page shows "Not yet discharged".
@@ -220,7 +245,9 @@ Drugs given around the procedure (loading doses, heparin, sedation, intracoronar
 | dose_unit | enum dose_unit, nullable | units_per_kg for weight-based heparin; null exactly when dose is null |
 | route | enum medication_route | iv, intra_arterial, oral, sc … |
 | timing | enum: pre_procedure, intra_procedure, post_procedure | |
+| administered_at | timestamptz, nullable | |
 | act_seconds | integer, nullable | ACT reading taken after this dose |
+| act_measured_at | timestamptz, nullable | |
 | notes | text, nullable | "for no-reflow" |
 
 ### 3.11 Audit
