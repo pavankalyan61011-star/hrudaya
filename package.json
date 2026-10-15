@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:types": "supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > lib/database.types.ts",
-    "seed": "node --env-file=.env.local scripts/seed.ts"
+    "seed": "node --env-file=.env.local scripts/seed.ts",
+    "fhir:verify-codes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fhir-verify-codes.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -20,6 +21,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/fhir": "^0.0.44",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

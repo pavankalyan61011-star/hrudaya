@@ -98,17 +98,17 @@ Rules:
 - `reasonReference` → Condition (indication).
 
 ### 4.3 Condition
-- Indication codes (SNOMED): STEMI `401314000`, NSTEMI `401303003`, unstable angina `4557003`, stable angina `233819005`, positive stress test — use `429559004` (abnormal exercise stress test), pre-op assessment / cardiomyopathy workup / other → `text` only, no code.
-- Risk factors (SNOMED): hypertension `38341003`, type 2 diabetes `44054006`, type 1 `46635009`, dyslipidaemia `370992007`, current smoker `77176002`, ex-smoker `8517006`, family history of CHD `266894000`, CKD `709044004`, obesity `414916001`, prior PCI `415070008`, prior CABG `399261000`, prior MI `399211009`.
+- Indication codes (SNOMED): STEMI `401303003`, NSTEMI `401314000`, unstable angina `4557003`, stable angina `233819005`, positive stress test → `text` only (`429559004` is "Typical angina"), pre-op assessment / cardiomyopathy workup / other → `text` only, no code. *(Corrected 2026-10-15 after tx.fhir.org $lookup: the STEMI/NSTEMI codes were swapped — see docs/fhir-mapping.md.)*
+- Risk factors (SNOMED): hypertension `38341003`, type 2 diabetes `44054006`, type 1 `46635009`, dyslipidaemia `370992007`, current smoker `77176002`, ex-smoker `8517006`, family history of CHD `266894000`, CKD `709044004`, obesity `414916001`, prior PCI → `text` only (`415070008` is the PCI procedure, not a history of it), prior CABG `399261000`, prior MI `399211009`. *(Corrected 2026-10-15.)*
 - `clinicalStatus` active; `subject` → Patient.
 
 ### 4.4 Procedure
 - One Procedure for the whole case. `code`: diagnostic-only → SNOMED `33367005` (coronary angiography); PCI → `415070008` (PCI) with `33367005` as an additional coding. Note: `415070008` is "percutaneous coronary intervention" — use it; do not invent codes.
 - `status`: completed. `performedPeriod` = started_at / ended_at.
 - `performer[].actor` → Practitioner (primary operator). `location` → Location. `encounter` → Encounter.
-- `bodySite`: one per treated vessel. SNOMED: LMCA `73208009` (left coronary artery main stem — verify), LAD `59438005`, LCX `57396005`, RCA `13647002`, D1/D2/OM/ramus/PDA/PLV → use parent vessel code + `text`. **Rule: if unsure of a SNOMED code, put the term in `text` and leave `coding` empty; never guess a number.**
+- `bodySite`: one per treated vessel. SNOMED: LMCA → text only (`73208009` does not exist), LAD `59438005`, LCX → text only (`57396005` does not exist), RCA `13647002` *(corrected 2026-10-15)*, D1/D2/OM/ramus/PDA/PLV → use parent vessel code + `text`. **Rule: if unsure of a SNOMED code, put the term in `text` and leave `coding` empty; never guess a number.**
 - `focalDevice[]`: one per stent/DCB: `{action: {text: "implanted"} for stents, "applied" for DCB}, manipulated: → Device}`.
-- `complication[]`: for each complications row, a CodeableConcept — dissection `234020005` (coronary artery dissection — verify), perforation, no-reflow, haematoma `385494008`, etc. Same rule: verify or use text.
+- `complication[]`: for each complications row, a CodeableConcept — dissection → text only (`234020005` is "Vasculitis secondary to drug"; corrected 2026-10-15), perforation, no-reflow, haematoma `385494008`, etc. Same rule: verify or use text.
 - `note`: outcome_summary.
 - `extension`: urgency (`https://hrudaya.dev/fhir/StructureDefinition/urgency`, valueCode elective/urgent/emergency); access site (`.../access-site`, valueCodeableConcept with text); dominance (`.../coronary-dominance`).
 
@@ -133,7 +133,7 @@ Every Observation: `status` final, `subject` → Patient, `encounter` → Encoun
 | aortic pressure | text "Aortic pressure (invasive)" with systolic/diastolic components, `mm[Hg]` | |
 | LVEDP | text "Left ventricular end-diastolic pressure", `mm[Hg]`; `not_performed` → `dataAbsentReason = not-performed`; `not_recorded` → omit | |
 | LVEF | LOINC `10230-1` (LV ejection fraction), UCUM `%`; `method.text` = lvef_source; `effectiveDateTime` = lvef_measured_on; same three-state handling | % |
-| creatinine | LOINC `2160-0`, UCUM `umol/L` | |
+| creatinine | LOINC `14682-9` (molar; `2160-0` is mass/volume — corrected 2026-10-15), UCUM `umol/L` | |
 | eGFR | LOINC `62238-1`, `mL/min/{1.73_m2}` | |
 | haemoglobin | LOINC `718-7`, `g/dL` | |
 | platelets | LOINC `777-3`, `10*9/L` | |
@@ -141,7 +141,7 @@ Every Observation: `status` final, `subject` → Patient, `encounter` → Encoun
 | fluoroscopy time | text, UCUM `min` | |
 | air kerma | text "Cumulative air kerma", `mGy` | |
 | DAP | text "Dose-area product", `Gy.cm2` | |
-| ACT | LOINC `3184-5` (activated clotting time), UCUM `s`, `effectiveDateTime` = act_measured_at; `derivedFrom` → the MedicationAdministration | s |
+| ACT | LOINC `3184-9` (activated clotting time; `3184-5` has an invalid check digit — corrected 2026-10-15), UCUM `s`, `effectiveDateTime` = act_measured_at; `derivedFrom` → the MedicationAdministration | s |
 
 Use `text`-only codes wherever the table says text. Do not invent LOINC/SNOMED numbers. Every LOINC above must be checked against loinc.org before use; if a check fails, fall back to text and note it in `docs/fhir-mapping.md`.
 
@@ -165,7 +165,7 @@ Use `text`-only codes wherever the table says text. Do not invent LOINC/SNOMED n
 
 ### 4.10 Composition
 - `status`: `final` if procedures.status = reviewed; `preliminary` if completed; export is refused for draft.
-- `type`: LOINC `34896-3` (Interventional cardiology note — verify; else text "Cardiac catheterisation report").
+- `type`: LOINC `34896-1` (Cardiology Interventional Procedure Note; `34896-3` has an invalid check digit — corrected 2026-10-15).
 - `date` = reviewed_at ?? ended_at. `author` → reviewing Practitioner (or operator). `attester` with `mode = professional`, `time` = reviewed_at, `party` → reviewer, when reviewed.
 - `title` = "Cardiac catheterisation report — <case_code>".
 - `section[]` as in §3, each with `title`, `text.div` (a short XHTML summary — a few lines, no PHI beyond what's in the resources), and `entry[]` references.
