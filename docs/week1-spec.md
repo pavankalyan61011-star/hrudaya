@@ -88,7 +88,11 @@ The core record. One row per cath lab visit.
 | primary_operator_id | fk operators | |
 | haemostasis_method | enum: radial_compression_band, manual_compression, vascular_closure_device, other | |
 | outcome_summary | text | the "final impression" paragraph |
-| status | enum: draft, completed | |
+| status | enum: draft, completed, reviewed | reviewed = signed off; the record and its child rows are then read-only |
+| reviewed_by | fk auth.users, nullable | the signed-in user who marked it reviewed (set by the database) |
+| reviewed_at | timestamptz, nullable | set by the database at sign-off |
+| reviewing_clinician_id | fk operators, nullable | the clinician who reviewed; required when reviewed |
+| admitted_at | timestamptz, nullable | admission time; length of stay is derived from this and discharged_at |
 
 ### 3.5 `vessel_findings`
 One row per vessel/segment seen on angiography.
@@ -148,13 +152,15 @@ At most one per procedure. Optional: a patient who remains admitted has no row, 
 | column | type | notes |
 |---|---|---|
 | procedure_id | fk procedures, unique | |
-| discharge_date | date | |
-| length_of_stay_hours | integer | |
+| discharge_date | date | always the India (IST) date of discharged_at |
+| discharged_at | timestamptz | length of stay = discharged_at − procedures.admitted_at, shown as hours under 72 h, else days + hours |
 | clinical_status | text | "clinically stable" |
 | follow_up_date | date | |
 | follow_up_clinic | text | "Cardiology OPD" |
 | advice | text[] | ["Strict DAPT adherence", "Smoking cessation", …] |
 | red_flags | text[] | ["Recurrent chest pain", "Severe breathlessness", "Significant bleeding"] |
+| dapt_planned_months | integer, nullable | planned DAPT duration, e.g. 12 |
+| dapt_review_date | date, nullable | when the DAPT plan is to be reviewed |
 
 ### 3.10 `discharge_medications`
 | column | type | notes |
@@ -162,15 +168,28 @@ At most one per procedure. Optional: a patient who remains admitted has no row, 
 | discharge_id | fk discharges | |
 | drug_name | text | "Ticagrelor" |
 | dose | numeric, nullable | 90; null only when frequency = prn (e.g. GTN) |
-| dose_unit | enum: mg, mcg, g, ml, iu, nullable | null exactly when dose is null |
+| dose_unit | enum: mg, mcg, g, ml, iu, units, units_per_kg, nullable | null exactly when dose is null |
 | frequency | enum: od, bd, tds, qds, prn, weekly | |
-| route | enum: oral, sc, iv, topical, sublingual, default oral | |
+| route | enum: oral, sc, iv, topical, sublingual, intra_arterial, default oral | sc = subcutaneous |
 | duration | text, nullable | "12 months" |
 | purpose | text, nullable | "antiplatelet" |
 | is_dapt | boolean, default false | aspirin + P2Y12 — drives the Week 4 adherence messaging |
 
+### 3.10a `procedure_medications`
+Drugs given around the procedure (loading doses, heparin, sedation, intracoronary drugs).
+| column | type | notes |
+|---|---|---|
+| procedure_id | fk procedures | |
+| drug_name | text | "Unfractionated heparin" |
+| dose | numeric, nullable | 70 |
+| dose_unit | enum dose_unit, nullable | units_per_kg for weight-based heparin; null exactly when dose is null |
+| route | enum medication_route | iv, intra_arterial, oral, sc … |
+| timing | enum: pre_procedure, intra_procedure, post_procedure | |
+| act_seconds | integer, nullable | ACT reading taken after this dose |
+| notes | text, nullable | "for no-reflow" |
+
 ### 3.11 Audit
-Every table: `created_by uuid references auth.users`, `created_at timestamptz default now()`, `updated_at timestamptz` via trigger. A `procedure_events` log table (procedure_id, event, actor, at) records status changes.
+Every table: `created_by uuid references auth.users`, `created_at timestamptz default now()`, `updated_at timestamptz` via trigger. A `procedure_events` log table (procedure_id, event, actor, at) records status changes: created, completed, reviewed (and reopened).
 
 ### 3.12 RLS (Week 1 — single role)
 All tables: `select/insert/update` allowed for any authenticated user. No delete from the UI. Tighten in Week 4.
