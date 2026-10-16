@@ -28,6 +28,7 @@ export const SYSTEM = {
   observationCategory: "http://terminology.hl7.org/CodeSystem/observation-category",
   listEmptyReason: "http://terminology.hl7.org/CodeSystem/list-empty-reason",
   attestationMode: "http://hl7.org/fhir/composition-attestation-mode",
+  dataOperation: "http://terminology.hl7.org/CodeSystem/v3-DataOperation",
   conditionCategory: "http://terminology.hl7.org/CodeSystem/condition-category",
 } as const;
 
@@ -179,6 +180,15 @@ export const DATA_ABSENT_NOT_PERFORMED = hl7(
 export const ENCOUNTER_CLASS = {
   inpatient: hl7(SYSTEM.actCode, "IMP", "inpatient encounter", "https://terminology.hl7.org/CodeSystem-v3-ActCode.html"),
   ambulatory: hl7(SYSTEM.actCode, "AMB", "ambulatory", "https://terminology.hl7.org/CodeSystem-v3-ActCode.html"),
+};
+
+/**
+ * Provenance.activity for an amendment (Week 6 spec §5). Verified 2026-10-16 with tx.fhir.org
+ * $lookup: v3-DataOperation 7.0.0, code UPDATE, display "revise", not abstract.
+ */
+export const DATA_OPERATION = {
+  update: hl7(SYSTEM.dataOperation, "UPDATE", "revise",
+    "https://tx.fhir.org/r4/CodeSystem/$lookup?system=http://terminology.hl7.org/CodeSystem/v3-DataOperation&code=UPDATE"),
 };
 
 export const EMPTY_REASON = {

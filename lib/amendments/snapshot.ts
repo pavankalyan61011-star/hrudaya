@@ -33,7 +33,7 @@ const PROCEDURE_EXCLUDED = [
 /** Keys the loader adds to the procedure row by embedding other tables. */
 const PROCEDURE_EMBEDS = [
   "patient", "operator", "reviewer", "consent_by", "timeout_by", "facility",
-  "vessel_findings", "interventions", "procedure_medications", "complications", "discharge",
+  "vessel_findings", "interventions", "procedure_medications", "complications", "discharge", "amendments",
 ];
 
 function omit(row: Row, keys: string[]): Row {

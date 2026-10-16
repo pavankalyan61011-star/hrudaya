@@ -28,6 +28,7 @@ import type {
   Patient,
   Practitioner,
   Procedure,
+  Provenance,
   Quantity,
   Reference,
 } from "fhir/r4";
@@ -37,6 +38,7 @@ import {
   COMPLICATION,
   CONDITION_CATEGORY,
   DATA_ABSENT_NOT_PERFORMED,
+  DATA_OPERATION,
   DOSE_UNIT_UCUM,
   EMPTY_REASON,
   ENCOUNTER_CLASS,
@@ -142,10 +144,35 @@ export function patientResource(p: P): Patient {
   };
 }
 
+// ─── Amendments (Week 6 spec §5) ────────────────────────────────────────────────
+
+type AmendmentRow = {
+  id: string; amendment_no: number; status: string; reason: string; closed_at: string | null; changes: unknown;
+  reviewer: { id: string; full_name: string; role: string } | null;
+};
+const amendmentsOf = (p: P): AmendmentRow[] => ((p as unknown as { amendments?: AmendmentRow[] }).amendments ?? []);
+const changeCount = (a: AmendmentRow) => (Array.isArray(a.changes) ? a.changes.length : 0);
+/** Closed amendments that changed something: these make the document "amended" and get a Provenance. */
+export const signedAmendments = (p: P) => amendmentsOf(p).filter((a) => a.status === "closed" && a.closed_at && changeCount(a) > 0);
+
+/** One Provenance per signed amendment: who re-reviewed, when, and why (no entity detail). */
+export function provenanceResources(p: P): Provenance[] {
+  return signedAmendments(p).map((a) => ({
+    resourceType: "Provenance",
+    id: stableId(a.id, "provenance"),
+    target: [ref(ids(p).composition)],
+    recorded: a.closed_at as string,
+    activity: { coding: [coding(DATA_OPERATION.update)], text: `Amendment #${a.amendment_no}` },
+    agent: [{ who: a.reviewer ? ref(a.reviewer.id, a.reviewer.full_name) : { display: "Re-reviewing clinician not recorded" } }],
+    reason: [{ text: a.reason }],
+  }));
+}
+
 export function practitionerResources(p: P): Practitioner[] {
   const people = new Map<string, { id: string; full_name: string; role: string }>();
   if (p.operator) people.set(p.operator.id, p.operator);
   if (p.reviewer) people.set(p.reviewer.id, p.reviewer);
+  for (const a of signedAmendments(p)) if (a.reviewer) people.set(a.reviewer.id, a.reviewer);
   return [...people.values()].map((o) => ({
     resourceType: "Practitioner",
     id: o.id,
@@ -579,6 +606,7 @@ type Built = {
   actObs: Observation[];
   administrations: MedicationAdministration[];
   requests: MedicationRequest[];
+  provenances: Provenance[];
 };
 
 const refsTo = (rs: { id?: string }[]) => rs.map((r) => ref(r.id as string));
@@ -659,11 +687,27 @@ export function compositionResource(p: P, b: Built, now: string): Composition {
       EMPTY_REASON.notStarted,
     ),
   ];
+  // Week 6: every closed amendment is listed; the ones that changed something have a Provenance.
+  const closed = amendmentsOf(p).filter((a) => a.status === "closed" && a.closed_at);
+  if (closed.length) {
+    sections.push(
+      section(
+        "Amendments",
+        closed.map(
+          (a) =>
+            `Amendment #${a.amendment_no}, ${istDate(a.closed_at as string)}: ${a.reason} — ${changeCount(a)} change(s), re-reviewed by ${a.reviewer?.full_name ?? "not recorded"}.`,
+        ),
+        refsTo(b.provenances),
+        EMPTY_REASON.nilKnown,
+      ),
+    );
+  }
 
   return {
     resourceType: "Composition",
     id: ids(p).composition,
-    status: reviewed ? "final" : "preliminary",
+    // Week 6: "amended" once a signed amendment changed the record.
+    status: reviewed ? (b.provenances.length ? "amended" : "final") : "preliminary",
     type: concept(LOINC.cathReport, "Cardiac catheterisation report"),
     subject: ref(p.patient.id),
     encounter: ref(ids(p).encounter),
@@ -701,6 +745,7 @@ export function procedureToBundle(p: P, now: string): Bundle {
     actObs: actObservations(p),
     administrations: medicationAdministrations(p),
     requests: medicationRequests(p),
+    provenances: provenanceResources(p),
   };
   const composition = compositionResource(p, b, now);
 
@@ -723,6 +768,7 @@ export function procedureToBundle(p: P, now: string): Bundle {
     ...b.actObs,
     ...b.administrations,
     ...b.requests,
+    ...b.provenances,
   ];
 
   const entry: BundleEntry[] = resources.map((resource) => ({ fullUrl: `urn:uuid:${resource.id}`, resource }));

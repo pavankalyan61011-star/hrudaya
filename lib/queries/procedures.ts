@@ -65,7 +65,8 @@ const FULL_SELECT = `
   interventions(*, devices_used(*)),
   procedure_medications(*),
   complications(*),
-  discharge:discharges(*, discharge_medications(*))
+  discharge:discharges(*, discharge_medications(*)),
+  amendments:procedure_amendments(id, amendment_no, status, reason, opened_at, closed_at, changes, reviewer:operators!procedure_amendments_reviewing_clinician_id_fkey(id, full_name, role))
 ` as const;
 
 /** The whole record, children in entry order. Used by the form steps and the detail page. */
@@ -80,6 +81,7 @@ export async function getProcedureFull(db: DbClient, id: string) {
     .order("created_at", { referencedTable: "complications" })
     .order("created_at", { referencedTable: "procedure_medications" })
     .order("created_at", { referencedTable: "discharges.discharge_medications" })
+    .order("amendment_no", { referencedTable: "procedure_amendments" })
     .maybeSingle();
   return { procedure: data, error };
 }

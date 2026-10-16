@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Bundle, Device, Encounter, MedicationRequest, Observation, Procedure, Condition } from "fhir/r4";
+import type { Bundle, Composition, Device, Encounter, MedicationRequest, Observation, Procedure, Provenance, Condition } from "fhir/r4";
 import { fixture } from "./test-fixture.ts";
 import { procedureToBundle, stableId } from "./mapper.ts";
 import { HRUDAYA, SYNTHETIC_TAG } from "./codes.ts";
@@ -169,4 +169,54 @@ test("medication given with no recorded time is bounded by its phase, not given 
   assert.equal((adenosine as { dosage?: unknown }).dosage, undefined, "mad-1: no dosage without a dose");
   assert.match((adenosine as { note?: { text: string }[] }).note?.[0].text ?? "", /Intra-arterial/);
   assert.deepEqual(adenosine.effectivePeriod, { start: "2026-09-30T23:45:00+00:00", end: "2026-10-01T00:30:00+00:00" });
+});
+
+// ─── Week 6: amendments ────────────────────────────────────────────────────────
+
+const AMEND_REVIEWER = { id: "00000000-0000-4000-8000-0000000000a9", full_name: "Dr Amend Reviewer", role: "interventional_cardiologist" };
+const amendment = (no: number, changes: unknown[]) => ({
+  id: `a0000000-0000-4000-8000-00000000000${no}`, amendment_no: no, status: "closed", reason: `Reason for amendment ${no}`,
+  opened_at: "2026-10-16T05:00:00+00:00", closed_at: `2026-10-16T0${5 + no}:00:00+00:00`, changes, reviewer: AMEND_REVIEWER,
+});
+const CHANGE = { path: "discharge.medications[Ticagrelor].dose", label: "Discharge medication · Ticagrelor · dose", before: 90, after: 60, kind: "changed" };
+
+test("amendments: no amendments → final, no Provenance, no Amendments section", () => {
+  const b = procedureToBundle(fixture(), NOW);
+  const c = b.entry![0].resource as Composition;
+  assert.equal(c.status, "final");
+  assert.equal(b.entry!.filter((e) => e.resource?.resourceType === "Provenance").length, 0);
+  assert.ok(!c.section!.some((s) => s.title === "Amendments"));
+});
+
+test("amendments: a signed amendment with changes → amended, one Provenance, referenced from the Amendments section", () => {
+  const b = procedureToBundle(fixture({ amendments: [amendment(1, [CHANGE])] }), NOW);
+  const c = b.entry![0].resource as Composition;
+  assert.equal(c.status, "amended");
+  const prov = b.entry!.filter((e) => e.resource?.resourceType === "Provenance").map((e) => e.resource as Provenance);
+  assert.equal(prov.length, 1);
+  assert.deepEqual(prov[0].target, [{ reference: `urn:uuid:${c.id}` }]);
+  assert.equal(prov[0].recorded, "2026-10-16T06:00:00+00:00");
+  assert.deepEqual(prov[0].activity!.coding, [{ system: "http://terminology.hl7.org/CodeSystem/v3-DataOperation", code: "UPDATE", display: "revise" }]);
+  assert.equal(prov[0].agent[0].who.reference, `urn:uuid:${AMEND_REVIEWER.id}`);
+  assert.equal(prov[0].reason![0].text, "Reason for amendment 1");
+  const section = c.section!.find((s) => s.title === "Amendments")!;
+  assert.deepEqual(section.entry, [{ reference: `urn:uuid:${prov[0].id}` }]);
+  assert.ok(b.entry!.some((e) => e.resource?.resourceType === "Practitioner" && e.resource.id === AMEND_REVIEWER.id), "re-reviewer is in the Bundle");
+});
+
+test("amendments: a no-change amendment stays final, is listed in the narrative, and has no Provenance", () => {
+  const b = procedureToBundle(fixture({ amendments: [amendment(1, [])] }), NOW);
+  const c = b.entry![0].resource as Composition;
+  assert.equal(c.status, "final");
+  const section = c.section!.find((s) => s.title === "Amendments")!;
+  assert.match(section.text!.div, /Amendment #1/);
+  assert.equal(section.entry, undefined);
+  assert.equal(b.entry!.filter((e) => e.resource?.resourceType === "Provenance").length, 0);
+});
+
+test("amendments: Provenance ids are stable across exports", () => {
+  const ids = () => procedureToBundle(fixture({ amendments: [amendment(1, [CHANGE]), amendment(2, [CHANGE])] }), NOW).entry!
+    .filter((e) => e.resource?.resourceType === "Provenance").map((e) => e.resource!.id);
+  assert.deepEqual(ids(), ids());
+  assert.equal(new Set(ids()).size, 2);
 });
