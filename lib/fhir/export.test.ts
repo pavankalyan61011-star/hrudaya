@@ -72,3 +72,9 @@ test("200 for a completed (not yet reviewed) procedure, Composition preliminary"
   if (r.status !== 200) return;
   assert.equal((r.body.entry?.[0].resource as { status?: string }).status, "preliminary");
 });
+
+test("409 while an amendment is in progress — nothing exported", async () => {
+  const r = await exportProcedure(ID, deps({ load: async () => ({ procedure: fixture({ status: "amending" }), error: null }) }));
+  assert.equal(r.status, 409);
+  assert.equal(r.body.resourceType, "OperationOutcome");
+});

@@ -529,6 +529,79 @@ export type Database = {
         }
         Relationships: []
       }
+      procedure_amendments: {
+        Row: {
+          amendment_no: number
+          changes: Json | null
+          closed_at: string | null
+          closed_by: string | null
+          id: string
+          opened_at: string
+          opened_by: string | null
+          previous_reviewed_at: string
+          previous_reviewing_clinician_id: string | null
+          procedure_id: string
+          reason: string
+          reviewing_clinician_id: string | null
+          snapshot: Json
+          status: Database["public"]["Enums"]["amendment_status"]
+        }
+        Insert: {
+          amendment_no: number
+          changes?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          previous_reviewed_at: string
+          previous_reviewing_clinician_id?: string | null
+          procedure_id: string
+          reason: string
+          reviewing_clinician_id?: string | null
+          snapshot: Json
+          status?: Database["public"]["Enums"]["amendment_status"]
+        }
+        Update: {
+          amendment_no?: number
+          changes?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          previous_reviewed_at?: string
+          previous_reviewing_clinician_id?: string | null
+          procedure_id?: string
+          reason?: string
+          reviewing_clinician_id?: string | null
+          snapshot?: Json
+          status?: Database["public"]["Enums"]["amendment_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_amendments_previous_reviewing_clinician_id_fkey"
+            columns: ["previous_reviewing_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procedure_amendments_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procedure_amendments_reviewing_clinician_id_fkey"
+            columns: ["reviewing_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       procedure_events: {
         Row: {
           actor: string | null
@@ -958,7 +1031,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      close_amendment: {
+        Args: {
+          p_changes: Json
+          p_procedure_id: string
+          p_reviewing_clinician_id: string
+        }
+        Returns: undefined
+      }
+      open_amendment: {
+        Args: { p_procedure_id: string; p_reason: string }
+        Returns: string
+      }
       procedure_is_draft: { Args: { p_procedure_id: string }; Returns: boolean }
+      procedure_is_editable: {
+        Args: { p_procedure_id: string }
+        Returns: boolean
+      }
+      procedure_snapshot: { Args: { p_procedure_id: string }; Returns: Json }
     }
     Enums: {
       access_site:
@@ -969,6 +1059,7 @@ export type Database = {
         | "right_ulnar"
         | "left_ulnar"
         | "other"
+      amendment_status: "open" | "closed"
       calcification_grade: "none" | "mild" | "moderate" | "severe"
       complication_onset: "intraprocedural" | "inpatient"
       complication_severity: "minor" | "major"
@@ -1040,7 +1131,7 @@ export type Database = {
         | "icu"
         | "day_case_recovery"
         | "transferred"
-      procedure_status: "draft" | "completed" | "reviewed"
+      procedure_status: "draft" | "completed" | "reviewed" | "amending"
       procedure_type: "diagnostic_angiography" | "pci" | "angiography_and_pci"
       risk_factor:
         | "hypertension"
@@ -1211,6 +1302,7 @@ export const Constants = {
         "left_ulnar",
         "other",
       ],
+      amendment_status: ["open", "closed"],
       calcification_grade: ["none", "mild", "moderate", "severe"],
       complication_onset: ["intraprocedural", "inpatient"],
       complication_severity: ["minor", "major"],
@@ -1290,7 +1382,7 @@ export const Constants = {
         "day_case_recovery",
         "transferred",
       ],
-      procedure_status: ["draft", "completed", "reviewed"],
+      procedure_status: ["draft", "completed", "reviewed", "amending"],
       procedure_type: ["diagnostic_angiography", "pci", "angiography_and_pci"],
       risk_factor: [
         "hypertension",

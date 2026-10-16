@@ -38,6 +38,10 @@ export async function exportProcedure(procedureId: string, deps: ExportDeps): Pr
   if (procedure.status === "draft") {
     return { status: 409, body: outcome("business-rule", "This procedure is still a draft. Complete it before exporting.") };
   }
+  // Week 6: never export a record in the middle of an amendment.
+  if (procedure.status === "amending") {
+    return { status: 409, body: outcome("business-rule", "An amendment is in progress. Export after it has been re-reviewed.") };
+  }
 
   return { status: 200, body: procedureToBundle(procedure, deps.now()), filename: `${procedure.case_code}.fhir.json` };
 }
