@@ -11,6 +11,8 @@ import { SummaryMarkdown } from "@/components/report/summary-markdown";
 import { PrintButton } from "@/components/report/print-button";
 import { LANGUAGES } from "@/lib/summary/prompt";
 import { SUMMARY_FONT_VARIABLES } from "@/lib/summary/fonts";
+import { buildSummaryInput, inputHash } from "@/lib/summary/input";
+import { listAmendments } from "@/lib/queries/amendments";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Print — Hrudaya" };
@@ -37,18 +39,30 @@ export default async function PrintPage({ params, searchParams }: { params: { id
   if (p.status !== "reviewed") {
     return (
       <div className="card space-y-2">
-        <p className="font-medium">The print report is available after clinical review.</p>
+        <p className="font-medium">
+          {(p.status as string) === "amending"
+            ? "The print report is available after the amendment is re-reviewed."
+            : "The print report is available after clinical review."}
+        </p>
         <Link href={`/procedures/${p.id}`} className="btn-secondary">Back to the report</Link>
       </div>
     );
   }
 
-  const [summaries, ops] = await Promise.all([
+  const [summaries, ops, amendmentRows] = await Promise.all([
     db.from("discharge_summaries").select("*").eq("procedure_id", p.id).eq("status", "approved").order("language").order("version", { ascending: false }),
     listOperators(db),
+    listAmendments(db, p.id),
   ]);
   const operatorName = (id: string | null) => ops.operators.find((o) => o.id === id)?.full_name ?? NOT_RECORDED;
-  const approved = (summaries.data ?? []).filter((s) => !searchParams.summary || s.id === searchParams.summary);
+  // Week 6: a summary approved before an amendment changed the record is superseded — not printed.
+  const currentHash = inputHash(buildSummaryInput(p));
+  const closed = amendmentRows.amendments.filter((a) => a.status === "closed" && a.closed_at);
+  const chosen = (summaries.data ?? []).filter((s) => !searchParams.summary || s.id === searchParams.summary);
+  const approved = chosen.filter((s) => s.input_hash === currentHash);
+  const superseded = chosen
+    .filter((s) => s.input_hash !== currentHash)
+    .map((s) => ({ s, by: closed.filter((a) => !s.approved_at || a.closed_at! > s.approved_at).sort((a, b) => a.closed_at!.localeCompare(b.closed_at!))[0] ?? null }));
 
   return (
     <div className={`print-report space-y-4 ${SUMMARY_FONT_VARIABLES}`}>
@@ -63,7 +77,12 @@ export default async function PrintPage({ params, searchParams }: { params: { id
           Could not load the approved discharge summaries, so they are not in this printout. Reload to try again.
         </p>
       )}
-      {searchParams.summary && approved.length === 0 && !summaries.error && (
+      {amendmentRows.error && (
+        <p role="alert" className="card text-sm text-red-900 print:hidden">
+          Could not load this record&apos;s amendments, so they are not in this printout. Reload to try again.
+        </p>
+      )}
+      {searchParams.summary && approved.length === 0 && superseded.length === 0 && !summaries.error && (
         <p className="card text-sm text-slate-700 print:hidden">That summary is not approved, so it is not printed. Drafts are never printed.</p>
       )}
 
@@ -88,6 +107,43 @@ export default async function PrintPage({ params, searchParams }: { params: { id
           </p>
         </header>
         <ProcedureReport p={p} print />
+        {superseded.length > 0 && (
+          <ul className="space-y-1 text-sm text-slate-700">
+            {superseded.map(({ s, by }) => (
+              <li key={s.id}>
+                Discharge summary ({LANGUAGES[s.language]}, version {s.version}) superseded
+                {by ? ` by amendment #${by.amendment_no} on ${formatDateTime(by.closed_at)}` : " — the record changed after approval"} — not printed.
+              </li>
+            ))}
+          </ul>
+        )}
+        {closed.length > 0 && (
+          <section className="break-inside-avoid space-y-1" aria-labelledby="print-amendments">
+            <h2 id="print-amendments" className="text-sm font-bold uppercase tracking-wide text-slate-700">Amendments</h2>
+            <table className="w-full text-left text-sm">
+              <thead className="text-slate-600">
+                <tr>
+                  <th scope="col" className="border-b border-slate-300 py-1 pr-2 font-semibold">#</th>
+                  <th scope="col" className="border-b border-slate-300 py-1 pr-2 font-semibold">Date</th>
+                  <th scope="col" className="border-b border-slate-300 py-1 pr-2 font-semibold">Reason</th>
+                  <th scope="col" className="border-b border-slate-300 py-1 pr-2 font-semibold">Changes</th>
+                  <th scope="col" className="border-b border-slate-300 py-1 font-semibold">Re-reviewed by</th>
+                </tr>
+              </thead>
+              <tbody>
+                {closed.map((a) => (
+                  <tr key={a.id} className="border-b border-slate-100 align-top">
+                    <td className="py-1 pr-2">{a.amendment_no}</td>
+                    <td className="py-1 pr-2">{formatDateTime(a.closed_at)}</td>
+                    <td className="break-words py-1 pr-2">{a.reason}</td>
+                    <td className="py-1 pr-2">{Array.isArray(a.changes) ? a.changes.length : 0}</td>
+                    <td className="py-1">{(a.reviewer as { full_name: string } | null)?.full_name ?? NOT_RECORDED}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
       </article>
 
       {approved.map((s) => (

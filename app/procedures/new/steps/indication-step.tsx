@@ -47,6 +47,8 @@ type Props = {
   initial: IndicationValues;
   operators: { id: string; full_name: string; role: string }[];
   facilities: { id: string; name: string; cath_lab_name: string; city: string }[];
+  /** Week 6: during an amendment the case code and procedure date are shown but cannot change. */
+  identityLocked?: boolean;
 };
 
 const AUTO_CODE = /^(PCI|CAG)-(\d{4}-\d{3,})$/;
@@ -56,7 +58,7 @@ const YES_NO_UNKNOWN = [
   { value: "unknown" as const, label: "Not recorded" },
 ];
 
-export function IndicationStep({ procedureId, initial, operators, facilities }: Props) {
+export function IndicationStep({ procedureId, initial, operators, facilities, identityLocked = false }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveIndicationStep, {});
   useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
@@ -69,7 +71,8 @@ export function IndicationStep({ procedureId, initial, operators, facilities }: 
     setV((s) => {
       const m = AUTO_CODE.exec(s.case_code);
       const prefix = type === "diagnostic_angiography" ? "CAG" : "PCI";
-      return { ...s, procedure_type: type, case_code: m && type ? `${prefix}-${m[2]}` : s.case_code };
+      // During an amendment the case code is locked, whatever the type becomes.
+      return { ...s, procedure_type: type, case_code: m && type && !identityLocked ? `${prefix}-${m[2]}` : s.case_code };
     });
   }
 
@@ -95,12 +98,25 @@ export function IndicationStep({ procedureId, initial, operators, facilities }: 
           <EnumSelect id="facility_id" value={v.facility_id} onChange={set("facility_id")} invalid={!!errors.facility_id}
             options={facilities.map((f) => ({ value: f.id, label: `${f.name} — ${f.cath_lab_name}, ${f.city}` }))} />
         </Field>
-        <Field label="Procedure date" htmlFor="procedure_date" required error={errors.procedure_date}>
-          <TextInput id="procedure_date" type="date" value={v.procedure_date} onChange={set("procedure_date")} invalid={!!errors.procedure_date} />
-        </Field>
-        <Field label="Case code" htmlFor="case_code" required error={errors.case_code}>
-          <TextInput id="case_code" value={v.case_code} onChange={set("case_code")} invalid={!!errors.case_code} />
-        </Field>
+        {identityLocked ? (
+          <div className="col-span-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+            <p>
+              <span className="text-slate-600">Procedure date:</span> <span className="font-medium">{v.procedure_date}</span>
+              {" · "}
+              <span className="text-slate-600">Case code:</span> <span className="font-mono font-medium">{v.case_code}</span>
+            </p>
+            <p className="mt-1 text-slate-600"><span aria-hidden>🔒 </span>Locked during an amendment.</p>
+          </div>
+        ) : (
+          <>
+            <Field label="Procedure date" htmlFor="procedure_date" required error={errors.procedure_date}>
+              <TextInput id="procedure_date" type="date" value={v.procedure_date} onChange={set("procedure_date")} invalid={!!errors.procedure_date} />
+            </Field>
+            <Field label="Case code" htmlFor="case_code" required error={errors.case_code}>
+              <TextInput id="case_code" value={v.case_code} onChange={set("case_code")} invalid={!!errors.case_code} />
+            </Field>
+          </>
+        )}
         <Field label="Procedure type" htmlFor="procedure_type" required error={errors.procedure_type}>
           <EnumSelect id="procedure_type" value={v.procedure_type} onChange={setType} options={ENUMS.procedure_type} invalid={!!errors.procedure_type} />
         </Field>

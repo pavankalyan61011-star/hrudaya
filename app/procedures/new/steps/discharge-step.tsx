@@ -37,7 +37,7 @@ export type DischargeValues = {
   medications: MedicationRow[];
 };
 
-type Props = { procedureId: string; initial: DischargeValues };
+type Props = { procedureId: string; initial: DischargeValues; amending?: boolean };
 
 // From the reference case (docs/cases/PCI-2026-001.md); anything else can be added as "Other".
 const ADVICE_OPTIONS = [
@@ -88,7 +88,7 @@ function Checklist({ name, legend, options, value, onChange }: { name: string; l
   );
 }
 
-export function DischargeStep({ procedureId, initial }: Props) {
+export function DischargeStep({ procedureId, initial, amending = false }: Props) {
   const [state, formAction] = useFormState<StepState, FormData>(saveDischargeStep, {});
   useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
@@ -203,7 +203,12 @@ export function DischargeStep({ procedureId, initial }: Props) {
         </>
       )}
 
-      <StepActions errorCount={errorCount(state)} backHref={`/procedures/new?id=${procedureId}&step=5`} nextLabel="Complete procedure" pendingLabel="Completing…" />
+      <StepActions
+        errorCount={errorCount(state)}
+        backHref={`/procedures/new?id=${procedureId}&step=5`}
+        nextLabel={amending ? "Save and review changes" : "Complete procedure"}
+        pendingLabel={amending ? "Saving…" : "Completing…"}
+      />
     </form>
   );
 }

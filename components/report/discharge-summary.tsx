@@ -6,6 +6,7 @@ import { LANGUAGES, type SummaryLanguage } from "@/lib/summary/prompt";
 import { auditDraft, hasErrors, type AuditFlag } from "@/lib/summary/audit";
 import type { SummaryInput } from "@/lib/summary/input";
 import type { ClientSummary as SummaryRow } from "@/lib/summary/api";
+import { AMENDING_BLOCKER } from "@/lib/summary/blocker";
 import { SUMMARY_FONT_VARIABLES } from "@/lib/summary/fonts";
 import { formatDateTime } from "@/lib/report-format";
 import { SummaryMarkdown } from "./summary-markdown";
@@ -31,6 +32,8 @@ type Props = {
   defaultClinicianId: string | null;
   /** For the Compare-with-record panel: what the input cannot say by itself. */
   record: { lvefStatus: RecordContext["lvefStatus"]; complicationsWithoutOutcome: number; inputHash: string } | null;
+  /** Week 6: closed amendments (number, when), to say which one superseded an approved summary. */
+  amendmentClosures?: { no: number; closed_at: string }[];
 };
 
 const flagsOf = (row: SummaryRow) => (Array.isArray(row.audit_flags) ? (row.audit_flags as unknown as AuditFlag[]) : []);
@@ -70,12 +73,19 @@ export function DischargeSummaryCard(props: Props) {
     [input, props.record],
   );
   const recordChanged = !!(current && props.record && current.input_hash !== props.record.inputHash);
+  // Week 6: an approved summary written from a record that has since been amended is superseded —
+  // shown, never printed, with a new version one tap away.
+  const isSuperseded = (row: SummaryRow) => row.status === "approved" && !!props.record && row.input_hash !== props.record.inputHash;
+  const supersededBy = (row: SummaryRow) =>
+    (props.amendmentClosures ?? []).filter((a) => !row.approved_at || a.closed_at > row.approved_at).sort((a, b) => a.closed_at.localeCompare(b.closed_at))[0] ?? null;
 
   if (blocker || !input) {
     return (
       <section className="card" aria-labelledby="summary-heading">
         <h2 id="summary-heading" className="text-sm font-bold uppercase tracking-wide text-slate-700">Discharge summary</h2>
-        <p className="mt-1 text-sm text-slate-600">Discharge summary available after clinical review and discharge</p>
+        <p className="mt-1 text-sm text-slate-600">
+          {blocker === AMENDING_BLOCKER ? blocker : "Discharge summary available after clinical review and discharge"}
+        </p>
       </section>
     );
   }
@@ -218,6 +228,24 @@ export function DischargeSummaryCard(props: Props) {
         <p role="alert" className="text-sm text-red-900">Could not load earlier summaries. Reload the page to try again.</p>
       ) : !current ? (
         <p className="text-sm text-slate-600">No {LANGUAGES[language]} summary yet.</p>
+      ) : isSuperseded(current) ? (
+        <div className="space-y-3">
+          <div className="space-y-2 rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-800">
+            <p className="font-semibold">
+              {supersededBy(current)
+                ? `Superseded — record amended on ${formatDateTime(supersededBy(current)!.closed_at)} (amendment #${supersededBy(current)!.no})`
+                : "Superseded — the record has changed since this summary was approved"}
+            </p>
+            <p>
+              Approved by {operatorName(current.approving_clinician_id)} · {formatDateTime(current.approved_at)} · v{current.version} · {LANGUAGES[current.language]}.
+              It is kept for the record but is not printed.
+            </p>
+            <button type="button" className="btn-primary min-h-11 w-full sm:w-auto" onClick={generate} disabled={busy !== null || generateDisabledReason !== null}>
+              {busy === "generate" ? "Drafting…" : "Regenerate (new version)"}
+            </button>
+          </div>
+          <SummaryMarkdown text={current.approved_text ?? ""} language={current.language} />
+        </div>
       ) : current.status === "approved" ? (
         <div className="space-y-3">
           <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm font-medium text-emerald-950">
@@ -321,7 +349,7 @@ export function DischargeSummaryCard(props: Props) {
               {versions.map((v) => (
                 <tr key={v.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-2">v{v.version}</td>
-                  <td className="py-2 pr-2">{v.status === "approved" ? "Approved" : "Draft"}</td>
+                  <td className="py-2 pr-2">{isSuperseded(v) ? "Superseded" : v.status === "approved" ? "Approved" : "Draft"}</td>
                   <td className="py-2 pr-2">{formatDateTime(v.generated_at)}</td>
                   <td className="py-2 pr-3">{v.status === "approved" ? operatorName(v.approving_clinician_id) : "—"}</td>
                 </tr>

@@ -10,7 +10,7 @@ approval or the database changed this week. Spec: [week5-reviewer-spec.md](week5
    editor is not editable. It is rendered from the record, with the draft's wording for "how
    often" and "for how long". A wrong dose belongs in the record, not the leaflet, which removes
    a whole class of error the audit used to have to catch. Under the table the editor says:
-   *"Medicines come from the record. A wrong dose has to be corrected in the record; reviewed records can't be amended in the app yet."* (amendment is first on the backlog).
+   *"Medicines come from the record. To change a dose, amend the procedure."* (amendments: Week 6, `docs/amendments.md`).
 2. **Review against, not review alone.** Every section sits next to the record fields that fed it:
    a second column on a laptop, a bottom sheet on a phone.
 3. **Flags belong where the problem is.** An audit flag sits under the section that caused it, and

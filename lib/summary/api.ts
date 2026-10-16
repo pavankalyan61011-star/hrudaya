@@ -68,7 +68,11 @@ const fail = (status: Exclude<ApiResult["status"], 200 | 201>, error: string, fl
 });
 
 /** Why this procedure cannot have a summary, or null if it can. */
+import { AMENDING_BLOCKER } from "./blocker.ts";
+export { AMENDING_BLOCKER };
+
 export function summaryBlocker(p: Pick<FhirSource, "status" | "discharge">): string | null {
+  if ((p.status as string) === "amending") return AMENDING_BLOCKER; // Week 6
   if (p.status !== "reviewed") return "A discharge summary is available after clinical review.";
   if (!p.discharge) return "A discharge summary is available after discharge is recorded.";
   return null;

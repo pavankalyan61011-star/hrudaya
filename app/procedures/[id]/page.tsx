@@ -10,6 +10,9 @@ import { StatusBadge } from "@/components/report/section";
 import { ReviewPanel } from "@/components/report/review-panel";
 import { FhirExport } from "@/components/report/fhir-export";
 import { DischargeSummaryCard } from "@/components/report/discharge-summary";
+import { AmendButton } from "@/components/amendments/amend-button";
+import { AmendmentsCard } from "@/components/amendments/amendments-card";
+import { listAmendments, toAmendmentViews } from "@/lib/queries/amendments";
 import { getCurrentUser } from "@/lib/queries/auth";
 import { buildSummaryInput, inputHash } from "@/lib/summary/input";
 import { summaryBlocker, toClientSummary } from "@/lib/summary/api";
@@ -72,8 +75,16 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
     );
   }
   if (!p) notFound();
-  const { operators } = p.status === "completed" || p.status === "reviewed" ? await listOperators(db) : { operators: [] };
-  const summary = await loadSummaryCard(db, p);
+  const amending = (p.status as string) === "amending";
+  const [{ operators }, summary, me, amendmentRows] = await Promise.all([
+    p.status === "completed" || p.status === "reviewed" ? listOperators(db) : Promise.resolve({ operators: [] }),
+    loadSummaryCard(db, p),
+    getCurrentUser(),
+    listAmendments(db, p.id),
+  ]);
+  const amendments = toAmendmentViews(amendmentRows.amendments, me ? { id: me.id, email: me.email } : null);
+  const openAmendment = amendments.find((a) => a.status === "open") ?? null;
+  const closedCount = amendments.filter((a) => a.status === "closed").length;
 
 
   return (
@@ -84,7 +95,8 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-2xl font-bold">{p.case_code}</h1>
-          <StatusBadge status={p.status} />
+          <StatusBadge status={p.status} amendedCount={closedCount} />
+          {p.status === "reviewed" && <AmendButton procedureId={p.id} />}
         </div>
         <p className="text-slate-700">
           {en(p.procedure_type)} · {p.procedure_date ? formatDate(p.procedure_date) : NOT_RECORDED} · {p.operator?.full_name ?? "Operator not recorded"}
@@ -113,10 +125,39 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
           </div>
         </div>
       )}
+      {amending && openAmendment && (
+        <div role="status" className="card space-y-2 border-amber-300 bg-amber-50 text-amber-950">
+          <p className="font-medium">
+            Amendment #{openAmendment.amendment_no} opened by {openAmendment.opened_by_label} on {formatDateTime(openAmendment.opened_at)}:{" "}
+            <span className="break-words font-normal">{openAmendment.reason}</span>
+          </p>
+          <p className="text-sm">The record can be corrected now. It becomes valid again only when a clinician signs the changes.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/procedures/new?id=${p.id}&step=2`} className="btn-primary min-h-11">Edit record</Link>
+            <Link href={`/procedures/${p.id}/amendment`} className="btn-secondary min-h-11">Review changes and re-review</Link>
+          </div>
+        </div>
+      )}
+      {amendmentRows.error && (
+        <p role="alert" className="card text-sm text-red-900">Could not load this record&apos;s amendments. Reload to try again.</p>
+      )}
       {p.status === "completed" && <ReviewPanel procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} />}
       {/* Spec §7: export and preview for reviewed procedures only; built from the rows already loaded. */}
-      <FhirExport procedureId={p.id} caseCode={p.case_code} bundle={p.status === "reviewed" ? procedureToBundle(p, new Date().toISOString()) : null} />
-      <DischargeSummaryCard procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} {...summary} />
+      <FhirExport
+        procedureId={p.id}
+        caseCode={p.case_code}
+        bundle={p.status === "reviewed" ? procedureToBundle(p, new Date().toISOString()) : null}
+        unavailableReason={amending ? "Available after the amendment is re-reviewed" : undefined}
+      />
+      <DischargeSummaryCard
+        procedureId={p.id}
+        operators={operators}
+        defaultClinicianId={p.primary_operator_id}
+        amendmentClosures={amendments.filter((a) => a.status === "closed" && a.closed_at).map((a) => ({ no: a.amendment_no, closed_at: a.closed_at! }))}
+        {...summary}
+      />
+
+      <AmendmentsCard amendments={amendments} />
 
       <ProcedureReport p={p} />
 

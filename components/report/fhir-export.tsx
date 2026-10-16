@@ -1,21 +1,21 @@
 import type { Bundle, Resource } from "fhir/r4";
 
-type Props = { procedureId: string; caseCode: string; bundle: Bundle | null };
+type Props = { procedureId: string; caseCode: string; bundle: Bundle | null; unavailableReason?: string };
 
 /**
  * Export FHIR (spec §7). Reviewed procedures get a download link and a collapsible, read-only
  * preview grouped by resource type; anything else gets a disabled button with the reason visible
  * (a tooltip alone is unreadable on a phone). Native <details> — no client JavaScript.
  */
-export function FhirExport({ procedureId, caseCode, bundle }: Props) {
+export function FhirExport({ procedureId, caseCode, bundle, unavailableReason = "Available after clinical review" }: Props) {
   if (!bundle) {
     return (
       <div className="card flex flex-wrap items-center gap-3">
-        <button type="button" disabled aria-describedby="fhir-unavailable" title="Available after clinical review" className="btn-secondary">
+        <button type="button" disabled aria-describedby="fhir-unavailable" title={unavailableReason} className="btn-secondary">
           Export FHIR
         </button>
         <p id="fhir-unavailable" className="text-sm text-slate-600">
-          Available after clinical review
+          {unavailableReason}
         </p>
       </div>
     );

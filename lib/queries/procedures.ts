@@ -31,9 +31,13 @@ export async function createDraftProcedure(db: DbClient, patientId: string, year
   return { id: null, error: { code: "23505", message: "procedures_case_code_key" } };
 }
 
-/** Updates a procedure only while it is a draft; a completed record is never changed by the form. */
+/**
+ * Updates a procedure only while the form may edit it: a draft, or a reviewed record with an open
+ * amendment (Week 6). Completed and reviewed records are never changed by the form; the database
+ * also refuses any status change while amending and the identity fields (case code, date, patient).
+ */
 export async function updateDraftProcedure(db: DbClient, id: string, fields: TablesUpdate<"procedures">) {
-  const { data, error } = await db.from("procedures").update(fields).eq("id", id).eq("status", "draft").select("id");
+  const { data, error } = await db.from("procedures").update(fields).eq("id", id).in("status", ["draft", "amending"]).select("id");
   if (error) return { error };
   if (!data || data.length === 0) return { error: { code: "PGRST116", message: "draft not found" } };
   return { error: null };

@@ -42,15 +42,20 @@ function stepUrl(id: string, step: number) {
   return `/procedures/new?id=${id}&step=${step}`;
 }
 
-/** The procedure must exist and still be a draft. */
+/** The procedure must exist and be editable: a draft, or a reviewed record with an open amendment. */
 async function requireDraft(formData: FormData) {
   const db = createClient();
   const id = String(formData.get("procedure_id") ?? "");
   const { draft, error } = await getDraftHeader(db, id);
-  if (error || !draft) return { db, draft: null, error: "This draft could not be found." };
-  if (draft.status !== "draft") return { db, draft: null, error: "This procedure is already completed." };
-  return { db, draft, error: null };
+  if (error || !draft) return { db, draft: null, amending: false, error: "This draft could not be found." };
+  const status = draft.status as string;
+  if (status !== "draft" && status !== "amending") {
+    return { db, draft: null, amending: false, error: "This procedure is already completed. To correct a reviewed record, open an amendment from its report." };
+  }
+  return { db, draft, amending: status === "amending", error: null };
 }
+
+const PATIENT_LOCKED = "Patient details cannot be changed during an amendment. Correcting a patient's identity needs a different process.";
 
 export async function searchPatientsAction(query: string): Promise<PatientSearchResult[]> {
   if (!(await getCurrentUser())) return [];
@@ -74,6 +79,13 @@ export async function savePatientStep(_prev: StepState, formData: FormData): Pro
   if (!parsed.success) return { error: CHECK_FIELDS, fieldErrors: fieldErrors(parsed.error) };
   const input = parsed.data;
   const db = createClient();
+
+  // Week 6: during an amendment the patient (and their risk factors) are locked; refuse before
+  // anything is written. The database refuses too.
+  if (String(formData.get("procedure_id") ?? "")) {
+    const check = await requireDraft(formData);
+    if (check.amending) return { error: PATIENT_LOCKED };
+  }
 
   let patientId: string;
   if (input.mode === "new" && input.new_patient) {
@@ -109,10 +121,14 @@ export async function saveIndicationStep(_prev: StepState, formData: FormData): 
   if (!(await getCurrentUser())) return { error: SIGNED_OUT };
   const parsed = IndicationStepSchema.safeParse(readPayload(formData));
   if (!parsed.success) return { error: CHECK_FIELDS, fieldErrors: fieldErrors(parsed.error) };
-  const { db, draft, error } = await requireDraft(formData);
+  const { db, draft, amending, error } = await requireDraft(formData);
   if (error || !draft) return { error: error ?? undefined };
 
-  const { troponin, access_ultrasound, ...fields } = parsed.data;
+  const { troponin, access_ultrasound, ...rest } = parsed.data;
+  // Week 6: case code and procedure date cannot be amended; the form shows them read-only and they
+  // are not sent to the database while amending.
+  const { case_code, procedure_date, ...amendable } = rest;
+  const fields = amending ? amendable : { ...amendable, case_code, procedure_date };
   const upd = await updateDraftProcedure(db, draft.id, { ...fields, troponin_elevated: troponin, access_ultrasound_guided: access_ultrasound });
   if (upd.error) return { error: friendlyError(upd.error) };
   redirect(stepUrl(draft.id, 3));
@@ -181,11 +197,15 @@ export async function saveDischargeStep(_prev: StepState, formData: FormData): P
   if (!(await getCurrentUser())) return { error: SIGNED_OUT };
   const parsed = DischargeStepSchema.safeParse(readPayload(formData));
   if (!parsed.success) return { error: CHECK_FIELDS, fieldErrors: fieldErrors(parsed.error) };
-  const { db, draft, error } = await requireDraft(formData);
+  const { db, draft, amending, error } = await requireDraft(formData);
   if (error || !draft) return { error: error ?? undefined };
 
   const res = await saveDischarge(db, draft.id, parsed.data.admitted ? null : parsed.data.discharge);
   if (res.error) return { error: friendlyError(res.error) };
+
+  // Week 6: an amendment is not "completed" — it goes to the page that shows the changes being
+  // signed and closes the amendment with the second signature.
+  if (amending) redirect(`/procedures/${draft.id}/amendment`);
 
   // The database refuses completion if an earlier step is incomplete; that message is shown here.
   const done = await completeProcedure(db, draft.id);

@@ -23,13 +23,17 @@ export function Facts({ items }: { items: [string, React.ReactNode][] }) {
   );
 }
 
-export function StatusBadge({ status }: { status: "draft" | "completed" | "reviewed" | "amending" }) {
+export function StatusBadge({ status, amendedCount = 0 }: { status: "draft" | "completed" | "reviewed" | "amending"; amendedCount?: number }) {
   // Week 6: an open amendment is never shown as "Draft".
   if (status === "amending") {
     return <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-950">Amendment in progress</span>;
   }
   if (status === "reviewed") {
-    return <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900">Reviewed</span>;
+    return (
+      <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900">
+        Reviewed{amendedCount > 0 ? ` · amended ×${amendedCount}` : ""}
+      </span>
+    );
   }
   return status === "completed" ? (
     <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">Completed</span>

@@ -36,17 +36,55 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
   const db = createClient();
   const { procedure: p } = await getProcedureFull(db, searchParams.id);
   if (!p) notFound();
-  // Completed and reviewed records are never edited through the form.
-  if (p.status !== "draft") redirect(`/procedures/${p.id}`);
+  // Completed and reviewed records are never edited through the form — except a reviewed record
+  // with an open amendment (Week 6), which edits like a draft with its identity locked.
+  const amending = (p.status as string) === "amending";
+  if (p.status !== "draft" && !amending) redirect(`/procedures/${p.id}`);
+  const amendment = amending
+    ? (await db.from("procedure_amendments").select("amendment_no, reason").eq("procedure_id", p.id).eq("status", "open").maybeSingle()).data
+    : null;
 
   const patient = p.patient;
   const patientLabel = patient
     ? `${patient.full_name}, ${ageOn(patient.date_of_birth, p.procedure_date ?? today)} ${patient.sex === "male" ? "M" : patient.sex === "female" ? "F" : ""}`.trim()
     : undefined;
-  const header = <StepHeader step={step} procedureId={p.id} caseCode={p.case_code} patientLabel={patientLabel} />;
+  const header = (
+    <StepHeader step={step} procedureId={p.id} caseCode={p.case_code} patientLabel={patientLabel}
+      amendment={amendment ? { no: amendment.amendment_no, reason: amendment.reason } : null} />
+  );
 
   switch (step) {
     case 1:
+      if (amending) {
+        // Patient identity and risk factors cannot be amended (spec §2; the database refuses too).
+        return (
+          <>
+            {header}
+            <section className="card space-y-3" aria-labelledby="locked-patient">
+              <h2 id="locked-patient" className="font-semibold">Patient</h2>
+              {patient ? (
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                  <div><dt className="inline text-slate-600">Name: </dt><dd className="inline font-medium">{patient.full_name}</dd></div>
+                  <div><dt className="inline text-slate-600">MRN: </dt><dd className="inline font-mono font-medium">{patient.mrn}</dd></div>
+                  <div><dt className="inline text-slate-600">Date of birth: </dt><dd className="inline font-medium">{patient.date_of_birth}</dd></div>
+                  <div><dt className="inline text-slate-600">Sex: </dt><dd className="inline font-medium">{label(patient.sex)}</dd></div>
+                  <div className="sm:col-span-2">
+                    <dt className="inline text-slate-600">Risk factors: </dt>
+                    <dd className="inline font-medium">{patient.risk_factors.map((r) => label(r.factor)).join(", ") || "None recorded"}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p>Not recorded</p>
+              )}
+              <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <span aria-hidden>🔒 </span>Patient details are locked during an amendment. Correcting a patient&apos;s identity needs a different
+                process.
+              </p>
+              <a href={`/procedures/new?id=${p.id}&step=2`} className="btn-primary min-h-11 w-full sm:w-auto">Next: indication &amp; access</a>
+            </section>
+          </>
+        );
+      }
       return (
         <>
           {header}
@@ -72,6 +110,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
         <>
           {header}
           <IndicationStep
+            identityLocked={amending}
             procedureId={p.id}
             operators={operators}
             facilities={facilities}
@@ -220,6 +259,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
         <>
           {header}
           <DischargeStep
+            amending={amending}
             procedureId={p.id}
             initial={{
               admitted: false,
