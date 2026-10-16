@@ -5,6 +5,54 @@
 
 Drop this at `docs/week6-amendments-spec.md`. Read `supabase/migrations/0005_dapt_meds_signoff_times.sql` (review guards, `guard_reviewed_child`, event log) and `docs/week4-ai-summary-spec.md` §4 (input hash) first.
 
+## Corrections after build (16 Oct 2026)
+
+The sections below are left as originally written. What was built differs in these places; the
+write-up is [amendments.md](amendments.md).
+
+- **§2 "migration 0009" is two files: `0009_amending_status.sql` and `0010_amendments.sql`.** The
+  Supabase CLI applies only files named `<digits>_name.sql`, so `0009a`/`0009b` were silently
+  skipped. Step A is still its own file, applied before Step B.
+- **§2 / §3 the lock covers more than identity fields.** While a procedure is amending:
+  - case code, procedure date and `patient_id` are refused by `guard_procedure_review`;
+  - the **whole patient row and the patient's risk factors** are refused by a new trigger,
+    `guard_patient_during_amendment`.
+
+  The patient row is shared with the patient's other procedures, so editing any of it would
+  change records that are not being amended. The capture form shows step 1 read-only.
+- **§2 the snapshot is built in SQL (`procedure_snapshot`), and TypeScript builds the same
+  thing.** Parity holds for 20/20 local and 21/21 production cases. The one-direction fallback
+  wasn't needed. Not exercised: intervention ordering, because no case has two interventions on
+  the same lesion and type.
+- **§2 completeness on close** reuses `check_procedure_completion`, which now also fires on
+  `amending → reviewed`, rather than attempting a transition to `completed`.
+- **§2 `close_amendment` stamps the second signature through the trigger.** `reviewed_by` and
+  `reviewed_at` are set by `guard_procedure_review` on the way out of `amending`, as they are for
+  a first review.
+- **§2 the generic `reviewed` / `reopened` events are not logged** for `reviewed ⇄ amending`;
+  only `amendment_opened` and `amendment_closed` are.
+- **§4 the diff isn't sent from the client unchecked.** "Save and review changes" on the last
+  step opens a signing page (`/procedures/[id]/amendment`). There, the server computes the list
+  from the stored snapshot. On close, the server recomputes it again and signs only if it equals
+  what the clinician was shown; otherwise it answers 409 with the fresh list. The SQL lying-diff
+  check still applies on top.
+- **§4 "opened by <user>"** shows "you (email)" for the signed-in user and "another user"
+  otherwise. Logins have no display names yet (backlog).
+- **§4 while amending, summaries are paused.** The summary card says "Discharge summaries are
+  paused while an amendment is open. They return when the record has been re-reviewed." Generation
+  is refused with 409.
+- **§4 "Reviewed · amended ×N" counts amendments that changed something.** An amendment closed
+  with no changes is listed in the Amendments card ("No changes"), but the badge and FHIR still
+  say reviewed / `final`, as §5 does.
+- **§4 the Superseded banner names the amendment**: "Superseded — record amended on <date>
+  (amendment #N)". A superseded summary has no Print link.
+- **§5 Provenance validated, so it was kept.** `UPDATE` was checked on tx.fhir.org; its display is
+  "revise". The bundle gains 2 warnings: `reason` is text with no PurposeOfUse code, and dom-6.
+  Both are explained in `fhir-mapping.md`. The Amendments section's narrative lists every closed
+  amendment, including no-change ones; its entries are the Provenances.
+- **§6 end to end** used one real Generate (English, PCI-2026-005), approved by the owner as the
+  only model call this week.
+
 ---
 
 ## 0. Why this week matters (read this, Pavan)

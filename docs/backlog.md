@@ -8,16 +8,9 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
 
 ## Requested by the owner
 
-- **Amend a reviewed procedure.** A clinician unlocks a reviewed record with a stated reason,
-  edits it (e.g. a discharge medication), and re-reviews. Needs:
-  - a status model: reviewed → amended → reviewed;
-  - triggers that allow edits only while amended;
-  - a `procedure_events` trail (who unlocked it, why, what changed, who re-reviewed);
-  - a FHIR re-export;
-  - existing discharge summaries marked "record changed since this draft".
-
-  Today reviewed records are read-only and there is no amendment path. The two 15 Oct 2026 data
-  corrections had to switch the guards off in a one-off SQL transaction instead.
+- **Amend a reviewed procedure. Built in Week 6** ([amendments.md](amendments.md)): reason,
+  snapshot, edit, signed diff, re-review, superseded summaries, FHIR `amended` + Provenance.
+  Follow-ups are under "Found while building Week 6".
 - **Linked consent checklist** — a checklist table (risks discussed, alternatives, interpreter,
   witness) linked to the consent time and clinician recorded today. 0007 stores only who and when.
 - **"Not assessed" vs "not recorded"** — a further state for findings that were deliberately not
@@ -87,6 +80,30 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   matters.
 - **`drug_extra` aliases.** A model that writes "glyceryl trinitrate" for a record's "GTN" is
   flagged as an extra drug. Correct but noisy; an alias map would quieten it.
+
+## Found while building Week 6 (amendments)
+
+- **Roles.** Anyone signed in can open an amendment and close it, and the re-reviewing clinician
+  is chosen from operators, not tied to the login. A clinician role (and perhaps "the opener can't
+  be the only signer") needs the same roles work as the reviewer-role item above.
+- **Amending identity fields.** Patient name, date of birth, MRN, sex, risk factors, case code and
+  procedure date are locked while amending. Correcting them needs its own process: patient-level,
+  because the patient row is shared by every procedure of that patient.
+- **Patient details can change outside an amendment.** The lock holds only while an amendment is
+  open. A new draft for the same patient can still edit the shared patient row, and that changes
+  what that patient's *signed* records display. A guard or a versioned patient row would close
+  this.
+- **Cancel an amendment with rollback.** Today an amendment opened by mistake is closed with no
+  changes (the button says so). A rollback would restore the snapshot. It needs care with child
+  rows recreated while amending.
+- **User display names.** "Opened by" shows "you (email)" or "another user", because logins have
+  no names. A profile table (login → operator) would fix this and the roles item together.
+- **Checklist heading items in the discharge step.** The red-flag checklist shows the two urgency
+  headings ("…:") as checkboxes; unknown values are kept, so nothing is lost. This goes with the
+  "urgency category on red flags" item.
+- **Provenance detail.** Provenance carries who, when and why, but not *what*: the field-level
+  changes stay in Hrudaya. An `entity` per changed resource, or a PurposeOfUse code agreed with
+  ABDM, would clear the text-only warning.
 
 ## Data corrections (owner-approved, synthetic records)
 

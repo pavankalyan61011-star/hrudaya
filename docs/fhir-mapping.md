@@ -21,7 +21,8 @@ Bundle  type=document · identifier https://hrudaya.dev/case-code|<case_code> ·
  ├─ Condition (indication)      ├─ Condition × risk factors
  ├─ Procedure (the cath / PCI)  ├─ Device × every devices_used row
  ├─ Observation × n             ├─ MedicationAdministration × procedure_medications
- └─ MedicationRequest × discharge_medications (none until discharged)
+ ├─ MedicationRequest × discharge_medications (none until discharged)
+ └─ Provenance × signed amendments (Week 6; only on an amended record)
 ```
 
 - **Ids** are stable: the database row id, or for resources with no row of their own (Encounter,
@@ -30,7 +31,8 @@ Bundle  type=document · identifier https://hrudaya.dev/case-code|<case_code> ·
 - `fullUrl` = `urn:uuid:<id>`; every reference is a `urn:uuid:` inside the Bundle.
 - **Composition sections**, in report order: Patient & baseline · Access · Angiography ·
   Intervention & devices · Procedure medications · Procedure details · Complications ·
-  Immediate outcome · Discharge. Each has a short generated narrative; a section with nothing to
+  Immediate outcome · Discharge, then **Amendments** when the record has a closed amendment
+  (Week 6). Each has a short generated narrative; a section with nothing to
   point at carries `emptyReason` (`nilknown`, or `notstarted` for a patient not yet discharged).
 
 ## 2. How codes were verified
@@ -99,6 +101,7 @@ made text-only. `docs/week2-fhir-spec.md` has been corrected to match.
 | Platelets | LOINC | 777-3 | Platelets [#/volume] in Blood by Automated count | [loinc.org](https://loinc.org/777-3/) |
 | ACT | LOINC | 3184-9 | Activated clotting time (ACT) of Blood by Coagulation assay | [loinc.org](https://loinc.org/3184-9/) |
 | Document type | LOINC | 34896-1 | Cardiology Interventional procedure note | [loinc.org](https://loinc.org/34896-1/) |
+| Amendment (Provenance.activity) | v3-DataOperation | UPDATE | revise | [$lookup](https://tx.fhir.org/r4/CodeSystem/$lookup?system=http://terminology.hl7.org/CodeSystem/v3-DataOperation&code=UPDATE) (checked 16 Oct 2026; the display is "revise", not "update") |
 
 **Text only** (no verified code): positive stress test, pre-op assessment, cardiomyopathy work-up,
 other indication; prior PCI; LMCA, LCX, OM1, OM2, ramus, PDA, PLV, graft, other vessel (PDA/PLV's
@@ -195,11 +198,26 @@ Observation with no value and `dataAbsentReason` = `not-performed`; `not_recorde
 ### Composition ← `procedures`
 | FHIR | Hrudaya |
 |---|---|
-| `status` | `final` when reviewed; `preliminary` when completed; drafts are never exported (409) |
+| `status` | `final` when reviewed; **`amended`** when reviewed and at least one closed amendment changed something (Week 6); `preliminary` when completed; drafts and records with an amendment in progress are never exported (409) |
 | `type` | LOINC 34896-1 · `title` "Cardiac catheterisation report — <case_code>" |
 | `date` · `author` | `reviewed_at` ?? `ended_at` · reviewing clinician ?? primary operator |
 | `attester` | when reviewed: `professional`, `reviewed_at`, reviewing clinician |
 | `custodian` | Organization · `section[]` as in §1 |
+| `section` "Amendments" | narrative: one line per closed amendment (number, date, reason, change count, re-reviewing clinician), including ones with no changes; `entry` → the Provenances; `emptyReason` `nilknown` when every amendment had no changes |
+
+### Provenance ← `procedure_amendments` (Week 6)
+One per **closed amendment with at least one change**. A no-change amendment is listed in the
+Amendments narrative only, and the Composition stays `final`.
+
+| FHIR | Hrudaya |
+|---|---|
+| `id` | stable: SHA-1 UUID of *(amendment id, "provenance")* |
+| `target` | the Composition |
+| `recorded` | `closed_at` |
+| `activity` | v3-DataOperation `UPDATE` "revise"; `text` "Amendment #N" |
+| `agent[0].who` | the re-reviewing clinician's Practitioner (added to the Bundle if not already there); `display` "Re-reviewing clinician not recorded" if missing |
+| `reason[0].text` | the amendment reason (text only; see Known warnings) |
+| `entity` | omitted: the field-level changes stay in Hrudaya (spec §5) |
 
 ## 4. Deviations from the spec, and why
 
@@ -207,7 +225,7 @@ Observation with no value and `dataAbsentReason` = `not-performed`; `not_recorde
   MedicationAdministration (the validator rejects it); `partOf` does.
 - **Untimed doses get a phase-bounded `effectivePeriod`** instead of an invented time.
 - **No dosage without a dose** (constraint mad-1): the route goes in a note.
-- **Endpoint refuses drafts only** (spec §9); §1 says "only for reviewed". A completed, not yet
+- **Endpoint refuses drafts, and (Week 6) records with an amendment in progress** (spec §9); §1 says "only for reviewed". A completed, not yet
   reviewed procedure exports with a *preliminary* Composition. The report's Export button is shown
   for reviewed procedures only.
 - **Extensions** are not yet published as StructureDefinitions; the validator is run with
@@ -258,12 +276,28 @@ The first run found one error — constraint mad-1 on PCI-2026-010's intracorona
 dosage needs a dose or rate) — which is why untimed, undosed administrations now carry the route in
 a note. The run that found it is also evidence the validator is checking, not passing vacuously.
 
+### Results — 16 Oct 2026, Week 6 (validator 7.0.1)
+
+- **Production, 21 cases** (no amendments there yet): 0 errors in every case, the same as above.
+- **Local copy, 20 seeded cases**, two of them amended in the app:
+  - **0 errors in every case**;
+  - **CAG-2026-019** (one amendment, changes signed): Composition `amended`, one Provenance,
+    **0 errors, 37 warnings**. It had 35 before; the 2 new ones are in the table below;
+  - **PCI-2026-005** (amendment #1, Ticagrelor dose 90 → 60): Composition `amended`, one
+    Provenance, `dosageInstruction` dose 60 mg, **0 errors, 46 warnings**. It had 44; the same 2
+    new ones.
+
+  Checked by reading the Bundles as well as the counts: `Composition.status` is `amended`, the
+  Provenance carries `UPDATE` and the reason, and the Amendments section references it.
+
 ### Known warnings
 
 | Warning | Where | Why it is accepted |
 |---|---|---|
 | dom-6: "A resource should have narrative for robust management" | every resource, the Composition included | Best-practice only. The Composition's sections carry narrative, but no resource has its own `text` yet; adding it is backlog. |
 | "UCUM codes that contain human readable annotations like {1.73_m2} can be misleading" | every eGFR Observation | The spec's unit for eGFR is `mL/min/{1.73_m2}`, the conventional UCUM expression; the annotation is intentional. |
+| "No code provided, and a code should be provided from the value set 'PurposeOfUse'" | `Provenance.reason` (amended cases only) | The reason is the clinician's own words. A PurposeOfUse code (e.g. treatment) would say nothing about why the record was corrected, so it is text only. |
+| dom-6 on Provenance | amended cases only | As above: no resource has its own narrative yet. |
 
 Information-level messages (not warnings): the `https://hrudaya.dev/tags` CodeSystem is not
 published, so the synthetic tag cannot be validated; the BP and heart-rate Observations are

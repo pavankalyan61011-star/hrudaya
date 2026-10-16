@@ -39,7 +39,7 @@ Requires **Node 22.18 or later** (the seed script runs TypeScript directly) and 
    ```
 2. Copy `.env.example` to `.env.local` and fill in the three values from Supabase →
    Project Settings → API. The service-role key stays on your machine; the app never uses it.
-3. Apply the migrations in order (`0001` to `0007`). For a local database, `supabase start`
+3. Apply the migrations in order (`0001` to `0010`; `0009` must be applied on its own, before `0010`). For a local database, `supabase start`
    (needs Docker) applies them all. For a hosted project, either paste each file from
    `supabase/migrations/` into the Supabase SQL editor, or with the Supabase CLI:
    ```bash
@@ -67,7 +67,7 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `docs/cases/` | The synthetic reference case and cases 002–020 |
 | `docs/backlog.md` | Everything deferred after the Week 1 schema freeze |
 | `supabase/migrations/` | Schema, constraints, triggers and RLS |
-| `supabase/tests/` | SQL behaviour probe (runs in a transaction that always rolls back) |
+| `supabase/tests/` | SQL behaviour probes (each runs in a transaction that always rolls back) |
 | `scripts/seed.ts` | Seeds the 20 synthetic cases |
 | `lib/queries/` | Every Supabase query |
 | `lib/validation/` | Zod schemas for each form step |
@@ -79,6 +79,9 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `lib/summary/sections.ts`, `flag-locations.ts` | Week 5: draft ⇄ sections (lossless), flag placement |
 | `components/report/summary-editor.tsx`, `record-panel.tsx`, `compare-sheet.tsx` | Week 5: the reviewer's editor and record panel |
 | `docs/reviewer-ux.md` | Week 5: reviewer experience — ideas, rules, screenshots, tests |
+| `lib/amendments/` | Week 6: record snapshot, field-level diff, open/close logic |
+| `components/amendments/` | Week 6: Amend dialog, signing page, Amendments card |
+| `docs/amendments.md` | Week 6: how a reviewed record is amended — rules, SQL contracts, tests |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
 ## Week 1 definition of done
@@ -338,6 +341,74 @@ From [docs/week5-reviewer-spec.md §8](docs/week5-reviewer-spec.md):
 - [ ] Owner read-through: Pavan approves one Telugu draft in the new editor on his phone without
   opening View Markdown
 
+## Week 6 — Amendments
+
+A reviewed record can now be corrected without being edited behind anyone's back:
+
+1. state a reason;
+2. the database keeps a snapshot;
+3. change the record;
+4. a clinician signs the list of changes.
+
+The original stays readable, every change is listed, and everything downstream shows that an
+amendment happened. Write-up: [docs/amendments.md](docs/amendments.md).
+
+> We never edit a signed record. We open an amendment with a reason, keep the snapshot, and the
+> clinician signs the diff.
+
+- **Amend** on a reviewed report asks for a reason (at least 10 characters, kept for good). The
+  record moves to **Amendment in progress** (amber): the capture steps open again with the patient,
+  case code and date locked; FHIR export and new summaries pause.
+- **Changes you are signing**: the server lists every change (what, before, after) from the
+  snapshot. The clinician picks the re-reviewer and signs. If the record changed in between, the
+  list is refused and shown again.
+- **After re-review**:
+  - the badge reads **Reviewed · amended ×N**;
+  - an **Amendments** card shows each amendment's reason, who opened and re-reviewed it, and its
+    changes;
+  - approved discharge summaries written from the old record show **Superseded**, are not
+    printed, and can be regenerated in one tap;
+  - FHIR `Composition.status` becomes `amended`, with a Provenance per amendment.
+- **All in SQL** (`0009`, `0010`). Two `security definer` functions are the only way into and out
+  of `amending`. Triggers refuse anything else, even for the service role. `close_amendment`
+  refuses a change list that doesn't match the record.
+
+| Amend dialog (phone) | Amendments card (laptop) |
+|---|---|
+| ![Amend dialog](docs/images/week6-phone-amend-dialog.jpg) | ![Amendments card](docs/images/week6-laptop-amendments-card.jpg) |
+
+```bash
+docker exec -i supabase_db_hrudaya psql -U postgres -d postgres < supabase/tests/0009_behaviour.sql
+```
+
+## Week 6 definition of done
+
+From [docs/week6-amendments-spec.md §6](docs/week6-amendments-spec.md):
+
+- [x] 0009 then 0010 applied to production (owner, 16 Oct 2026) before the code; `next build`
+  passes
+- [x] `open_amendment` refuses on draft, completed and amending; reason ≥ 10 characters;
+  snapshot stored; status `amending`; event logged. 55 SQL checks in all, all pass
+- [x] While amending: child rows editable; identity fields and the patient row refused by trigger;
+  direct status changes to or from `amending` refused
+- [x] `close_amendment`: refuses an incomplete record and a lying diff (both kinds); second
+  signature; event logged; approved summaries still immutable
+- [x] Snapshot parity: SQL = TypeScript for 20/20 local and 21/21 production cases
+- [x] Diff tests (11): dose change, device lot added, complication outcome edited, red-flag item
+  removed, no change → `[]`, natural-key matching and more
+- [x] End to end on local data, PCI-2026-005:
+  - Ticagrelor 90 → 60, re-reviewed;
+  - v1 Superseded;
+  - regenerated v2 has 60 mg;
+  - print skips v1 and prints v2
+- [x] FHIR: two amended cases validate with 0 errors; `Composition.status = amended`; Provenance
+  present
+- [x] Phone (390 px, emulated): reason dialog, amber banner, signing table and Amendments card,
+  with no horizontal scroll
+- [x] `docs/amendments.md`, this section, `docs/fhir-mapping.md`, spec Corrections, backlog
+- [ ] Owner read-through: Pavan amends one seeded case on his phone with a real reason and signs
+  the diff
+
 ## Roadmap
 
 - **Week 1 — built and deployed:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases. Remaining checks above.
@@ -345,6 +416,7 @@ From [docs/week5-reviewer-spec.md §8](docs/week5-reviewer-spec.md):
 - **Week 3 — ABDM:** ABHA number and address, Health Information Provider (HIP) integration.
 - **Week 4 — AI discharge summary, built:** six languages, audit, clinician approval, print report. Remaining checks above.
 - **Week 5 — Reviewer experience, built:** structured editor, compare with record, flags beside sections. Remaining checks above.
+- **Week 6 — Amendments, built:** reason, snapshot, signed diff, re-review; superseded summaries; FHIR `amended` + Provenance. Owner phone test remaining.
 - **Next:** ABDM (Week 3, waiting on sandbox credentials), form navigation for the capture steps, tighter row-level security.
 
 ## Licence
