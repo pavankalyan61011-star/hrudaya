@@ -1,4 +1,4 @@
-import { Constants, type Database } from "@/lib/database.types";
+import { Constants, type Database } from "./database.types.ts";
 
 export type Enums = Database["public"]["Enums"];
 
