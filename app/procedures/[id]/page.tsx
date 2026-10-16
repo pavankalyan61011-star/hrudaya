@@ -84,7 +84,9 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
   ]);
   const amendments = toAmendmentViews(amendmentRows.amendments, me ? { id: me.id, email: me.email } : null);
   const openAmendment = amendments.find((a) => a.status === "open") ?? null;
-  const closedCount = amendments.filter((a) => a.status === "closed").length;
+  // "amended ×N" counts signed amendments that changed something, as FHIR's `amended` does; a
+  // no-change amendment is still listed in the Amendments card.
+  const closedCount = amendments.filter((a) => a.status === "closed" && (a.changes?.length ?? 0) > 0).length;
 
 
   return (

@@ -2,7 +2,9 @@
 -- Runs in one transaction that ALWAYS rolls back (the last statement raises with the results).
 --   docker exec -i supabase_db_hrudaya psql -U postgres -d postgres < supabase/tests/0009_behaviour.sql
 -- Uses the seeded cases PCI-2026-005 (reviewed, discharged, one complication), CAG-2026-018 and
--- CAG-2026-019 (reviewed), plus a draft and a completed probe procedure created here.
+-- CAG-2026-019 (reviewed), plus a draft and a completed probe procedure created here. Amendment
+-- numbers and summary versions are counted from what PCI-2026-005 already has, so the test also
+-- runs on a local database where amendments were made by hand.
 begin;
 create temp table r (n serial, c text, o text) on commit drop;
 grant all on r to authenticated, anon; grant usage on sequence r_n_seq to authenticated, anon;
@@ -22,7 +24,9 @@ insert into public.procedures
 
 -- An approved discharge summary on PCI-2026-005, before any amendment (as postgres).
 insert into public.discharge_summaries (procedure_id, language, version, model, prompt_version, input_hash, draft_text)
-  select id, 'en', 1, 'm', 'v6', 'h-before', 'approved before the amendment' from public.procedures where case_code = 'PCI-2026-005';
+  select p.id, 'en', coalesce((select max(s.version) from public.discharge_summaries s where s.procedure_id = p.id and s.language = 'en'), 0) + 1,
+         'm', 'v6', 'h-before', 'approved before the amendment'
+  from public.procedures p where p.case_code = 'PCI-2026-005';
 update public.discharge_summaries s set approved_text = draft_text, status = 'approved',
        approving_clinician_id = (select primary_operator_id from public.procedures where case_code = 'PCI-2026-005')
   where s.input_hash = 'h-before';
@@ -36,7 +40,7 @@ declare
   p5 uuid; p18 uuid; p19 uuid; draft_p uuid := '00000000-0000-4000-8000-0000000009d1'; completed_p uuid := '00000000-0000-4000-8000-0000000009c1';
   op_a uuid; op_b uuid; prev_at timestamptz; prev_clin uuid; snap_before jsonb;
   a uuid; a2 uuid; row_ public.procedure_amendments; pr public.procedures; ev jsonb; n int; med uuid; pmed uuid; pat uuid;
-  generic_before int;
+  generic_before int; base int;
 begin
   select id, reviewed_at, reviewing_clinician_id, patient_id into p5, prev_at, prev_clin, pat from public.procedures where case_code = 'PCI-2026-005';
   select id into p18 from public.procedures where case_code = 'CAG-2026-018';
@@ -44,6 +48,7 @@ begin
   select id into op_a from public.operators order by full_name limit 1;
   select id into op_b from public.operators order by full_name desc limit 1;
   snap_before := public.procedure_snapshot(p5);
+  select coalesce(max(amendment_no), 0) into base from public.procedure_amendments where procedure_id = p5;
   select count(*) into generic_before from public.procedure_events where procedure_id = p5 and event in ('reviewed', 'reopened', 'completed');
 
   -- ─── §6 item 2: open_amendment ──────────────────────────────────────────────
@@ -71,14 +76,14 @@ begin
   insert into r (c,o) values ('open: status is amending', case when pr.status::text = 'amending' then 'PASS' else 'FAIL '||pr.status end);
   insert into r (c,o) values ('open: reviewed_by / reviewed_at / reviewing clinician cleared',
     case when pr.reviewed_by is null and pr.reviewed_at is null and pr.reviewing_clinician_id is null then 'PASS' else 'FAIL' end);
-  insert into r (c,o) values ('open: amendment #1, open, opened by the signed-in user, reason trimmed',
-    case when row_.amendment_no = 1 and row_.status = 'open' and row_.opened_by = me and row_.reason = 'Discharge ticagrelor dose recorded wrongly' then 'PASS' else 'FAIL' end);
+  insert into r (c,o) values ('open: next amendment number, open, opened by the signed-in user, reason trimmed',
+    case when row_.amendment_no = base + 1 and row_.status = 'open' and row_.opened_by = me and row_.reason = 'Discharge ticagrelor dose recorded wrongly' then 'PASS' else 'FAIL' end);
   insert into r (c,o) values ('open: previous review copied (reviewed_at, clinician)',
     case when row_.previous_reviewed_at = prev_at and row_.previous_reviewing_clinician_id is not distinct from prev_clin then 'PASS' else 'FAIL' end);
   insert into r (c,o) values ('open: snapshot stored = the record at unlock', case when row_.snapshot = snap_before then 'PASS' else 'FAIL' end);
   select payload into ev from public.procedure_events where procedure_id = p5 and event = 'amendment_opened' order by at desc limit 1;
   insert into r (c,o) values ('open: amendment_opened event with amendment_no and reason',
-    case when ev = '{"amendment_no":1,"reason":"Discharge ticagrelor dose recorded wrongly"}'::jsonb then 'PASS' else 'FAIL '||coalesce(ev::text,'none') end);
+    case when ev = jsonb_build_object('amendment_no', base + 1, 'reason', 'Discharge ticagrelor dose recorded wrongly') then 'PASS' else 'FAIL '||coalesce(ev::text,'none') end);
   insert into r (c,o) values ('positive control: the user reads the amendment row', case when (select count(*) from public.procedure_amendments where id = a) = 1 then 'PASS' else 'FAIL' end);
   begin perform public.open_amendment(p5, 'A second one while the first is open');
     insert into r (c,o) values ('open: refused while an amendment is already open', 'FAIL');
@@ -182,7 +187,7 @@ begin
               and jsonb_array_length(row_.changes) = 1 then 'PASS' else 'FAIL' end);
   select payload into ev from public.procedure_events where procedure_id = p5 and event = 'amendment_closed' order by at desc limit 1;
   insert into r (c,o) values ('close: amendment_closed event with amendment_no, change_count, clinician',
-    case when ev = jsonb_build_object('amendment_no', 1, 'change_count', 1, 'reviewing_clinician_id', op_b) then 'PASS' else 'FAIL '||coalesce(ev::text,'none') end);
+    case when ev = jsonb_build_object('amendment_no', base + 1, 'change_count', 1, 'reviewing_clinician_id', op_b) then 'PASS' else 'FAIL '||coalesce(ev::text,'none') end);
   insert into r (c,o) values ('no generic reviewed/reopened event for the amendment moves',
     case when (select count(*) from public.procedure_events where procedure_id = p5 and event in ('reviewed', 'reopened', 'completed')) = generic_before then 'PASS' else 'FAIL' end);
   begin update public.procedures set outcome_summary = 'edit after re-review' where id = p5;
@@ -204,10 +209,10 @@ begin
     case when (select status::text from public.procedures where id = p18) = 'reviewed'
               and (select changes from public.procedure_amendments where id = a2) = '[]'::jsonb then 'PASS' else 'FAIL' end);
 
-  -- A second amendment on PCI-2026-005 is numbered 2.
+  -- The next amendment on PCI-2026-005 takes the next number.
   begin a2 := public.open_amendment(p5, 'Second look at the same record');
   exception when others then insert into r (c,o) values ('open: second amendment opens', 'FAIL '||sqlerrm); end;
-  insert into r (c,o) values ('a second amendment is numbered 2', case when (select amendment_no from public.procedure_amendments where id = a2) = 2 then 'PASS' else 'FAIL' end);
+  insert into r (c,o) values ('the next amendment is numbered one higher', case when (select amendment_no from public.procedure_amendments where id = a2) = base + 2 then 'PASS' else 'FAIL' end);
   begin perform public.close_amendment(p5, op_a, '[]'::jsonb);
   exception when others then insert into r (c,o) values ('close: second amendment closes with []', 'FAIL '||sqlerrm); end;
 
