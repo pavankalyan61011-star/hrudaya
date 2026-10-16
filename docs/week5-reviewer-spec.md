@@ -36,6 +36,11 @@ The sections below are left as originally written. What was built differs in the
   text is left out of the model's input. "Only what the model saw" would then read "None
   recorded" while the record has a complication. The panel adds an amber line saying how many
   such complications the record holds.
+- **§0, §1, §4 "reopen the procedure" — there is no reopen flow.** The spec says the reopen flow
+  "exists already". It does not: a reviewed procedure is read-only (database triggers), and there
+  is no amendment path in the app. A dose error in a reviewed record can only be corrected today by
+  an owner-approved data correction (as on 15 Oct 2026). The amendment path is first on the
+  backlog ("Amend a reviewed procedure").
 - **§6 `dose_mismatch`** goes straight to medicines, not to the first section mentioning the
   drug, which could be earlier prose. This is what §8 asks for ("a dose error lands on
   medicines").

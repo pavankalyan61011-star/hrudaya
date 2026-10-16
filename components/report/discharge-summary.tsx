@@ -229,6 +229,7 @@ export function DischargeSummaryCard(props: Props) {
               Print
             </Link>
           </div>
+          <p className="text-sm text-slate-600">Compare with record is available while editing a draft.</p>
         </div>
       ) : (
         <div className="space-y-3">

@@ -8,6 +8,16 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
 
 ## Requested by the owner
 
+- **Amend a reviewed procedure.** A clinician unlocks a reviewed record with a stated reason,
+  edits it (e.g. a discharge medication), and re-reviews. Needs:
+  - a status model: reviewed → amended → reviewed;
+  - triggers that allow edits only while amended;
+  - a `procedure_events` trail (who unlocked it, why, what changed, who re-reviewed);
+  - a FHIR re-export;
+  - existing discharge summaries marked "record changed since this draft".
+
+  Today reviewed records are read-only and there is no amendment path. The two 15 Oct 2026 data
+  corrections had to switch the guards off in a one-off SQL transaction instead.
 - **Linked consent checklist** — a checklist table (risks discussed, alternatives, interpreter,
   witness) linked to the consent time and clinician recorded today. 0007 stores only who and when.
 - **"Not assessed" vs "not recorded"** — a further state for findings that were deliberately not
