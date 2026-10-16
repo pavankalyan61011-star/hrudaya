@@ -204,7 +204,7 @@ function MedicinesTable({ rows, language }: { rows: MedRow[]; language: SummaryL
           ))}
         </tbody>
       </table>
-      <p className="text-sm text-slate-600">Medicines come from the record and cannot be changed here. A reviewed procedure cannot be edited yet — amendments are planned.</p>
+      <p className="text-sm text-slate-600">Medicines come from the record. A wrong dose has to be corrected in the record; reviewed records can't be amended in the app yet.</p>
     </div>
   );
 }
