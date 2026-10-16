@@ -8,8 +8,9 @@ approval or the database changed this week. Spec: [week5-reviewer-spec.md](week5
 
 1. **The record is the source of truth; the leaflet is a view of it.** The medicines table in the
    editor is not editable. It is rendered from the record, with the draft's wording for "how
-   often" and "for how long". A wrong dose is fixed in the record (reopen the procedure), not in
-   the leaflet, which removes a whole class of error the audit used to have to catch.
+   often" and "for how long". A wrong dose belongs in the record, not the leaflet, which removes
+   a whole class of error the audit used to have to catch. Under the table the editor says:
+   *"Medicines come from the record and cannot be changed here. A reviewed procedure cannot be edited yet — amendments are planned."* (amendment is first on the backlog).
 2. **Review against, not review alone.** Every section sits next to the record fields that fed it:
    a second column on a laptop, a bottom sheet on a phone.
 3. **Flags belong where the problem is.** An audit flag sits under the section that caused it, and

@@ -278,8 +278,8 @@ phone, without touching Markdown. Generation, the audit rules, approval and the 
 unchanged. Write-up: [docs/reviewer-ux.md](docs/reviewer-ux.md).
 
 - **Structured editor.** One block per section, with headings read-only. The medicines table is
-  rendered **from the record**, so it can't be edited: to change a dose, reopen the procedure. Only
-  the wording is editable. View Markdown shows exactly what will be saved. A draft whose sections
+  rendered **from the record** and can't be edited here. A reviewed procedure can't be edited yet
+  either; amendments are planned (first on the backlog). Only the wording is editable. View Markdown shows exactly what will be saved. A draft whose sections
   don't match the record falls back to the old single textarea with a notice.
 - **Compare with record.** The record as the model saw it, grouped by section: a second column on
   a laptop (each group sticks beside its section), a bottom sheet on a phone. Missing values read
