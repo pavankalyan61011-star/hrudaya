@@ -39,7 +39,7 @@ Requires **Node 22.18 or later** (the seed script runs TypeScript directly) and 
    ```
 2. Copy `.env.example` to `.env.local` and fill in the three values from Supabase →
    Project Settings → API. The service-role key stays on your machine; the app never uses it.
-3. Apply the migrations in order (`0001` to `0010`; `0009` must be applied on its own, before `0010`). For a local database, `supabase start`
+3. Apply the migrations in order (`0001` to `0011`; `0009` must be applied on its own, before `0010`). For a local database, `supabase start`
    (needs Docker) applies them all. For a hosted project, either paste each file from
    `supabase/migrations/` into the Supabase SQL editor, or with the Supabase CLI:
    ```bash
@@ -47,7 +47,7 @@ Requires **Node 22.18 or later** (the seed script runs TypeScript directly) and 
    ```
 4. Create a user: Supabase → Authentication → Users → **Add user** (email and password).
    There is no public sign-up page.
-5. Load the 20 synthetic cases (safe to re-run; existing cases are skipped):
+5. Load the 24 synthetic cases (safe to re-run; existing cases are skipped):
    ```bash
    npm run seed
    ```
@@ -82,6 +82,11 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `lib/amendments/` | Week 6: record snapshot, field-level diff, open/close logic |
 | `components/amendments/` | Week 6: Amend dialog, signing page, Amendments card |
 | `docs/amendments.md` | Week 6: how a reviewed record is amended — rules, SQL contracts, tests |
+| `components/report/sheets/` | Week 7: the side sheets (lesion, physiology & imaging, haemodynamics & LV, grafts, intervention & devices, events, indication & outcome) |
+| `lib/registry/` | Week 7: the 42 registry elements and where each is entered |
+| `docs/structured-reporting.md` | Week 7: field list, sources, what is typed vs reserved for feeds, corrections |
+| `docs/registry-mapping.md` | Week 7: the registry elements, modelled on NCDR CathPCI v5 concepts |
+| `supabase/undo/` | Undo scripts for migrations (0011), rehearsed locally |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
 ## Week 1 definition of done
@@ -411,6 +416,69 @@ From [docs/week6-amendments-spec.md §6](docs/week6-amendments-spec.md):
 - [ ] Owner read-through: Pavan amends one seeded case on his phone with a real reason and signs
   the diff
 
+## Week 7 — Structured reporting fields
+
+Every field a vendor cath report or a PCI registry asks for can now be recorded where a clinician
+would look for it, with its source. The report doesn't turn into a 40-field form: each group is a
+**sheet opened from the part of the report it describes**. Write-up:
+[docs/structured-reporting.md](docs/structured-reporting.md).
+
+- **Seven sheets:**
+  - **Lesion:** class, Medina drawn as a Y, CTO, ISR, Rentrop.
+  - **Physiology & imaging:** FFR/iFR, IVUS/OCT/NIRS.
+  - **Haemodynamics & LV:** left heart and the 17-segment bullseye.
+  - **Grafts.**
+  - **Intervention & devices:** technique chips, bifurcation strategy, grading, procedural events
+    with treatment and resolution, and the inflation log.
+  - **Events:** for a study with no intervention.
+  - **Indication & outcome:** CCS/NYHA, STEMI times with door-to-device, and in-hospital outcomes
+    recorded **yes / no / not recorded**, never defaulted to "no".
+
+  On a phone each sheet is a full-screen page; on a laptop it's a 420 px side panel. The capture
+  steps open the same sheets.
+- **Registry · n of 42** in the report header lists what is missing, each item a link to its sheet.
+  The 42 elements are modelled on NCDR CathPCI v5 concepts; the NIC mapping is pending
+  ([docs/registry-mapping.md](docs/registry-mapping.md)). Sign-off warns but never blocks.
+- **All in SQL (0011):**
+  - a `value_source` on every new value, so a future viewer, QCA or hemo-system feed can write the
+    same columns;
+  - image traceability columns (UIDs, frame, view, method);
+  - "present only when" rules as CHECKs;
+  - outcome rules across tables;
+  - reviewed records stay read-only;
+  - amendments list Week 7 changes.
+
+  An undo script was rehearsed locally before 0011 went to production.
+- **FHIR:**
+  - new Observations for physiology, imaging, grafts, LV detail and outcomes;
+  - techniques as `Procedure.usedCode`;
+  - the discharge disposition on the Encounter;
+  - 0 validator errors.
+
+  Codes are verified or text-only (FFR has no LOINC code).
+
+| Lesion sheet (phone) |
+|---|
+| ![Lesion sheet on a phone](docs/images/week7-phone-lesion-sheet.jpg) |
+
+## Week 7 definition of done
+
+From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporting-spec.md):
+
+- [x] 0011 applies cleanly on a fresh database and on production (18 Oct 2026); nothing renamed or
+  dropped; snapshot parity SQL = TypeScript for 21/21 production and 24/24 local cases
+- [x] Amending a reviewed case can change any Week 7 field and the diff lists it with before/after
+- [x] All seven sheets work at 390 px (emulated) and on a laptop; every enum has a picker; every
+  optional block offers "Not performed"; every outcome is tri-state; no new required field
+- [x] Registry list and `docs/registry-mapping.md` kept separate (owner review of the 42 names pending)
+- [x] Report header shows the registry count; each missing element links to its sheet
+- [x] Seed: 24 cases, with every §6 scenario (four new cases, 022–025, for the ones no story had)
+- [ ] FHIR: 0 errors on all cases and codes verified or text-only (done); HAPI round-trip not re-run
+  (posts to a public server; waiting for the owner's go)
+- [ ] AI summary v7: audit on all cases; the FFR-deferred case says the lesion was not stented and why
+- [x] `docs/structured-reporting.md`; this section with a screenshot
+- [ ] Owner: phone-test the sheets; enter a post-CABG and a STEMI case by hand
+
 ## Roadmap
 
 - **Week 1 — built and deployed:** schema with RLS and audit columns, 6-step capture form, list and detail pages, 20 synthetic cases. Remaining checks above.
@@ -419,6 +487,7 @@ From [docs/week6-amendments-spec.md §6](docs/week6-amendments-spec.md):
 - **Week 4 — AI discharge summary, built:** six languages, audit, clinician approval, print report. Remaining checks above.
 - **Week 5 — Reviewer experience, built:** structured editor, compare with record, flags beside sections. Remaining checks above.
 - **Week 6 — Amendments, built:** reason, snapshot, signed diff, re-review; superseded summaries; FHIR `amended` + Provenance. Owner phone test remaining.
+- **Week 7 — Structured reporting, built:** lesion, physiology and imaging, haemodynamics and LV, grafts, technique and events, indication and tri-state outcomes; registry count; FHIR. Summary v7 and the owner phone test remaining.
 - **Next:** ABDM (Week 3, waiting on sandbox credentials), form navigation for the capture steps, tighter row-level security.
 
 ## Licence

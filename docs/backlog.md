@@ -128,6 +128,18 @@ as further `*_status` blocks without renaming anything; each block follows the t
   `tri_state` (yes / no / not recorded) with a migration that maps existing `true` → yes and leaves
   existing `false` as not recorded unless the record says otherwise.
 
+## Found while building Week 7 (structured reporting)
+
+- **FHIR for indication detail and STEMI times.** CCS, NYHA, stress test, shock, arrest, previous
+  PCI/CABG and the four STEMI times are recorded but not yet in the Bundle.
+- **Outcome links per outcome.** `in_hospital_outcomes.event_links` is one list per row, so the
+  Outcome tab can only place a linked event under the outcome its type suggests. A link table
+  (outcome, event) would say exactly which event explains which outcome.
+- **HAPI round-trip after Week 7.** Not re-run: it posts a Bundle to the public test server, so it
+  waits for the owner's go.
+- **Seed cases 022–025 on production.** Only on a fresh database so far; adding them to production
+  is a data change for the owner to approve.
+
 ## Data corrections (owner-approved, synthetic records)
 
 - **2026-10-15: red flags and PCI-2026-005 timeline.** Data only, no schema change. Applied to
