@@ -141,6 +141,19 @@ export const COMPLICATION: Record<Enums["complication_type"], CodeEntry | null> 
   stroke: null,
   death: null,
   other: null,
+  // Week 7 (0011) procedural events: text only until codes are verified (Week 7 step 4).
+  side_branch_closure: null,
+  abrupt_vessel_closure: null,
+  acute_stent_thrombosis: null,
+  distal_embolisation: null,
+  air_embolism: null,
+  coronary_spasm: null,
+  significant_arrhythmia: null,
+  cardiac_arrest: null,
+  new_cardiogenic_shock: null,
+  contrast_reaction: null,
+  pulmonary_oedema: null,
+  unplanned_repeat_pci: null,
 };
 
 // ─── Observations and document (spec §4.6, §4.10) ──────────────────────────────
