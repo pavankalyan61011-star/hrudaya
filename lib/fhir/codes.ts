@@ -148,7 +148,6 @@ export const COMPLICATION: Record<Enums["complication_type"], CodeEntry | null> 
   distal_embolisation: null,
   air_embolism: null,
   coronary_spasm: null,
-  significant_arrhythmia: null,
   cardiac_arrest: null,
   new_cardiogenic_shock: null,
   contrast_reaction: null,

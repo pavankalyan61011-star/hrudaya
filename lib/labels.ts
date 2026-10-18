@@ -56,7 +56,8 @@ export function label(value: string | null | undefined): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-export const TIMI_LABELS = ["0", "I", "II", "III"] as const;
+// Digits, as registries and reports write them (owner, 2026-10-18; was Roman numerals).
+export const TIMI_LABELS = ["0", "1", "2", "3"] as const;
 export const timi = (n: number | null | undefined) => (n === null || n === undefined ? "—" : `TIMI ${TIMI_LABELS[n]}`);
 
 export const SHEATH_SIZES = [5, 6, 7, 8] as const;

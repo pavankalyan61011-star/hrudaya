@@ -11,7 +11,7 @@
  *  - Week 7 (0011): a lesion carries its physiology and imaging rows, and its graft as
  *    {graft_type, target_vessel} instead of graft_id; grafts, haemodynamics, LV wall motion and
  *    in-hospital outcomes are top-level, the outcomes' event_links replaced by the linked events'
- *    {complication, onset_at, occurred_at}; recorded_by / recorded_at are left out like audit columns;
+ *    {complication, onset_at}; recorded_by / recorded_at are left out like audit columns;
  *  - children sorted by explicit natural-key tuples: text compared by code unit (≈ collate "C"),
  *    numbers numerically, false before true, null first.
  * Two snapshots of an unchanged record serialise byte-identically (canonicalJson sorts keys).
@@ -151,7 +151,7 @@ export function snapshotProcedure(p: FhirSource): Snapshot {
 
   const complications = sortBy(((raw.complications as Row[]) ?? []).map((c) => omit(c, ["id", "procedure_id", ...AUDIT])), (r) => [
     v(r, "complication"), v(r, "onset"), v(r, "onset_at"), v(r, "severity"), v(r, "management"), v(r, "outcome"),
-    v(r, "occurred_at"), v(r, "grade"), joined(r, "treatments"), v(r, "treatment_other"), v(r, "resolution"),
+    v(r, "grade"), joined(r, "treatments"), v(r, "treatment_other"), v(r, "resolution"),
   ]);
 
   const d = raw.discharge as Row | null;
@@ -189,9 +189,9 @@ export function snapshotProcedure(p: FhirSource): Snapshot {
           linked_events: sortBy(
             ((o.event_links as string[]) ?? []).flatMap((id) => {
               const c = events.get(id);
-              return c ? [{ complication: c.complication, onset_at: v(c, "onset_at"), occurred_at: v(c, "occurred_at") } as Row] : [];
+              return c ? [{ complication: c.complication, onset_at: v(c, "onset_at") } as Row] : [];
             }),
-            (r) => [v(r, "complication"), v(r, "onset_at"), v(r, "occurred_at")],
+            (r) => [v(r, "complication"), v(r, "onset_at")],
           ),
         }
       : null,

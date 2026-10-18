@@ -41,14 +41,14 @@ begin
 end;
 $$;
 
--- §2.8a — procedural events (existing values kept; 'arrhythmia' stays for existing rows)
+-- §2.8a — procedural events (existing values kept). Arrhythmia uses the existing 'arrhythmia' value,
+-- its type (VF / VT / complete heart block / AF with compromise) in complications.grade (owner, 2026-10-18).
 alter type public.complication_type add value if not exists 'side_branch_closure';
 alter type public.complication_type add value if not exists 'abrupt_vessel_closure';
 alter type public.complication_type add value if not exists 'acute_stent_thrombosis';
 alter type public.complication_type add value if not exists 'distal_embolisation';
 alter type public.complication_type add value if not exists 'air_embolism';
 alter type public.complication_type add value if not exists 'coronary_spasm';
-alter type public.complication_type add value if not exists 'significant_arrhythmia';
 alter type public.complication_type add value if not exists 'cardiac_arrest';
 alter type public.complication_type add value if not exists 'new_cardiogenic_shock';
 alter type public.complication_type add value if not exists 'contrast_reaction';
@@ -345,7 +345,6 @@ alter table public.interventions
 -- ─── §2.8a complications → procedural events ──────────────────────────────────
 
 alter table public.complications
-  add column occurred_at     timestamptz,
   add column grade           text,
   add column treatments      public.event_treatment[] not null default '{}',
   add column treatment_other text,
@@ -606,7 +605,8 @@ create trigger unlink_deleted_event
 
 -- ─── Week 6 snapshot, extended (0011) ─────────────────────────────────────────
 -- Same rules as 0010: no ids, foreign keys, audit or recorded_* columns; foreign keys replaced by
--- natural keys (a lesion's graft → {graft_type, target_vessel}; outcome links → the linked events);
+-- natural keys (a lesion's graft → {graft_type, target_vessel}; outcome links → the linked events'
+-- {complication, onset_at});
 -- children sorted by explicit tuples over every column (text collate "C", nulls first, arrays
 -- joined with ','). lib/amendments/snapshot.ts builds the identical object.
 
@@ -692,7 +692,7 @@ as $$
       select pg_catalog.jsonb_agg(pg_catalog.to_jsonb(c) - array['id', 'procedure_id', 'created_at', 'updated_at', 'created_by']
         order by c.complication::text collate "C", c.onset::text collate "C" nulls first, c.onset_at nulls first,
                  c.severity::text collate "C", c.management collate "C" nulls first, c.outcome collate "C" nulls first,
-                 c.occurred_at nulls first, c.grade collate "C" nulls first, pg_catalog.array_to_string(c.treatments::text[], ',') collate "C",
+                 c.grade collate "C" nulls first, pg_catalog.array_to_string(c.treatments::text[], ',') collate "C",
                  c.treatment_other collate "C" nulls first, c.resolution::text collate "C" nulls first)
       from public.complications c where c.procedure_id = p.id), '[]'::jsonb),
     'discharge', (
@@ -720,8 +720,8 @@ as $$
       select (pg_catalog.to_jsonb(o) - array['id', 'procedure_id', 'recorded_by', 'recorded_at', 'event_links'])
         || pg_catalog.jsonb_build_object('linked_events', coalesce((
              select pg_catalog.jsonb_agg(
-                      pg_catalog.jsonb_build_object('complication', c.complication, 'onset_at', c.onset_at, 'occurred_at', c.occurred_at)
-                      order by c.complication::text collate "C", c.onset_at nulls first, c.occurred_at nulls first)
+                      pg_catalog.jsonb_build_object('complication', c.complication, 'onset_at', c.onset_at)
+                      order by c.complication::text collate "C", c.onset_at nulls first)
              from public.complications c where c.id = any (o.event_links)), '[]'::jsonb))
       from public.in_hospital_outcomes o where o.procedure_id = p.id)
   )

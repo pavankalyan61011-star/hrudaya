@@ -17,7 +17,6 @@ export type Database = {
           grade: string | null
           id: string
           management: string
-          occurred_at: string | null
           onset: Database["public"]["Enums"]["complication_onset"] | null
           onset_at: string | null
           outcome: string | null
@@ -35,7 +34,6 @@ export type Database = {
           grade?: string | null
           id?: string
           management: string
-          occurred_at?: string | null
           onset?: Database["public"]["Enums"]["complication_onset"] | null
           onset_at?: string | null
           outcome?: string | null
@@ -53,7 +51,6 @@ export type Database = {
           grade?: string | null
           id?: string
           management?: string
-          occurred_at?: string | null
           onset?: Database["public"]["Enums"]["complication_onset"] | null
           onset_at?: string | null
           outcome?: string | null
@@ -1761,7 +1758,6 @@ export type Database = {
         | "distal_embolisation"
         | "air_embolism"
         | "coronary_spasm"
-        | "significant_arrhythmia"
         | "cardiac_arrest"
         | "new_cardiogenic_shock"
         | "contrast_reaction"
@@ -2138,7 +2134,6 @@ export const Constants = {
         "distal_embolisation",
         "air_embolism",
         "coronary_spasm",
-        "significant_arrhythmia",
         "cardiac_arrest",
         "new_cardiogenic_shock",
         "contrast_reaction",

@@ -31,7 +31,7 @@ What this week is **not**: no viewer, no QCA, no machine feeds. Every value this
 - UI: six **side sheets** opened from the report page — Lesion, Physiology & imaging, Haemodynamics & LV, Grafts, Intervention & devices, Indication & outcome — plus the existing capture-form steps gaining the same fields in the same order. Every field optional unless marked *registry*; a registry-completeness count appears on the report header.
 - FHIR: new Observations for every new measurement with verified LOINC/SNOMED codes; Procedure.usedCode for technique; BodyStructure not used — lesion site stays as Observation.bodySite (keeps the Week 2 shape).
 - AI summary prompt v7: may mention FFR/iFR, IVUS result, LVEF, outcomes — audited against the same tables; still forbidden from inventing values.
-- Seed: the 21 synthetic cases gain plausible values for the new fields (not all cases all fields — realistic sparsity), including one post-CABG case with grafts, one right-heart cath, two STEMI with timings, one FFR-deferred lesion.
+- Seed: the 21 synthetic cases gain plausible values for the new fields (not all cases all fields — realistic sparsity), including one post-CABG case with grafts, two STEMI with timings, one FFR-deferred lesion (right-heart cath deferred to Week 7b, §2.5 / §6).
 
 ## 2. Data model — migration 0011 (additive)
 
@@ -153,9 +153,9 @@ At most one row per procedure. Each block has its own `measurement_status` (`not
 Extend the existing enum and add treatment/resolution. Zero rows still means no events.
 | column | type | notes |
 |---|---|---|
-| complication | enum, extended: dissection, perforation, no_reflow, **side_branch_closure, abrupt_vessel_closure, acute_stent_thrombosis, distal_embolisation, air_embolism, coronary_spasm, significant_arrhythmia, cardiac_arrest, new_cardiogenic_shock, contrast_reaction, pulmonary_oedema, unplanned_repeat_pci**, access_site_haematoma, radial_occlusion, contrast_nephropathy, cardiac_tamponade, stroke, death, other | |
-| occurred_at | timestamptz, nullable | |
-| grade | text, nullable | dissection A–F, perforation Ellis class, arrhythmia type (VF/VT/complete heart block) — validated per `complication` in the UI |
+| complication | enum, extended: dissection, perforation, no_reflow, **side_branch_closure, abrupt_vessel_closure, acute_stent_thrombosis, distal_embolisation, air_embolism, coronary_spasm, cardiac_arrest, new_cardiogenic_shock, contrast_reaction, pulmonary_oedema, unplanned_repeat_pci**, access_site_haematoma, radial_occlusion, contrast_nephropathy, cardiac_tamponade, stroke, death, other | |
+| onset_at | timestamptz, nullable | existing column (0007) is the event time — no separate `occurred_at` (owner, 2026-10-18); arrhythmia uses the existing `arrhythmia` value with its type in `grade` |
+| grade | text, nullable | dissection A–F, perforation Ellis class, arrhythmia type (VF / VT / complete heart block / AF with compromise) — validated per `complication` in the UI |
 | treatments | event_treatment[] | enum array: none, additional_stent, covered_stent, prolonged_balloon_inflation, intracoronary_vasodilator, thrombus_aspiration, gp_iib_iiia, defibrillation, cardioversion, temporary_pacing, pericardiocentesis, iabp, impella_or_ecmo, intubation, emergency_cabg, repeat_pci, transfusion, dialysis, other |
 | treatment_other | text, nullable | |
 | resolution | enum: resolved, ongoing_at_discharge, fatal, nullable | |
