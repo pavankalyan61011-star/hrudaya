@@ -185,9 +185,13 @@ alter table public.vessel_findings
   add constraint vessel_findings_medina_only_when_bifurcation check (bifurcation or bifurcation_medina is null),
   add constraint vessel_findings_cto_duration_only_when_cto
     check ((cto or cto_duration_months is null) and (cto_duration_months is null or cto_duration_months >= 0)),
-  add constraint vessel_findings_isr_pattern_only_when_isr check (in_stent_restenosis or isr_pattern is null),
-  -- A graft lesion names its graft; nothing else does.
-  add constraint vessel_findings_graft_link check ((vessel = 'graft') = (graft_id is not null));
+  add constraint vessel_findings_isr_pattern_only_when_isr check (in_stent_restenosis or isr_pattern is null);
+
+-- A graft lesion names its graft; nothing else does. NOT VALID: enforced on every row written from now
+-- on, but a graft finding recorded before 0011 (vessel = 'graft', no grafts table then) is left as it
+-- was rather than making the migration fail. Production has none (checked 2026-10-18).
+alter table public.vessel_findings
+  add constraint vessel_findings_graft_link check ((vessel = 'graft') = (graft_id is not null)) not valid;
 
 create index on public.vessel_findings (graft_id, procedure_id);
 
