@@ -375,6 +375,15 @@ flag is placed by its own pattern, so "Fr" is not found inside "From".
 
 Cost: $0.0216 per Hindi summary (3,526 tokens in, 1,459 out). Total API spend is about $21.91.
 
+**Stale drafts regenerated (18 Oct 2026).** The production Week 7 seed changed the records of two
+unapproved drafts, PCI-2026-005 Telugu v2 and PCI-2026-015 Kannada v1. They were regenerated with
+v9 by `scripts/summary-regenerate.ts`, which uses the same code as the Generate button. It refuses
+an approved summary or a current draft, and it leaves `generated_by` null because no user is signed
+in. Results: Telugu v3 with 0 flags ($0.025) and Kannada v2 with 0 flags ($0.039). Total API spend
+is about $22.
+- **Still stale on production, not regenerated:** CAG-2026-018 Telugu v2 (a draft), PCI-2026-001
+  English v1 (a draft), and PCI-2026-001 Telugu v4 (approved, superseded by the Week 6 amendment).
+
 ## Audit rules
 
 | Code | Rule | Severity |

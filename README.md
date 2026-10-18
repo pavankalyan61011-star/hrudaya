@@ -421,61 +421,87 @@ From [docs/week6-amendments-spec.md §6](docs/week6-amendments-spec.md):
 Every field a vendor cath report or a PCI registry asks for can now be recorded where a clinician
 would look for it, with its source. The report doesn't turn into a 40-field form: each group is a
 **sheet opened from the part of the report it describes**. Write-up:
-[docs/structured-reporting.md](docs/structured-reporting.md).
+[docs/structured-reporting.md](docs/structured-reporting.md). Registry mapping:
+[docs/registry-mapping.md](docs/registry-mapping.md).
 
-- **Seven sheets:**
+- **Migrations 0011–0012**, both on production since 18 Oct 2026 and recorded in
+  `supabase_migrations.schema_migrations`.
+  - **0011 — structured reporting:**
+    - new tables for grafts, physiology, imaging, haemodynamics, LV wall motion, inflations and
+      in-hospital outcomes;
+    - a `value_source` on every new value, so a future viewer, QCA or hemo-system feed can write
+      the same columns;
+    - image traceability columns (UIDs, frame, view, method);
+    - "present only when" rules as CHECKs, and outcome rules across tables;
+    - reviewed records stay read-only, and amendments list Week 7 changes.
+
+    Its undo script was rehearsed locally before it went to production.
+  - **0012 — registry element 33** (owner review of the 42 names): "Guide catheter" became
+    "Pre-procedure TIMI flow (treated lesions)". It is function-only and has a rehearsed undo.
+- **The six sheets** of the spec, plus a small Events sheet for a study with no intervention:
   - **Lesion:** class, Medina drawn as a Y, CTO, ISR, Rentrop.
   - **Physiology & imaging:** FFR/iFR, IVUS/OCT/NIRS.
   - **Haemodynamics & LV:** left heart and the 17-segment bullseye.
   - **Grafts.**
   - **Intervention & devices:** technique chips, bifurcation strategy, grading, procedural events
     with treatment and resolution, and the inflation log.
-  - **Events:** for a study with no intervention.
-  - **Indication & outcome:** CCS/NYHA, STEMI times with door-to-device, and in-hospital outcomes
-    recorded **yes / no / not recorded**, never defaulted to "no".
+  - **Indication & outcome:** CCS/NYHA and STEMI times with door-to-device.
 
   On a phone each sheet is a full-screen page; on a laptop it's a 420 px side panel. The capture
   steps open the same sheets.
+- **Tri-state outcomes.** Every in-hospital outcome (MI, stroke, death, bleeding with BARC,
+  transfusion, vascular, AKI, dialysis, emergency CABG, tamponade, repeat PCI) is recorded **yes /
+  no / not recorded**, never defaulted to "no". An outcome can link to the procedural event that
+  explains it.
 - **Registry · n of 42** in the report header lists what is missing, each item a link to its sheet.
-  The 42 elements are modelled on NCDR CathPCI v5 concepts; the NIC mapping is pending
-  ([docs/registry-mapping.md](docs/registry-mapping.md)). Sign-off warns but never blocks.
-- **All in SQL (0011):**
-  - a `value_source` on every new value, so a future viewer, QCA or hemo-system feed can write the
-    same columns;
-  - image traceability columns (UIDs, frame, view, method);
-  - "present only when" rules as CHECKs;
-  - outcome rules across tables;
-  - reviewed records stay read-only;
-  - amendments list Week 7 changes.
-
-  An undo script was rehearsed locally before 0011 went to production.
+  - The count is computed in SQL (`registry_completeness`) over the same keys as
+    `lib/registry/nic-elements.ts`.
+  - The elements are modelled on NCDR CathPCI v5 concepts; the NIC mapping is pending. The owner
+    reviewed the 42 names on 18 Oct 2026.
+  - Sign-off warns but never blocks.
 - **FHIR:**
   - new Observations for physiology, imaging, grafts, LV detail and outcomes;
   - techniques as `Procedure.usedCode`;
-  - the discharge disposition on the Encounter;
-  - 0 validator errors.
+  - the discharge disposition on the Encounter.
 
-  Codes are verified or text-only (FFR has no LOINC code).
-- **AI summary, prompt v7:**
-  - the physiology result and the defer/treat decision in plain words;
-  - IVUS/OCT guidance and the final result;
-  - in-hospital events recorded as "yes";
-  - one sentence on what the LVEF means, in the owner's wording for the ESC groups.
+  Codes are verified or text-only (FFR has no LOINC code). Validator: 25 production cases, 0
+  errors. HAPI round-trip passes.
+- **AI summary, prompts v7–v9**
+  ([docs/ai-summary.md](docs/ai-summary.md#prompt-v7-week-7-structured-reporting)):
+  - **v7:**
+    - the physiology result and its defer/treat decision in plain words;
+    - IVUS/OCT guidance and the final result;
+    - in-hospital events recorded as "yes";
+    - one sentence on what the LVEF means, in the owner's wording for the ESC groups.
 
-  STEMI times are never sent. Eval: 132/132 drafts, 0 audit flags, $3.48
-  ([docs/ai-summary.md](docs/ai-summary.md#prompt-v7-week-7-structured-reporting)).
-- **AI summary, prompt v8:**
-  - no decision word ("defer");
-  - an in-stent restenosis names "the earlier stent";
-  - no sheath size, French gauge or catheter. The sheath size is no longer sent, and "Fr"/"French"
-    block approval.
+    STEMI times are never sent.
+  - **v8:**
+    - no decision word ("defer");
+    - an in-stent restenosis names "the earlier stent";
+    - no sheath size, French gauge or catheter ("Fr"/"French" block approval).
 
-  Approved summaries keep their status: each row is compared with the input its own prompt version
-  saw. Eval: 132/132, 0 flags, $3.54 ([docs/ai-summary.md](docs/ai-summary.md#prompt-v8-18-oct-2026)).
-- **AI summary, prompt v9:** a per-language glossary for "artery" (धमनी / ధమని / தமனி / ಅಪಧಮನಿ /
-  ധമനി), and "नस" (vein) blocks approval in Hindi. Hindi-only eval: 22/22, no artery called नस,
-  one correct "vein" (IV fluids) blocked for the clinician to reword, $0.48
-  ([docs/ai-summary.md](docs/ai-summary.md#prompt-v9-18-oct-2026)).
+    Each summary is compared with the input its own prompt version saw, so approved summaries keep
+    their status.
+  - **v9:** a per-language glossary for "artery" (धमनी / ధమని / தமனி / ಅಪಧಮನಿ / ധമനി), and "नस"
+    (vein) blocks approval in Hindi.
+
+  Evals: v7 and v8 132/132 drafts with 0 audit flags; v9 (Hindi only) 22/22, with one correct
+  "vein" (IV fluids) blocked for the clinician to reword. The two drafts the production seed made
+  stale (PCI-2026-005 Telugu, PCI-2026-015 Kannada) were regenerated with v9: 0 flags.
+- **25 cases on production** (from 21; 18 Oct 2026, owner's go, additive only):
+  - the four Week 7 cases PCI-2026-022 … 025 were added, with the same codes as the local seed;
+  - CAG-2026-019 (FFR deferred), PCI-2026-005 (bleed and haematoma outcomes) and PCI-2026-015
+    (IVUS, in-stent restenosis) gained their Week 7 rows;
+  - nothing entered before Week 7 changed, and PCI-2026-001 is untouched;
+  - snapshot parity TS = SQL for all 25.
+
+  Details: [docs/backlog.md](docs/backlog.md) → Data corrections.
+- **Model spend for the week: $7.58**
+  - evals: v7 $3.48, v8 $3.54, v9 Hindi $0.48;
+  - the two regenerated drafts: $0.06;
+  - one draft generated in the app: $0.02.
+
+  About $22 for the project so far.
 
 | Lesion sheet (phone) |
 |---|
