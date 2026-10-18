@@ -105,6 +105,29 @@ Rule for every conditional measurement (spec §3): a `*_status` enum — `not_re
   changes stay in Hrudaya. An `entity` per changed resource, or a PurposeOfUse code agreed with
   ABDM, would clear the text-only warning.
 
+## Week 7b — right heart, valves, shunts
+
+Deferred from Week 7 spec §2.5 (beyond the coronary MVP). `haemodynamics` is built so these arrive
+as further `*_status` blocks without renaming anything; each block follows the three-state rule
+(values present exactly when its status is `recorded`).
+
+- **Right-heart block:** `right_status` measurement_status default `not_recorded`; `ra_mean`;
+  `rv_systolic` / `rv_diastolic` / `rv_edp`; `pa_systolic` / `pa_diastolic` / `pa_mean`; `pcwp_mean`
+  (all integer mmHg); `cardiac_output_l_min` numeric(4,2); `cardiac_index` numeric(3,2) (stored: the
+  lab's own calculation is the record); `co_method` enum thermodilution / fick; `pvr_wood`
+  numeric(4,2); `svr_dyn` integer; `mixed_venous_sat_pct` integer; `shunt_qp_qs` numeric(3,2).
+- **Valve block:** `valve_status` measurement_status; `ao_valve_peak_gradient` /
+  `ao_valve_mean_gradient`, `mitral_mean_gradient` (integer mmHg); `aortic_valve_area_cm2` /
+  `mitral_valve_area_cm2` numeric(3,2).
+- The Haemodynamics & LV sheet shows a greyed "Right heart · valves — coming later" row until then;
+  `heart_rate_at_measurement` and `rhythm` already sit outside the left block so these share them.
+- **Booleans → tri_state.** Week 1 / Week 7 yes/no columns that default to `false` (thrombus,
+  bifurcation, ostial, CTO, ISR, culprit; dissection, perforation, no-reflow, stent overlap;
+  shock, cardiac arrest, thrombolysis) can't tell "No" from "never asked". The sheets show them
+  with no button selected until tapped (owner, 2026-10-18) but still save `false`. Move them to
+  `tri_state` (yes / no / not recorded) with a migration that maps existing `true` → yes and leaves
+  existing `false` as not recorded unless the record says otherwise.
+
 ## Data corrections (owner-approved, synthetic records)
 
 - **2026-10-15: red flags and PCI-2026-005 timeline.** Data only, no schema change. Applied to
