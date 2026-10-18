@@ -481,8 +481,8 @@ From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporti
 - [x] Registry list and `docs/registry-mapping.md` kept separate (owner review of the 42 names pending)
 - [x] Report header shows the registry count; each missing element links to its sheet
 - [x] Seed: 24 cases, with every §6 scenario (four new cases, 022–025, for the ones no story had)
-- [ ] FHIR: 0 errors on all cases and codes verified or text-only (done); HAPI round-trip not re-run
-  (posts to a public server; waiting for the owner's go)
+- [x] FHIR: 0 errors on all cases; codes verified or text-only; HAPI round-trip passes (18 Oct
+  2026: PCI-2026-001 from production and PCI-2026-022 from the local seed)
 - [x] AI summary v7: audit clean on all 22 discharged local cases × 6 languages (132 drafts); the
   FFR-deferred case (CAG-2026-019) says the lesion was not stented and why, in all six languages
 - [x] `docs/structured-reporting.md`; this section with a screenshot

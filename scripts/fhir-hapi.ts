@@ -3,6 +3,7 @@
  * read it back by the server-assigned id, and print that id and the entry count.
  *
  *   npm run fhir:hapi
+ *   npm run fhir:hapi -- --case PCI-2026-025     # another reviewed synthetic case
  *
  * Public HAPI is a shared test server: synthetic data only — every Bundle carries the
  * "synthetic" meta.tag. Prints ids and counts only, never patient fields.
@@ -13,7 +14,8 @@ import { loadProcedureForFhir } from "../lib/fhir/load.ts";
 import { procedureToBundle } from "../lib/fhir/mapper.ts";
 
 const BASE = "https://hapi.fhir.org/baseR4";
-const CASE = "PCI-2026-001";
+const args = process.argv.slice(2);
+const CASE = args.includes("--case") ? args[args.indexOf("--case") + 1] : "PCI-2026-001";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,5 +59,9 @@ const tagged = readBack.meta?.tag?.some((t) => t.code === "synthetic") ?? false;
 console.log(`POST ${BASE}/Bundle → HTTP ${post.status}`);
 console.log(`Server id: ${created.id}`);
 console.log(`GET  ${BASE}/Bundle/${created.id} → HTTP ${get.status}`);
+const types = (b: Bundle) => (b.entry ?? []).reduce<Record<string, number>>((a, e) => ({ ...a, [e.resource!.resourceType]: (a[e.resource!.resourceType] ?? 0) + 1 }), {});
+const same = JSON.stringify(types(bundle)) === JSON.stringify(types(readBack));
+console.log(`Case ${CASE}`);
+console.log(`Resource types read back: ${Object.entries(types(readBack)).map(([t, n]) => `${t} ${n}`).join(", ")} — ${same ? "same as sent" : "DIFFERENT from sent"}`);
 console.log(`Entries sent ${bundle.entry?.length ?? 0}, read back ${readBack.entry?.length ?? 0}; type ${readBack.type}; synthetic tag ${tagged ? "present" : "MISSING"}`);
 if (!get.ok || (readBack.entry?.length ?? 0) !== (bundle.entry?.length ?? 0)) process.exit(1);

@@ -315,6 +315,16 @@ additionally checked against the FHIR vital-signs profiles (and pass).
 
 ![HAPI FHIR returning Bundle 124023](images/hapi-bundle-124023.jpg)
 
+**Re-run after Week 7 (18 Oct 2026, owner's go).** The script now takes `--case`, and compares the
+resource types sent with those read back:
+
+| Case | Source | POST | Server id | GET | Entries sent / read back | Resource types |
+|---|---|---|---|---|---|---|
+| PCI-2026-001 | production | 201 | 150924 | 200 | 49 / 49 | same as sent (23 Observations, Provenance) |
+| PCI-2026-022 (post-CABG, grafts) | local seed | 201 | 150925 | 200 | 52 / 52 | same as sent (27 Observations) |
+
+Both are type `document` with the synthetic tag present.
+
 Public HAPI is a shared test server that anyone can read and that is periodically wiped. Synthetic
 data only — the script refuses a non-synthetic patient, and the Bundle's tag says so.
 
@@ -385,7 +395,7 @@ Searched on tx.fhir.org (LOINC and SNOMED implicit value sets) and not found, so
   every case**, warning counts unchanged from the Week 6 table above.
 - **Warnings:** no new kinds. The added resources carry the existing dom-6 best-practice warning (no
   narrative of their own); PCI-2026-001 locally rises from 47 to 57 for that reason.
-- HAPI round-trip: not re-run. It posts a Bundle to the public test server, so it waits for the owner's go.
+- HAPI round-trip: re-run on 18 Oct 2026 for PCI-2026-001 (production) and PCI-2026-022 (local, with grafts); both pass ([§6](#6-hapi-round-trip)).
 
 ## 8. Backlog
 

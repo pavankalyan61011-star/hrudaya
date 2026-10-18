@@ -135,8 +135,6 @@ as further `*_status` blocks without renaming anything; each block follows the t
 - **Outcome links per outcome.** `in_hospital_outcomes.event_links` is one list per row, so the
   Outcome tab can only place a linked event under the outcome its type suggests. A link table
   (outcome, event) would say exactly which event explains which outcome.
-- **HAPI round-trip after Week 7.** Not re-run: it posts a Bundle to the public test server, so it
-  waits for the owner's go.
 - **Seed cases 022–025 on production.** Only on a fresh database so far; adding them to production
   is a data change for the owner to approve.
 - **Summary: an old stent is not named in the input.** `in_stent_restenosis` is not sent, so for
