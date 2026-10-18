@@ -2,7 +2,8 @@
 
 > All cases are synthetic. Names, MRNs, operators and lot numbers are fictional. Added for the Week 7
 > structured-reporting scenarios (spec §6) that no case in 001–020 has, so those stories stay as
-> reviewed (owner, 18 Oct 2026). Seeded by `scripts/seed.ts` (`W7_CASES`).
+> reviewed (owner, 18 Oct 2026). Seeded by `scripts/seed.ts` (`W7_CASES`); on production since
+> 18 Oct 2026 (`npm run seed -- --cases PCI-2026-022,PCI-2026-023,PCI-2026-024,PCI-2026-025`).
 >
 > 022 post-CABG graft PCI · 023 bifurcation, provisional + POT + kissing · 024 POBA only, femoral
 > bleed with transfusion (BARC 3a), contrast-associated AKI · 025 perforation → covered stent and

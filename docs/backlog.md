@@ -135,8 +135,6 @@ as further `*_status` blocks without renaming anything; each block follows the t
 - **Outcome links per outcome.** `in_hospital_outcomes.event_links` is one list per row, so the
   Outcome tab can only place a linked event under the outcome its type suggests. A link table
   (outcome, event) would say exactly which event explains which outcome.
-- **Seed cases 022–025 on production.** Only on a fresh database so far; adding them to production
-  is a data change for the owner to approve.
 
 ## Data corrections (owner-approved, synthetic records)
 
@@ -181,6 +179,42 @@ as further `*_status` blocks without renaming anything; each block follows the t
   Verified on production: 11/11 lists identical to the seed builder, 23 `data_corrected` events
   in all, 0 triggers disabled, and PCI-2026-021 untouched. Found in the Telugu native-reader
   check on CAG-2026-018.
+- **2026-10-18: Week 7 seed on production (owner's go).** Additive only, with the same case codes
+  as local, so the docs match. Production went from **21 to 25** procedures.
+  - **New cases PCI-2026-022 … 025** were added by `scripts/seed.ts --cases …`. A case code that
+    already exists is skipped, so nothing else is touched. No case code or MRN collided.
+  - **Three existing cases gained Week 7 rows**
+    (`supabase/data-corrections/2026-10-18-week7-values-005-015-019.sql`):
+    - CAG-2026-019: FFR 0.86 (defer) on the mid RCA, and in-hospital outcomes;
+    - PCI-2026-005: outcomes (bleeding, BARC 2, haematoma, linked to the haematoma event), the
+      event's resolution, and techniques;
+    - PCI-2026-015: IVUS before and after, in-stent restenosis (focal), previous PCI,
+      techniques, the drug-coated balloon's inflation, and outcomes.
+  - **How it was written:**
+    - each statement fills a Week 7 field that is still unset (NULL, or its 0011 default of false
+      or `{}`), or inserts a Week 7 row where none exists. No field entered before Week 7
+      changed;
+    - CAG-2026-019's `outcome_summary`, whose wording differs from the seed's, was left as it is;
+    - one transaction, with the reviewed-record guards off for these statements only and every
+      row count checked;
+    - it refuses if any of the three cases has an approved summary (none do);
+    - deferred outcome rules are checked before the guards come back on;
+    - 3 `data_corrected` events.
+  - **Rehearsed locally first:**
+    - the three cases were stripped to production's state;
+    - after the script, all 24 snapshots were identical to the full seed;
+    - a second run was refused, and an ordinary edit was refused afterwards;
+    - re-seeding 022–025 with `--cases` gave identical snapshots.
+  - **Verified on production:**
+    - 18 of 21 existing cases have identical snapshots, PCI-2026-001 among them;
+    - 005, 015 and the four new cases match the local seed (operator and facility ids aside);
+      019 matches except its kept `outcome_summary`;
+    - snapshot parity TS = SQL for all 25; FHIR 25 cases, 0 errors;
+    - 0 triggers disabled.
+  - **Summaries:**
+    - every approved summary keeps its status;
+    - two unapproved drafts now show "record changed", correctly, because their records gained
+      Week 7 facts: PCI-2026-005 Telugu v2 and PCI-2026-015 Kannada v1.
 - **FHIR export omits complication onset time, haemostasis method and red flags.** The 005
   corrections therefore do not reach the Bundle. Map them when the export is next extended.
 

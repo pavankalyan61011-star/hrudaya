@@ -493,7 +493,9 @@ From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporti
 - [x] Registry list and `docs/registry-mapping.md` kept separate. The owner reviewed the 42 names
   on 18 Oct 2026; element 33 is now pre-procedure TIMI flow (migration 0012).
 - [x] Report header shows the registry count; each missing element links to its sheet
-- [x] Seed: 24 cases, with every §6 scenario (four new cases, 022–025, for the ones no story had)
+- [x] Seed: 24 cases, with every §6 scenario (four new cases, 022–025, for the ones no story had).
+  On production since 18 Oct 2026 (21 → 25 procedures, additive; see `docs/backlog.md` → Data
+  corrections)
 - [x] FHIR: 0 errors on all cases; codes verified or text-only; HAPI round-trip passes (18 Oct
   2026: PCI-2026-001 from production and PCI-2026-022 from the local seed)
 - [x] AI summary v7: audit clean on all 22 discharged local cases × 6 languages (132 drafts); the

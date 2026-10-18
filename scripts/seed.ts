@@ -2,6 +2,7 @@
  * Seed script — synthetic data only.
  *
  *   npm run seed        (= node --env-file=.env.local scripts/seed.ts)
+ *   npm run seed -- --cases PCI-2026-022,PCI-2026-023   only those cases (others untouched)
  *
  * Inserts 24 synthetic cases:
  *   PCI-2026-001        docs/cases/PCI-2026-001.md, mapped as in docs/week1-spec.md §4
@@ -1829,13 +1830,22 @@ async function main() {
     process.exit(1);
   }
 
+  // --cases A,B: only these case codes (e.g. adding new cases to a database that has the rest).
+  const only = process.argv.includes("--cases") ? process.argv[process.argv.indexOf("--cases") + 1]?.split(",") ?? [] : null;
+  const unknown = (only ?? []).filter((code) => !ALL.some((c) => c.case_code === code));
+  if (only && (only.length === 0 || unknown.length > 0)) {
+    console.error(`--cases: unknown or missing case codes ${unknown.join(", ")}`);
+    process.exit(1);
+  }
+  const RUN = only ? ALL.filter((c) => only.includes(c.case_code)) : ALL;
+
   const db = createClient<Database>(url, serviceKey, { auth: { persistSession: false } });
   const facilityId = await getFacility(db);
 
   let inserted = 0;
   let skipped = 0;
   let failed = 0;
-  for (const c of ALL) {
+  for (const c of RUN) {
     try {
       const result = await seedCase(db, c, facilityId);
       if (result === "inserted") inserted++;
@@ -1847,7 +1857,7 @@ async function main() {
     }
   }
 
-  console.log(`\n${ALL.length} cases in seed: ${inserted} inserted, ${skipped} already present, ${failed} failed.`);
+  console.log(`\n${RUN.length} cases run: ${inserted} inserted, ${skipped} already present, ${failed} failed.`);
   if (failed > 0) process.exit(1);
 }
 
