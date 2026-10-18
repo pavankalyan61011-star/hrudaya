@@ -120,7 +120,7 @@ diameter, never set automatically.
 | Graft type, target, sequential, patency, stenosis %, lesion location, CABG year | V | picked / typed |
 | Techniques (balloon / stent / advanced chips; "other" + text) | R, V | picked |
 | Bifurcation strategy (EBC terms; only for a bifurcation lesion) | V | picked |
-| Guide catheter, wires (several) | R (guide), V | typed |
+| Guide catheter, wires (several) | V (the guide was a registry element until 0012) | typed |
 | Failure reason, dissection grade (NHLBI A–F), perforation class (Ellis), no-reflow, stent overlap, total stent length | V | picked / typed |
 | Inflation log per device (`device_inflations`: atm, seconds) | V | typed |
 
@@ -229,9 +229,14 @@ The spec's sections are unchanged; what was built differs here. Owner decisions 
     code and ship as text.
   - Techniques go in `Procedure.usedCode` as text, because SNOMED's codes for them are procedures.
   - Indication detail and STEMI times aren't mapped yet (backlog).
+- **Registry element 33** (owner review of the 42 names, 18 Oct): "Guide catheter" was replaced
+  by "Pre-procedure TIMI flow (treated lesions)" in migration 0012. Risk factors, discharge
+  medications and BMI are deferred to Week 8 with the export
+  ([registry-mapping.md](registry-mapping.md#owner-review-18-oct-2026)).
 
 ## Not built (backlog)
 
 - Week 7b: the right-heart, valve and shunt blocks; yes/no columns moved to tri-state.
 - FHIR for indication detail and STEMI times; per-resource narrative (dom-6).
-- The registry export (Week 8); the owner's review of the 42 names.
+- The registry export (Week 8), with risk factors, discharge medications and BMI. The owner has
+  reviewed the 42 names (18 Oct 2026).

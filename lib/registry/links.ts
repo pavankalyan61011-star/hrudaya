@@ -28,16 +28,16 @@ export function registryHref(key: string, p: ProcedureFull, base: string, editab
   if (key === "lvef_assessed") return sheetHref(base, "haemodynamics");
 
   const treated = p.interventions.map((i) => ({ iv: i, v: p.vessel_findings.find((v) => v.id === i.vessel_finding_id) }));
-  if (key === "lesion_class" || key === "lesion_length") {
-    const t = treated.find(({ v }) => v && (key === "lesion_class" ? v.lesion_class === null : v.lesion_length_mm === null));
+  if (key === "lesion_class" || key === "lesion_length" || key === "pre_procedure_timi") {
+    const t = treated.find(({ v }) => v && (key === "lesion_class" ? v.lesion_class === null : key === "lesion_length" ? v.lesion_length_mm === null : v.timi_flow === null));
     return t?.v ? sheetHref(base, "lesion", { row: t.v.id }) : null;
   }
   if (key === "intermediate_lesion_assessment") {
     const t = treated.find(({ v }) => v && v.stenosis_pct >= 40 && v.stenosis_pct <= 69 && !v.lesion_physiology.length && !v.intravascular_imaging.length);
     return t?.v ? sheetHref(base, "physiology", { row: t.v.id, tab: "physiology" }) : null;
   }
-  if (key === "pci_techniques" || key === "guiding_catheter") {
-    const t = treated.find(({ iv }) => (key === "pci_techniques" ? iv.techniques.length === 0 : iv.guiding_catheter === null));
+  if (key === "pci_techniques") {
+    const t = treated.find(({ iv }) => iv.techniques.length === 0);
     return t ? sheetHref(base, "intervention", { row: t.iv.id }) : null;
   }
   return null;

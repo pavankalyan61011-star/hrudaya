@@ -1,7 +1,8 @@
 /**
  * The registry element list behind "NIC registry · n of 42" (Week 7 spec §2.12, §3.7).
  *
- * Same keys, in the same order, as public.registry_completeness (migration 0011), which computes
+ * Same keys, in the same order, as public.registry_completeness (migration 0011, element 33
+ * replaced in 0012), which computes
  * which of them a procedure has filled; lib/registry/nic-elements.seeded.test.ts checks the two
  * agree. Week 8 builds the export from this list.
  *
@@ -78,7 +79,8 @@ export const NIC_ELEMENTS: readonly RegistryElement[] = [
   { key: "lesion_length", label: "Lesion length (treated lesions)", sheet: "lesion", ncdr: "Lesion Length", appliesWhen: "PCI" },
   { key: "intermediate_lesion_assessment", label: "Physiology, imaging or note for a treated 40–69% lesion", sheet: "physiology", ncdr: "FFR / IVUS / OCT performed on lesion", appliesWhen: "a treated lesion of 40–69%" },
   { key: "pci_techniques", label: "PCI techniques", sheet: "intervention", ncdr: "Device / technique used per lesion", appliesWhen: "PCI" },
-  { key: "guiding_catheter", label: "Guide catheter", sheet: "intervention", ncdr: "Guiding catheter (vendor field)", appliesWhen: "PCI" },
+  // 0012 (owner, 2026-10-18): replaced "Guide catheter" (a vendor field, not a CathPCI element).
+  { key: "pre_procedure_timi", label: "Pre-procedure TIMI flow (treated lesions)", sheet: "lesion", ncdr: "Pre-Procedure TIMI Flow", appliesWhen: "PCI" },
   { key: "procedure_medications", label: "Procedure medications", sheet: "procedure", ncdr: "Procedural Medications (anticoagulant / antiplatelet)", appliesWhen: "PCI" },
   // In-hospital outcomes ("not recorded" is missing)
   { key: "outcome_mi", label: "Periprocedural MI", sheet: "outcome", ncdr: "In-hospital Myocardial Infarction" },

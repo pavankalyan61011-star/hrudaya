@@ -39,7 +39,7 @@ Requires **Node 22.18 or later** (the seed script runs TypeScript directly) and 
    ```
 2. Copy `.env.example` to `.env.local` and fill in the three values from Supabase →
    Project Settings → API. The service-role key stays on your machine; the app never uses it.
-3. Apply the migrations in order (`0001` to `0011`; `0009` must be applied on its own, before `0010`). For a local database, `supabase start`
+3. Apply the migrations in order (`0001` to `0012`; `0009` must be applied on its own, before `0010`). For a local database, `supabase start`
    (needs Docker) applies them all. For a hosted project, either paste each file from
    `supabase/migrations/` into the Supabase SQL editor, or with the Supabase CLI:
    ```bash
@@ -86,7 +86,7 @@ After a schema change, regenerate `lib/database.types.ts` with
 | `lib/registry/` | Week 7: the 42 registry elements and where each is entered |
 | `docs/structured-reporting.md` | Week 7: field list, sources, what is typed vs reserved for feeds, corrections |
 | `docs/registry-mapping.md` | Week 7: the registry elements, modelled on NCDR CathPCI v5 concepts |
-| `supabase/undo/` | Undo scripts for migrations (0011), rehearsed locally |
+| `supabase/undo/` | Undo scripts for migrations (0011, 0012), rehearsed locally |
 | `app/procedures/` | List, detail (cath report) and the 6-step capture form |
 
 ## Week 1 definition of done
@@ -490,7 +490,8 @@ From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporti
 - [x] Amending a reviewed case can change any Week 7 field and the diff lists it with before/after
 - [x] All seven sheets work at 390 px (emulated) and on a laptop; every enum has a picker; every
   optional block offers "Not performed"; every outcome is tri-state; no new required field
-- [x] Registry list and `docs/registry-mapping.md` kept separate (owner review of the 42 names pending)
+- [x] Registry list and `docs/registry-mapping.md` kept separate. The owner reviewed the 42 names
+  on 18 Oct 2026; element 33 is now pre-procedure TIMI flow (migration 0012).
 - [x] Report header shows the registry count; each missing element links to its sheet
 - [x] Seed: 24 cases, with every §6 scenario (four new cases, 022–025, for the ones no story had)
 - [x] FHIR: 0 errors on all cases; codes verified or text-only; HAPI round-trip passes (18 Oct
