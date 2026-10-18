@@ -35,5 +35,6 @@ test("every seeded discharged case: no identifiers in the summary input; stable 
     assert.ok(!/null/.test(json), `${r.case_code}: a null was sent`);
     assert.equal(inputHash(buildSummaryInput(p!)), inputHash(input), `${r.case_code}: hash not stable`);
   }
-  assert.equal(discharged, 19, "19 seeded cases are discharged (CAG-2026-020 is not)");
+  // 19 on production (CAG-2026-020 is not discharged); locally the Week 7 cases 022–025 add more.
+  assert.ok(discharged >= 19, `at least 19 seeded cases are discharged (found ${discharged})`);
 });

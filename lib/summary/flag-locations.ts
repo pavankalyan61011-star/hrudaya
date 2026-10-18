@@ -4,6 +4,7 @@
  *
  *   drug_missing, dose_mismatch, medicine_row_unmatched   → medicines
  *   section_missing, section_extra, too_long, script_check → global (under the banner, as today)
+ *   physiology_missing, decision_mismatch, decision_unclear → found (Week 7)
  *   drug_extra, number_unknown, forbidden_phrase           → the first section, in document order,
  *       whose body (or, for medicines, the table) contains the quoted token; global if none does
  *   anything else, and everything when the draft fell back  → global
@@ -20,6 +21,7 @@ export type UiFlag = Omit<AuditFlag, "code"> & { code: AuditCode | "medicine_row
 export type FlagPlace = SectionKey | "global";
 
 const TO_MEDICINES = new Set(["drug_missing", "dose_mismatch", "medicine_row_unmatched"]);
+const TO_FOUND = new Set(["physiology_missing", "decision_mismatch", "decision_unclear"]);
 const GLOBAL = new Set(["section_missing", "section_extra", "too_long", "script_check"]);
 
 /** The token a flag quotes, from the fixed detail wording in audit.ts. */
@@ -67,6 +69,10 @@ export function locateFlags(parsed: ParsedDraft, flags: UiFlag[]): Map<FlagPlace
     }
     if (TO_MEDICINES.has(f.code) && present.some((s) => s.key === "medicines")) {
       put("medicines", f);
+      continue;
+    }
+    if (TO_FOUND.has(f.code) && present.some((s) => s.key === "found")) {
+      put("found", f);
       continue;
     }
     const token = flagToken(f);

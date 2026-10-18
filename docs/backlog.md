@@ -139,6 +139,13 @@ as further `*_status` blocks without renaming anything; each block follows the t
   waits for the owner's go.
 - **Seed cases 022–025 on production.** Only on a fresh database so far; adding them to production
   is a data change for the owner to approve.
+- **Summary: an old stent is not named in the input.** `in_stent_restenosis` is not sent, so for
+  PCI-2026-015 (drug-coated balloon, no new stent) the IVUS result for the old stent read, in the
+  v7 Hindi draft, as "no stent was placed … the stent's expansion was 88%". Send "narrowing inside
+  an earlier stent" on the finding and re-run that case (6 drafts, about $0.16). Needs the owner's go.
+- **Summary: "defer" leaks as a word.** The v7 English draft for CAG-2026-019 writes "The decision
+  was to defer." before the plain explanation. A prompt line ("explain the decision; do not write
+  the words defer or treat") would remove it; that is a prompt change (v8) with its own eval.
 
 ## Data corrections (owner-approved, synthetic records)
 

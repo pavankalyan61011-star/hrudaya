@@ -1,4 +1,4 @@
-# AI discharge summary (Week 4)
+# AI discharge summary (Week 4; prompt v7 in Week 7)
 
 Hrudaya drafts a patient-facing discharge summary in English, Telugu, Hindi, Tamil, Kannada or
 Malayalam from a reviewed procedure record. **The model drafts, the code audits, the clinician
@@ -15,13 +15,17 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
    advice, red flags and medicines. It contains no name, date of birth, MRN, ABHA, phone, device
    lot, expiry or UDI. There is one exception to "no free text" (owner, 2026-10-15): a
    complication's management and outcome text, at most 300 characters each, and only for a
-   complication that has an outcome. One without an outcome is left out of the input entirely. Null fields are left out, never sent as "Not recorded". The
+   complication that has an outcome. One without an outcome is left out of the input entirely. Null fields are left out, never sent as "Not recorded". Since
+   v7 the input may also carry a lesion's physiology test, its imaging result and the in-hospital
+   events recorded as "yes" (see [Prompt v7](#prompt-v7-week-7-structured-reporting)). The
    input is hashed (`input_hash`) and stored with each draft. A test checks every seeded case for
    identifiers (`npm run test:seeded`).
 2. **A deterministic audit after generation.** [`lib/summary/audit.ts`](../lib/summary/audit.ts):
    - every discharge medicine must appear in the draft;
    - every number in the draft must exist in the input;
-   - every dose must follow its drug.
+   - every dose must follow its drug;
+   - since v7, every physiology result with a decision must be in the draft, worded to match
+     the decision.
 
    It never edits the text; it lists flags, and the clinician sees them before reading the draft.
 3. **A clinician edits and approves.** Until a named clinician approves, every screen says
@@ -41,7 +45,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 | Step | File |
 |---|---|
 | Record → PHI-minimal input + sha256 | `lib/summary/input.ts` |
-| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v6"`) |
+| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v7"`) |
 | Claude API call, server-only | `lib/summary/generate.ts` |
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
@@ -60,7 +64,7 @@ the draft.
 builds and runs, and the Generate button is disabled with "AI summary not configured on this
 server".
 
-## The prompt (v6, frozen)
+## The prompt (v6, frozen; v7 below)
 
 The same English instructions for every language; `{LANGUAGE}` is filled in. The user message is
 the input JSON and nothing else. Versions:
@@ -124,6 +128,115 @@ OUTPUT
 Markdown only. No preamble, no closing remarks, no signature line.
 ```
 
+## Prompt v7 (Week 7 structured reporting)
+
+Spec: [week7-structured-reporting-spec.md](week7-structured-reporting-spec.md) §5. Applied
+18 Oct 2026. The v6 prompt above is unchanged except for the additions below. The exact text is
+in [`lib/summary/prompt.ts`](../lib/summary/prompt.ts).
+
+**What the input gains.** Each key appears only when the record has the data, so a case without
+Week 7 data sends exactly its v6 input. That was checked by hash: all 21 production cases kept their
+input hash, so approved summaries there do not show "record changed". Locally only the 5 cases with
+Week 7 data changed.
+
+| Key | Content | From |
+|---|---|---|
+| `findings[].physiology` | test (FFR, iFR, RFR, DFR, Pd/Pa), value, before/after treatment, `decision` (`defer`/`treat`) | `lesion_physiology` |
+| `findings[].imaging` | test (IVUS, OCT, NIRS-IVUS), before/after treatment; after treatment only: stent expansion %, malapposition, edge dissection | `intravascular_imaging` |
+| `in_hospital_events` | plain names of the outcomes recorded as **yes**: MI, stroke, tamponade, bleeding, transfusion, kidney injury, new dialysis, emergency CABG, unplanned repeat PCI, and each vascular complication | `in_hospital_outcomes` |
+
+**Never sent**, even when recorded:
+- STEMI times: symptom onset, first medical contact, door and device. These are a clinical metric, not something for the patient.
+- Death, the death cause, the BARC grade and the post-procedure creatinine.
+- Imaging areas and plaque burden: MLA, EEM, MSA, calcium and lipid.
+- The hyperaemic agent and its dose.
+- The physiology/imaging method and the DICOM UIDs.
+- Grafts, haemodynamics, wall motion, techniques, wires and inflations.
+- Every `notes` field.
+
+**What the prompt adds.**
+- **Section 3:** the physiology test and its value, and the decision in plain words. `defer` means
+  the narrowing does not limit blood flow enough to need treatment, so no stent or balloon was used;
+  the draft must say it was not stented, and why. `treat` means it was treated. No cut-off value
+  may be written or compared with.
+- **Section 2:** a tiny camera inside the artery (IVUS/OCT) guided the treatment, with the final
+  result in plain words. Then each in-hospital event, once, in one short sentence, without
+  repeating one already described as a complication.
+- **Test names** (FFR, iFR, IVUS, OCT…) stay in Latin script with their values, like vessel
+  abbreviations.
+
+**LVEF wording** (owner, 18 Oct 2026). The cut-offs are the ESC groups (≥ 50 preserved, 41–49
+mildly reduced, ≤ 40 reduced). The draft gives the value and one sentence with this meaning, in the
+patient's language:
+
+| LVEF | Sentence |
+|---|---|
+| 50% or more | "your heart is pumping normally" |
+| 41–49% | "your heart is pumping slightly less strongly than normal; your doctor will keep an eye on this" |
+| 40% or less | "your heart is pumping less strongly than normal; this is being treated and will be checked at your follow-up" |
+
+Rules:
+- The band limits are never written. `number_unknown` blocks one that slips through, because 40,
+  41, 49 and 50 are not in the record unless they are the patient's own values.
+- "heart failure", "weak heart" and "damaged" are never written: a `forbidden_phrase` **error**.
+- With no LVEF (not recorded or not performed), section 4 is left out and nothing is said about
+  pumping anywhere.
+
+### v7 eval (18 Oct 2026)
+
+One run against the **local** database, because production has no Week 7 data: 22 discharged
+synthetic cases × 6 languages = **132 drafts, 132 generated, 0 failed, $3.48.** The estimate
+before the run was about $3.30, at most $8.74.
+
+**Audit results by check:**
+
+| Check | en | te | hi | ta | kn | ml | Total |
+|---|---|---|---|---|---|---|---|
+| `physiology_missing` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `decision_mismatch` (English only) | 0 | — | — | — | — | — | 0 |
+| `decision_unclear` (Indian languages) | — | 0 | 0 | 0 | 0 | 0 | 0 |
+| `number_unknown` (incl. any band limit) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `forbidden_phrase` (incl. the three v7 errors) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `drug_missing` / `drug_extra` / `dose_mismatch` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Warnings (sections, script, length) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+**Checks outside the audit** (a script read every saved draft):
+- **LVEF wording, English:** the band sentence matches the value in 5 of 5 cases with an LVEF.
+- **No LVEF:** nothing about pumping in 17 of 17 English drafts.
+- **Banned phrases:** "heart failure", "weak heart" and "damaged" appear in 0 of 132 drafts.
+- **In-hospital events, English:** every event is mentioned (8 of 8, across PCI-2026-005, -024
+  and -025).
+- **The FFR-deferred case (CAG-2026-019):** all six drafts give FFR 0.86 and say the narrowing was
+  not stented because it does not limit blood flow enough. In English: "This means the narrowing
+  does not limit blood flow enough to need treatment, so it was not stented." In Telugu: "అందుకే
+  దీనికి స్టెంట్ లేదా బెలూన్ వేయలేదు."
+
+**Two findings for the next prompt or input change** (not applied: one run only):
+- **The English 019 draft also writes "The decision was to defer."** The record's word leaks
+  through as jargon just before the plain explanation. None of the five Indian-language drafts uses
+  it.
+- **PCI-2026-015** (in-stent restenosis treated with a drug-coated balloon, no new stent) has an
+  IVUS result after treatment for the **old** stent: expansion 88%, well apposed. English, Telugu,
+  Tamil, Kannada and Malayalam leave the expansion out. Hindi writes "no stent was placed" and then
+  "the stent's expansion was 88%". Both are true, but the input does not say the stent is an old
+  one (`in_stent_restenosis` is not sent), so it reads as a contradiction. The audit cannot catch it
+  because 88 is in the record. Fix: send "narrowing inside an earlier stent" on the finding, and
+  re-run that case (6 drafts).
+
+**Cost under v7:**
+
+| | Tokens in / out | Cost per summary |
+|---|---|---|
+| English, average of 22 | 3,151 / 906 | $0.0154 |
+| Telugu | 3,178 / 1,895 | $0.0253 |
+| Hindi | 3,178 / 1,477 | $0.0211 |
+| Tamil | 3,178 / 2,050 | $0.0269 |
+| Kannada (longest draft 4,487 of 6,000 tokens) | 3,178 / 3,340 | $0.0398 |
+| Malayalam | 3,187 / 2,349 | $0.0299 |
+
+Input rose by about 700 tokens per summary compared with v6, from the longer prompt; the record
+JSON grows only for Week 7 cases. All six languages for one case average $0.158.
+
 ## Audit rules
 
 | Code | Rule | Severity |
@@ -132,9 +245,13 @@ Markdown only. No preamble, no closing remarks, no signature line.
 | `drug_extra` | A drug from `drug-list.ts` (~70 cardiology generics) is in the draft but no discharge medicine contains it. | error |
 | `number_unknown` | A number in the draft is not anywhere in the input: values, or digit groups inside dates, sizes and the case code. Heading numbering is ignored. Digits in an Indian script are always flagged, because the prompt requires Western digits. | error |
 | `dose_mismatch` | A medicine's dose and unit do not follow its name within 60 characters (`Aspirin … 75 mg`). | error |
-| `section_missing` / `section_extra` | Not 8 `##` headings (9 when LVEF is in the input). | warning |
+| `section_missing` / `section_extra` | Not the expected number of `##` headings: 9, less one each when the input has no LVEF, no advice or no red flags. | warning |
 | `script_check` | Not English, and under 70% of the non-Latin letters are in the language's Unicode block (Telugu, Devanagari, Tamil, Kannada, Malayalam). The medicines table and Latin tokens are ignored. | warning |
 | `forbidden_phrase` | "not recorded", "unknown", "N/A", "as an AI", "I cannot". | warning |
+| `forbidden_phrase` (v7) | "heart failure", "weak heart", "damaged" — unless the record's own text contains the phrase (owner, 18 Oct 2026). Checked as written in English, which is also how a medical term in brackets appears in the other languages. | **error** |
+| `physiology_missing` (v7) | A physiology result with a decision (e.g. FFR 0.86, defer): no sentence in the draft has both the test name and the value. All languages. | **error** |
+| `decision_mismatch` (v7) | English: a deferred result is not followed, within three sentences, by "not", "no stent/balloon", "defer" or "without"; or a treated result is followed, within two, by "deferred", "not stented/treated" or "did not need". | **error** |
+| `decision_unclear` (v7) | Indian languages: a deferred result has no negation word nearby (e.g. లేదు, नहीं, இல்லை, ಇಲ್ಲ, ഇല്ല). Negation is often a verb ending, so a correct sentence can be missed; the native reader decides. | warning |
 | `too_long` | Over 700 words. | warning |
 
 Tests: `npm test`. Hand-written English and Telugu drafts cover a clean draft, a missing drug, an
@@ -144,7 +261,8 @@ scripts. The route tests use a mocked model for 401, 404, 409, 503, 429 and 422.
 ## Eval
 
 `npm run summary:eval` (estimate) → `-- --confirm` (generate) → `-- --reaudit` (re-score saved
-drafts, no model call). Each run: every seeded discharged case × six languages (19 × 6 = 114).
+drafts, no model call). Each run: every seeded discharged case × six languages (19 × 6 = 114;
+v7 ran on the local database with the Week 7 cases, 22 × 6 = 132).
 `max_tokens` was 3000 for v1–v3, 4000 for v4 and 6000 for v5. Only `claude-sonnet-5-5` answered
 in every run; the fallback never ran. v4 and v5 ran on corrected data: standard red flags for 11 discharges, and
 PCI-2026-005's timeline (`docs/backlog.md` → Data corrections).
@@ -279,7 +397,8 @@ The prose itself awaits the native-reader check.
 
 All six languages for one case average $0.144. Five Kannada drafts are over 3,500 tokens; the limit
 is 6,000. Time averages 6 s in English and 10–18 s in the Indian languages, 22 s at most. The
-whole v6 run cost $2.73. Total API spend across all runs is about $14.41.
+whole v6 run cost $2.73. Total API spend across all runs is about $14.41, and $17.89 with
+the v7 run ($3.48; figures under [Prompt v7](#prompt-v7-week-7-structured-reporting)).
 
 Earlier versions, for comparison:
 

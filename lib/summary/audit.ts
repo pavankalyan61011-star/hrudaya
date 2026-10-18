@@ -11,6 +11,9 @@ export type AuditCode =
   | "drug_extra"
   | "number_unknown"
   | "dose_mismatch"
+  | "physiology_missing"
+  | "decision_mismatch"
+  | "decision_unclear"
   | "section_missing"
   | "section_extra"
   | "script_check"
@@ -28,7 +31,32 @@ export const SCRIPT_RANGES: Partial<Record<SummaryLanguage, [number, number, str
   ml: [0x0d00, 0x0d7f, "Malayalam"],
 };
 
+/**
+ * Week 7: a deferred lesion must be described as not treated. English wording is checked strictly
+ * (error); for the Indian languages, the sentence must carry a negation (warning — negation is
+ * often a verb suffix, so a substring check can miss a correct sentence; the native reader decides).
+ */
+const DEFER_EN = /\bnot\b|\bno (stent|balloon)|\bdefer|\bwithout\b|n't\b/i;
+const TREAT_CONTRADICTION_EN = /\bdefer|\bnot (stented|treated)\b|\bno stent was\b|\b(did not|didn't|does not|doesn't) need\b/i;
+const NEGATION: Partial<Record<SummaryLanguage, string[]>> = {
+  hi: ["नहीं", "बिना"],
+  te: ["లేదు", "లేక", "లేని", "లేనం", "కుండా", "వద్దు"],
+  ta: ["இல்ல", "ில்லை", "தவிர்"],
+  kn: ["ಇಲ್ಲ", "ಿಲ್ಲ"],
+  ml: ["ഇല്ല", "ില്ല", "ാതെ"],
+};
+
+/** Sentences: split at . ! ? । followed by space, and at line breaks; "0.86" stays whole. */
+const sentences = (text: string) => text.split(/(?<=[.!?।])\s+|\n+/).filter((x) => x.trim());
+const numbersIn = (text: string) => [...text.matchAll(/\d+(?:\.\d+)?/g)].map((m) => Number(m[0]));
+
 const FORBIDDEN = ["not recorded", "unknown", "n/a", "as an ai", "i cannot"];
+/**
+ * v7 (owner, 2026-10-18): never in a patient summary — an error, unless the record's own text
+ * contains the phrase. Checked as written in English, which is also how a medical term in
+ * brackets appears in the other languages.
+ */
+const FORBIDDEN_CLINICAL = ["heart failure", "weak heart", "damaged"];
 const MAX_WORDS = 700;
 const SCRIPT_THRESHOLD = 0.7;
 
@@ -99,6 +127,33 @@ export function auditDraft(input: SummaryInput, draft: string, language: Summary
     }
   }
 
+  // physiology_missing / decision_mismatch / decision_unclear — Week 7: every physiology result
+  // with a decision is given (test name and value), and the wording around it matches the decision.
+  const lines = sentences(withoutNumbering(draft));
+  for (const f of input.findings) {
+    for (const ph of f.physiology ?? []) {
+      if (!ph.decision) continue;
+      const at = lines.findIndex((l) => l.includes(ph.test) && numbersIn(l).includes(ph.value));
+      if (at < 0) {
+        flags.push({ code: "physiology_missing", severity: "error", detail: `${f.vessel}: ${ph.test} ${ph.value} is not in the draft` });
+        continue;
+      }
+      if (language === "en") {
+        if (ph.decision === "defer" && !DEFER_EN.test(lines.slice(at, at + 3).join(" "))) {
+          flags.push({ code: "decision_mismatch", severity: "error", detail: `${f.vessel}: ${ph.test} ${ph.value} was deferred, but the draft does not say it was not treated` });
+        }
+        if (ph.decision === "treat" && TREAT_CONTRADICTION_EN.test(lines.slice(at, at + 2).join(" "))) {
+          flags.push({ code: "decision_mismatch", severity: "error", detail: `${f.vessel}: ${ph.test} ${ph.value} was treated, but the draft says it was not` });
+        }
+      } else if (ph.decision === "defer") {
+        const window = lines.slice(at, at + 3).join(" ");
+        if (!(NEGATION[language] ?? []).some((w) => window.includes(w))) {
+          flags.push({ code: "decision_unclear", severity: "warning", detail: `${f.vessel}: ${ph.test} ${ph.value} was deferred — check the draft says it was not treated` });
+        }
+      }
+    }
+  }
+
   // section_missing / section_extra — the prompt's 9 sections, less those the record leaves empty:
   // "Your heart pump" needs an LVEF, "Looking after yourself" advice, "When to come back" red flags.
   // (Spec §5.2 said a flat 8/9; the first eval run showed the model rightly omitting the red-flag
@@ -132,6 +187,12 @@ export function auditDraft(input: SummaryInput, draft: string, language: Summary
   // forbidden_phrase
   for (const phrase of FORBIDDEN) {
     if (lower.includes(phrase)) flags.push({ code: "forbidden_phrase", severity: "warning", detail: `contains "${phrase}"` });
+  }
+  const inputText = JSON.stringify(input).toLowerCase();
+  for (const phrase of FORBIDDEN_CLINICAL) {
+    if (lower.includes(phrase) && !inputText.includes(phrase)) {
+      flags.push({ code: "forbidden_phrase", severity: "error", detail: `contains "${phrase}"` });
+    }
   }
 
   // too_long

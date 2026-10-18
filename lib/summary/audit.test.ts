@@ -235,3 +235,67 @@ test("script_check: mostly the right script passes; under 70% fails", () => {
 test("script_check does not run for English", () => {
   assert.deepEqual(scriptFlags("en", "మీకు గుండెపోటు వచ్చింది."), []);
 });
+
+// ─── Week 7: physiology decision (prompt v7) ─────────────────────────────────
+
+const NOW7 = "2026-10-18T00:00:00Z";
+/** The fixture with FFR on its second lesion (LMCA): 0.86 with the given decision. */
+function withFfr(decision: "defer" | "treat") {
+  const p = fixture();
+  p.vessel_findings[1] = {
+    ...p.vessel_findings[1],
+    lesion_physiology: [{ id: "00000000-0000-4000-8000-0000000007a1", vessel_finding_id: p.vessel_findings[1].id, phase: "pre", index: "ffr", value: 0.86, hyperaemic_agent: "adenosine_iv", agent_dose: null, decision, method: "pressure_wire", image_study_uid: null, image_series_uid: null, source: "typed", recorded_by: null, recorded_at: NOW7, notes: null }],
+  };
+  return buildSummaryInput(p);
+}
+const FOUND_EN = "The LAD was 100% blocked. The LMCA had 0% narrowing.";
+
+test("v7: a deferred lesion described as not stented is clean", () => {
+  const draft = EN.replace(FOUND_EN, `${FOUND_EN} A pressure test (FFR) on the LMCA was 0.86. This narrowing does not limit blood flow enough, so it was not stented.`);
+  assert.deepEqual(auditDraft(withFfr("defer"), draft, "en"), []);
+});
+
+test("v7: a deferred lesion without its FFR value in the draft is an error", () => {
+  const flags = auditDraft(withFfr("defer"), EN, "en");
+  assert.deepEqual(codes(flags), ["physiology_missing"]);
+  assert.equal(hasErrors(flags), true);
+});
+
+test("v7: a deferred lesion described as treated is an error", () => {
+  const draft = EN.replace(FOUND_EN, `${FOUND_EN} The FFR on the LMCA was 0.86, so it was treated with a stent.`);
+  assert.deepEqual(codes(auditDraft(withFfr("defer"), draft, "en")), ["decision_mismatch"]);
+});
+
+test("v7: a treated lesion described as deferred is an error", () => {
+  const draft = EN.replace(FOUND_EN, `${FOUND_EN} The FFR on the LMCA was 0.86. It did not need a stent.`);
+  assert.deepEqual(codes(auditDraft(withFfr("treat"), draft, "en")), ["decision_mismatch"]);
+  const ok = EN.replace(FOUND_EN, `${FOUND_EN} The FFR on the LMCA was 0.86, which showed it limits blood flow, so it was treated.`);
+  assert.deepEqual(auditDraft(withFfr("treat"), ok, "en"), []);
+});
+
+test("v7: a threshold the record does not hold is an invented number", () => {
+  const draft = EN.replace(FOUND_EN, `${FOUND_EN} The FFR on the LMCA was 0.86, above 0.80, so it was not stented.`);
+  assert.deepEqual(codes(auditDraft(withFfr("defer"), draft, "en")), ["number_unknown"]);
+});
+
+test("v7: Telugu — a deferred lesion needs a negation nearby (warning only)", () => {
+  const found = "LAD 100% మూసుకుపోయింది. LMCA లో 0% సంకోచం ఉంది.";
+  const good = TE.replace(found, `${found} LMCA పై FFR పరీక్ష 0.86 వచ్చింది. ఇది రక్త ప్రవాహాన్ని తగ్గించడం లేదు, కాబట్టి స్టెంట్ వేయలేదు.`);
+  assert.deepEqual(auditDraft(withFfr("defer"), good, "te"), []);
+  const unclear = TE.replace(found, `${found} LMCA పై FFR పరీక్ష 0.86 వచ్చింది.`);
+  const flags = auditDraft(withFfr("defer"), unclear, "te");
+  assert.deepEqual(codes(flags), ["decision_unclear"]);
+  assert.equal(hasErrors(flags), false);
+});
+
+test("v7: 'heart failure', 'weak heart' and 'damaged' block approval (owner, 2026-10-18)", () => {
+  const draft = EN.replace("is 45%.", "is 45%. You have a weak heart from heart failure; the muscle is damaged.");
+  const flags = auditDraft(input, draft, "en");
+  assert.deepEqual(codes(flags), ["forbidden_phrase", "forbidden_phrase", "forbidden_phrase"]);
+  assert.equal(hasErrors(flags), true);
+});
+
+test("v7: an LVEF band limit in the draft is an invented number", () => {
+  const draft = EN.replace("is 45%.", "is 45%. Your heart is pumping slightly less strongly than normal (normal is 50% or more).");
+  assert.deepEqual(codes(auditDraft(input, draft, "en")), ["number_unknown"]);
+});

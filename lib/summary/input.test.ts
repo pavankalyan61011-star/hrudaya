@@ -100,3 +100,43 @@ test("stable hash across two builds; changes when the record changes", () => {
   assert.match(inputHash(a), /^[0-9a-f]{64}$/);
   assert.notEqual(inputHash(a), inputHash(buildSummaryInput(fixture({ contrast_volume_ml: 101 }))));
 });
+
+// ─── Week 7 (prompt v7) ──────────────────────────────────────────────────────
+
+test("v7: no Week 7 data → no Week 7 keys, so the Week 6 input and hash are unchanged", () => {
+  const input = buildSummaryInput(fixture());
+  assert.equal("in_hospital_events" in input, false);
+  for (const f of input.findings) assert.deepEqual(Object.keys(f), ["vessel", "stenosis_pct", "timi_flow"]);
+});
+
+test("v7: physiology, imaging and in-hospital events are sent; STEMI times, BARC and creatinine are not", () => {
+  const NOW = "2026-10-18T00:00:00Z";
+  const p = fixture();
+  const v = p.vessel_findings[0];
+  p.vessel_findings[0] = {
+    ...v,
+    lesion_physiology: [{ id: "00000000-0000-4000-8000-0000000007b1", vessel_finding_id: v.id, phase: "pre", index: "ffr", value: 0.78, hyperaemic_agent: "adenosine_iv", agent_dose: "140 µg/kg/min", decision: "treat", method: "pressure_wire", image_study_uid: null, image_series_uid: null, source: "typed", recorded_by: null, recorded_at: NOW, notes: "free text never sent" }],
+    intravascular_imaging: [
+      { id: "00000000-0000-4000-8000-0000000007b3", vessel_finding_id: v.id, modality: "ivus", phase: "post", mla_mm2: null, eem_area_mm2: null, plaque_burden_pct: null, calcium_arc_deg: null, calcium_thickness_mm: null, lipid_arc_deg: null, max_lcbi_4mm: null, msa_mm2: 6.4, stent_expansion_pct: 88, malapposition: false, edge_dissection: null, pullback_length_mm: null, image_study_uid: null, image_series_uid: null, image_instance_uid: null, mla_frame: null, method: "manual", source: "typed", recorded_by: null, recorded_at: NOW, notes: null },
+      { id: "00000000-0000-4000-8000-0000000007b2", vessel_finding_id: v.id, modality: "ivus", phase: "pre", mla_mm2: 2.9, eem_area_mm2: 11.2, plaque_burden_pct: 74, calcium_arc_deg: null, calcium_thickness_mm: null, lipid_arc_deg: null, max_lcbi_4mm: null, msa_mm2: null, stent_expansion_pct: null, malapposition: null, edge_dissection: null, pullback_length_mm: null, image_study_uid: null, image_series_uid: null, image_instance_uid: null, mla_frame: null, method: "manual", source: "typed", recorded_by: null, recorded_at: NOW, notes: null },
+    ],
+  };
+  p.in_hospital_outcomes = {
+    id: "00000000-0000-4000-8000-0000000007b4", procedure_id: p.id, mi: "no", stroke: "not_recorded", death: "no", death_cause: null,
+    bleeding: "yes", bleeding_barc: 3, bleeding_barc_sub: "a", transfusion: "yes", aki: "yes", creatinine_post_umol_l: 212, new_dialysis: "no",
+    emergency_cabg: "no", cardiac_tamponade: "no", unplanned_repeat_pci: "no", vascular_status: "yes", vascular_complications: ["haematoma"],
+    disposition: "home", event_links: [], source: "typed", recorded_by: null, recorded_at: NOW, notes: null,
+  };
+  const input = buildSummaryInput(p);
+  assert.deepEqual(input.findings[0].physiology, [{ test: "FFR", value: 0.78, when: "before treatment", decision: "treat" }]);
+  // Pre before post; the pre row carries no numbers, the post row the stent result only.
+  assert.deepEqual(input.findings[0].imaging, [
+    { test: "IVUS", when: "before treatment" },
+    { test: "IVUS", when: "after treatment", stent_expansion_pct: 88, malapposition: false },
+  ]);
+  assert.deepEqual(input.in_hospital_events, [
+    "Bleeding", "Blood transfusion", "Kidney strain (acute kidney injury)", "Bruise or swelling at the access site (haematoma)",
+  ]);
+  const json = JSON.stringify(input);
+  for (const leaked of ["212", "BARC", "140 µg", "free text never sent", "6.4", "2.9", "74"]) assert.ok(!json.includes(leaked), `leaked: ${leaked}`);
+});

@@ -456,6 +456,14 @@ would look for it, with its source. The report doesn't turn into a 40-field form
   - 0 validator errors.
 
   Codes are verified or text-only (FFR has no LOINC code).
+- **AI summary, prompt v7:**
+  - the physiology result and the defer/treat decision in plain words;
+  - IVUS/OCT guidance and the final result;
+  - in-hospital events recorded as "yes";
+  - one sentence on what the LVEF means, in the owner's wording for the ESC groups.
+
+  STEMI times are never sent. Eval: 132/132 drafts, 0 audit flags, $3.48
+  ([docs/ai-summary.md](docs/ai-summary.md#prompt-v7-week-7-structured-reporting)).
 
 | Lesion sheet (phone) |
 |---|
@@ -475,7 +483,8 @@ From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporti
 - [x] Seed: 24 cases, with every §6 scenario (four new cases, 022–025, for the ones no story had)
 - [ ] FHIR: 0 errors on all cases and codes verified or text-only (done); HAPI round-trip not re-run
   (posts to a public server; waiting for the owner's go)
-- [ ] AI summary v7: audit on all cases; the FFR-deferred case says the lesion was not stented and why
+- [x] AI summary v7: audit clean on all 22 discharged local cases × 6 languages (132 drafts); the
+  FFR-deferred case (CAG-2026-019) says the lesion was not stented and why, in all six languages
 - [x] `docs/structured-reporting.md`; this section with a screenshot
 - [ ] Owner: phone-test the sheets; enter a post-CABG and a STEMI case by hand
 
@@ -487,7 +496,7 @@ From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporti
 - **Week 4 — AI discharge summary, built:** six languages, audit, clinician approval, print report. Remaining checks above.
 - **Week 5 — Reviewer experience, built:** structured editor, compare with record, flags beside sections. Remaining checks above.
 - **Week 6 — Amendments, built:** reason, snapshot, signed diff, re-review; superseded summaries; FHIR `amended` + Provenance. Owner phone test remaining.
-- **Week 7 — Structured reporting, built:** lesion, physiology and imaging, haemodynamics and LV, grafts, technique and events, indication and tri-state outcomes; registry count; FHIR. Summary v7 and the owner phone test remaining.
+- **Week 7 — Structured reporting, built:** lesion, physiology and imaging, haemodynamics and LV, grafts, technique and events, indication and tri-state outcomes; registry count; FHIR; summary prompt v7. Owner phone test remaining.
 - **Next:** ABDM (Week 3, waiting on sandbox credentials), form navigation for the capture steps, tighter row-level security.
 
 ## Licence

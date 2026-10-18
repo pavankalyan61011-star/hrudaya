@@ -7,6 +7,11 @@
  * birth, MRN, ABHA, phone; lesion notes and all other free text; device lot, expiry and UDI.
  * A null field is omitted — never sent as null or "Not recorded".
  *
+ * Week 7 (prompt v7): a lesion's physiology (index, value, defer/treat) and intravascular imaging
+ * (modality, final stent result), and the in-hospital outcomes recorded as "yes". Never sent: STEMI
+ * times, BARC grade, creatinine, the other Week 7 detail. These keys appear only when the record
+ * has the data, so a case without Week 7 data keeps its Week 6 input and hash.
+ *
  * Type-only imports plus relative `.ts` imports, so it runs unchanged in Next and under Node.
  */
 import { createHash } from "node:crypto";
@@ -25,6 +30,9 @@ export type SummaryMedication = {
   duration?: string;
 };
 
+export type SummaryPhysiology = { test: string; value: number; when: string; decision?: "defer" | "treat" };
+export type SummaryImaging = { test: string; when: string; stent_expansion_pct?: number; malapposition?: boolean; edge_dissection?: boolean };
+
 export type SummaryInput = {
   patient: { age_years: number; sex: string };
   episode: {
@@ -38,7 +46,15 @@ export type SummaryInput = {
   };
   risk_factors: string[];
   access?: { site: string; side?: string; sheath_size_fr?: number };
-  findings: { vessel: string; stenosis_pct: number; timi_flow: number }[];
+  findings: {
+    vessel: string;
+    stenosis_pct: number;
+    timi_flow: number;
+    /** Week 7: pressure-wire or angiography-derived index; `decision` exactly as recorded. */
+    physiology?: SummaryPhysiology[];
+    /** Week 7: IVUS/OCT; the stent result only after treatment. */
+    imaging?: SummaryImaging[];
+  }[];
   interventions: { vessel: string; type: string; residual_stenosis_pct: number; final_timi: number }[];
   devices: { category: string; name: string; size: string }[];
   measurements: { lvef_pct?: number; contrast_ml?: number; fluoroscopy_min?: number };
@@ -55,6 +71,8 @@ export type SummaryInput = {
   };
   medications: SummaryMedication[];
   operator?: { name: string; role: string };
+  /** Week 7: in-hospital outcomes recorded as "yes" (death excluded), in a fixed order. */
+  in_hospital_events?: string[];
 };
 
 // ─── Display text (patient-facing English; the model translates the prose, not drug fields) ─────
@@ -93,6 +111,28 @@ const COMPLICATION: Record<string, string> = {
   stroke: "Stroke", death: "Death", other: "Other complication",
 };
 const ONSET: Record<string, string> = { intraprocedural: "during the procedure", inpatient: "after the procedure, in hospital" };
+const PHYSIOLOGY_INDEX: Record<string, string> = { ffr: "FFR", ifr: "iFR", rfr: "RFR", dfr: "DFR", pd_pa_rest: "Pd/Pa" };
+const IMAGING: Record<string, string> = { ivus: "IVUS", oct: "OCT", nirs_ivus: "NIRS-IVUS" };
+const PHASE: Record<string, string> = { pre: "before treatment", post: "after treatment" };
+/** Patient-facing names; the order here is the order sent. Death is never sent. */
+const OUTCOME_EVENTS: [string, string][] = [
+  ["mi", "Heart attack in hospital after the procedure (myocardial infarction)"],
+  ["stroke", "Stroke"],
+  ["cardiac_tamponade", "Fluid around the heart (tamponade)"],
+  ["bleeding", "Bleeding"],
+  ["transfusion", "Blood transfusion"],
+  ["aki", "Kidney strain (acute kidney injury)"],
+  ["new_dialysis", "Dialysis (kidney machine) started"],
+  ["emergency_cabg", "Emergency bypass surgery (CABG)"],
+  ["unplanned_repeat_pci", "A second, unplanned stent procedure"],
+];
+const VASCULAR: Record<string, string> = {
+  haematoma: "Bruise or swelling at the access site (haematoma)", pseudoaneurysm: "Bulge in the artery at the access site (pseudoaneurysm)",
+  av_fistula: "Abnormal connection between artery and vein at the access site (AV fistula)",
+  retroperitoneal_bleed: "Bleeding inside the abdomen behind the bowel (retroperitoneal bleed)",
+  limb_ischaemia: "Reduced blood supply to the limb", radial_occlusion: "Blocked wrist artery",
+  dissection_access_vessel: "Tear in the access artery (dissection)", other: "Other problem at the access site",
+};
 const URGENCY: Record<string, string> = { elective: "Planned", urgent: "Urgent", emergency: "Emergency" };
 const ROLE: Record<string, string> = {
   interventional_cardiologist: "Interventional cardiologist", fellow: "Cardiology fellow",
@@ -140,6 +180,39 @@ function access(site: string | null, sheath: number | null): SummaryInput["acces
   });
 }
 
+type Finding = P["vessel_findings"][number];
+
+function physiology(v: Finding): SummaryPhysiology[] | undefined {
+  const rows = [...(v.lesion_physiology ?? [])].sort((a, b) => (a.phase === b.phase ? a.recorded_at.localeCompare(b.recorded_at) : a.phase === "pre" ? -1 : 1));
+  if (!rows.length) return undefined;
+  return rows.map((r) => compact({ test: PHYSIOLOGY_INDEX[r.index] ?? r.index, value: Number(r.value), when: PHASE[r.phase], decision: r.decision ?? undefined }));
+}
+
+function imaging(v: Finding): SummaryImaging[] | undefined {
+  const rows = [...(v.intravascular_imaging ?? [])].sort((a, b) => (a.phase === b.phase ? a.recorded_at.localeCompare(b.recorded_at) : a.phase === "pre" ? -1 : 1));
+  if (!rows.length) return undefined;
+  return rows.map((r) =>
+    compact({
+      test: IMAGING[r.modality] ?? r.modality,
+      when: PHASE[r.phase],
+      ...(r.phase === "post"
+        ? { stent_expansion_pct: r.stent_expansion_pct ?? undefined, malapposition: r.malapposition ?? undefined, edge_dissection: r.edge_dissection ?? undefined }
+        : {}),
+    }),
+  );
+}
+
+function inHospitalEvents(p: P): string[] | undefined {
+  const o = p.in_hospital_outcomes;
+  if (!o) return undefined;
+  const yes = (k: string) => (o as unknown as Record<string, unknown>)[k] === "yes";
+  const events = [
+    ...OUTCOME_EVENTS.filter(([k]) => yes(k)).map(([, text]) => text),
+    ...(o.vascular_status === "yes" ? o.vascular_complications.map((c) => VASCULAR[c] ?? c) : []),
+  ];
+  return events.length ? events : undefined;
+}
+
 export function buildSummaryInput(p: P): SummaryInput {
   const vessels = new Map(p.vessel_findings.map((v) => [v.id, v]));
   const onDate = p.procedure_date ?? p.patient.date_of_birth;
@@ -158,7 +231,9 @@ export function buildSummaryInput(p: P): SummaryInput {
     }),
     risk_factors: p.patient.risk_factors.map((r) => RISK[r.factor] ?? r.factor),
     access: access(p.access_site, p.sheath_size_fr),
-    findings: p.vessel_findings.map((v) => ({ vessel: lesionName(v.vessel, v.segment), stenosis_pct: v.stenosis_pct, timi_flow: v.timi_flow })),
+    findings: p.vessel_findings.map((v) =>
+      compact({ vessel: lesionName(v.vessel, v.segment), stenosis_pct: v.stenosis_pct, timi_flow: v.timi_flow, physiology: physiology(v), imaging: imaging(v) }),
+    ),
     interventions: p.interventions.map((i) => {
       const v = vessels.get(i.vessel_finding_id);
       return {
@@ -210,6 +285,7 @@ export function buildSummaryInput(p: P): SummaryInput {
       }),
     ),
     operator: p.operator ? { name: p.operator.full_name, role: ROLE[p.operator.role] ?? p.operator.role } : undefined,
+    in_hospital_events: inHospitalEvents(p),
   };
   return compact(input);
 }

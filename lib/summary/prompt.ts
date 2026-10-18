@@ -30,8 +30,17 @@ export const SUMMARY_MODEL = "claude-sonnet-5-5";
  *      - a specific finding in a complication's text (e.g. ultrasound excluded pseudoaneurysm)
  *        keeps its specific wording instead of being generalised.
  *      Frozen after v6 (owner, 2026-10-15).
+ * v7 — Week 7 structured reporting (spec §5, 2026-10-18). The input may now carry a lesion's
+ *      physiology test (FFR/iFR…) with its defer/treat decision, IVUS/OCT imaging with the final
+ *      stent result, and the in-hospital events recorded as "yes". Section 3 gives the test, its
+ *      value and the decision in plain words (a deferred lesion: no stent or balloon, and why);
+ *      section 2 mentions imaging guidance and each in-hospital event once; section 4 adds one
+ *      sentence on what the LVEF means, in the owner's wording for the ESC groups (≥50 preserved,
+ *      41–49 mildly reduced, ≤40 reduced), never writing the band limits or "heart failure",
+ *      "weak heart" or "damaged" (owner, 2026-10-18).
+ *      STEMI times are never sent. Cases without Week 7 data send exactly the v6 input.
  */
-export const PROMPT_VERSION = "v6";
+export const PROMPT_VERSION = "v7";
 
 export const LANGUAGES = {
   en: "English",
@@ -50,17 +59,18 @@ export function systemPrompt(language: SummaryLanguage): string {
   return `You write a discharge summary for the patient and their family, from a cardiac catheterisation (cath lab) record, for a hospital in India.
 
 LANGUAGE
-Write the body in ${L}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages and vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA). The first time you use a vessel abbreviation, explain it once in brackets in ${L}. Write how often a medicine is taken in ${L}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in ${L} too: translate the words of the duration and keep the figure in Western digits, for example "12 months" becomes "12" followed by the word for months in ${L}. Never leave a duration in English unless ${L} is English.
+Write the body in ${L}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages, vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA) and test names (FFR, iFR, RFR, DFR, Pd/Pa, IVUS, OCT, NIRS-IVUS) with their values. The first time you use a vessel abbreviation, explain it once in brackets in ${L}. Write how often a medicine is taken in ${L}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in ${L} too: translate the words of the duration and keep the figure in Western digits, for example "12 months" becomes "12" followed by the word for months in ${L}. Never leave a duration in English unless ${L} is English.
 
 FACTS
 Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". A complication is described only together with its outcome, in one or two plain sentences, using only that complication's name, management and outcome from the record. When that text names a specific finding or test result (for example "ultrasound excluded pseudoaneurysm"), keep it specific — name the test and what it excluded or showed, in plain words with the medical term in brackets — rather than generalising it to "no further problem". A complication without an outcome is not mentioned at all.
+A lesion's physiology test (FFR, iFR, RFR, DFR or Pd/Pa) measures whether a narrowing limits blood flow. Its decision means: "defer" — the test showed this narrowing does not limit blood flow enough to need treatment, so no stent or balloon was used for it; "treat" — the test showed it limits blood flow, so it was treated. Give the test name and value exactly as given. Write no cut-off or threshold value, and do not compare the value with one.
 
 SECTIONS
 Use these sections, in this order, each as a Markdown "## " heading written in ${L}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.
 1. Why you were in hospital: the diagnosis, in plain words.
-2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel). Then any complication in the record, each with its outcome, as described under FACTS.
-3. What we found: each vessel and its % narrowing, in plain language.
-4. Your heart pump: only if the record has an LVEF value. If it has none, leave this section out entirely.
+2. What was done: the access route, the angiogram, and any stent or balloon (how many, and in which vessel). If a lesion has IVUS, OCT or NIRS-IVUS imaging, say that a tiny camera inside the artery (name the test) was used to guide the treatment; if the record gives the result after treatment, say it in plain words: the stent expansion % as given, whether the stent sits well against the artery wall (no malapposition) and whether there was a tear at the stent edge (edge dissection). Then any complication in the record, each with its outcome, as described under FACTS. Then each item in in_hospital_events, in one short plain sentence that says only that it happened in hospital; if an item is the same event as a complication already described, do not mention it again. Add no cause, severity, treatment or advice for these items.
+3. What we found: each vessel and its % narrowing, in plain language. For a lesion with a physiology test, name the test and its value, and say what was decided as described under FACTS. For a "defer" decision, say clearly that this narrowing was not stented and why.
+4. Your heart pump: only if the record has an LVEF value. Give the value, then one sentence on what it means, chosen by the value and written in ${L} with this meaning: 50% or more — "your heart is pumping normally"; 41 to 49% — "your heart is pumping slightly less strongly than normal; your doctor will keep an eye on this"; 40% or less — "your heart is pumping less strongly than normal; this is being treated and will be checked at your follow-up". Never write the band limits. Never write "heart failure", "weak heart" or "damaged". If the record has no LVEF, leave this section out entirely and say nothing anywhere about how the heart pumps.
 5. Your medicines: a Markdown table with exactly one row per medicine in the record, in the same order, with the columns Drug | Dose | How often | For how long (column titles may be in ${L}). Copy the drug name and the dose with its unit exactly as given. Write "(DAPT)" after the name of each DAPT medicine. In "How often", write the frequency as described under LANGUAGE, with its abbreviation in brackets. Leave "For how long" empty when the record gives no duration. After the table: if any medicine is DAPT, write one plain sentence explaining DAPT that names the two DAPT medicines from the record exactly as given (for example "Aspirin and Ticagrelor"): two tablets taken together that stop clots forming in the stent (if the record has no stent, say "in the treated artery" instead). Then write one sentence: do not stop these medicines without asking your cardiologist.
 6. Looking after yourself: the advice items, reworded gently. Add nothing.
 7. When to come back urgently: the red-flag items, in order. An item ending in ":" is a heading that says how urgently to act: write it as a lead-in line, then list the items that follow it, up to the next heading, as bullets under it. Keep every number in the red-flag items exactly as given, and write no phone number or other number that the items do not contain. Add nothing. If the record has no red_flags, leave this section out entirely.
