@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useFormState } from "react-dom";
-import { ENUMS, label } from "@/lib/labels";
+import { ENUMS, TIMI_LABELS, label } from "@/lib/labels";
 import { lesionName } from "@/lib/report-format";
 import { SubmitButton } from "@/components/submit-button";
 import { ErrorBanner } from "@/components/form/form-status";
 import { saveLesionSheet, type SheetState } from "@/app/procedures/[id]/sheets/actions";
 import { Sheet, useCloseSheet } from "./sheet";
-import { Choice, MedinaPicker, NumberWithUnit, RegistryTag, YesNo } from "./fields";
+import { SheetLink } from "./sheet-link";
+import { Choice, MedinaPicker, NumberWithUnit, RegistryLegend, YesNo } from "./fields";
 
 /** The vessel finding as loaded (Week 1 columns + 0011's lesion detail). */
 export type LesionRow = {
@@ -39,9 +40,15 @@ export type LesionRow = {
 
 export type GraftOption = { id: string; graft_type: string; target_vessel: string };
 
+/** Where this sheet's buttons lead (built by the page that renders it). */
+export type LesionLinks = { physiology: string; imaging: string; addGraft: string };
+
 const opts = (values: readonly string[]) => values.map((v) => ({ value: v, label: label(v) }));
 const str = (n: number | null) => (n === null ? "" : String(n));
+/** A Week 1 `boolean default false` column: false is shown untouched (no button selected). */
+const touched = (b: boolean) => (b ? true : null);
 const PRESETS = [30, 50, 70, 90, 100];
+const REMINDER = "A 100% lesion is usually a CTO, thrombotic, or TIMI 0. Check those below — this is a reminder, not a rule.";
 
 /**
  * §3.1 Lesion sheet. Order: vessel · segment · stenosis · TIMI pre (R) · culprit · length · class ·
@@ -54,6 +61,8 @@ export function LesionSheet({
   grafts,
   treated,
   closeHref,
+  returnTo,
+  links,
 }: {
   procedureId: string;
   row: LesionRow;
@@ -61,9 +70,11 @@ export function LesionSheet({
   /** The lesion has an intervention: class and length are registry elements for it. */
   treated: boolean;
   closeHref: string;
+  /** Where saving returns to (the report, or a capture step). */
+  returnTo: string;
+  links: LesionLinks;
 }) {
   const [state, action] = useFormState<SheetState, FormData>(saveLesionSheet, {});
-  const close = useCloseSheet(closeHref, `edit-lesion-${row.id}`);
   const e = state.fieldErrors ?? {};
 
   const [vessel, setVessel] = useState(row.vessel);
@@ -72,66 +83,67 @@ export function LesionSheet({
   const [stenosis, setStenosis] = useState(String(row.stenosis_pct));
   const [stenosisSource, setStenosisSource] = useState(row.stenosis_source);
   const [timi, setTimi] = useState(String(row.timi_flow));
-  const [culprit, setCulprit] = useState(row.is_culprit);
+  const [culprit, setCulprit] = useState(touched(row.is_culprit));
   const [length, setLength] = useState(str(row.lesion_length_mm));
   const [lesionClass, setLesionClass] = useState(row.lesion_class);
   const [calcification, setCalcification] = useState(row.calcification);
-  const [thrombus, setThrombus] = useState(row.thrombus);
-  const [ostial, setOstial] = useState(row.ostial);
-  const [bifurcation, setBifurcation] = useState(row.bifurcation);
+  const [thrombus, setThrombus] = useState(touched(row.thrombus));
+  const [ostial, setOstial] = useState(touched(row.ostial));
+  const [bifurcation, setBifurcation] = useState(touched(row.bifurcation));
   const [medina, setMedina] = useState(row.bifurcation_medina);
   const [tortuosity, setTortuosity] = useState(row.tortuosity);
-  const [cto, setCto] = useState(row.cto);
+  const [cto, setCto] = useState(touched(row.cto));
   const [ctoMonths, setCtoMonths] = useState(str(row.cto_duration_months));
-  const [isr, setIsr] = useState(row.in_stent_restenosis);
+  const [isr, setIsr] = useState(touched(row.in_stent_restenosis));
   const [isrPattern, setIsrPattern] = useState(row.isr_pattern);
   const [rentrop, setRentrop] = useState(row.collaterals_rentrop === null ? null : String(row.collaterals_rentrop));
   const [frames, setFrames] = useState(str(row.timi_frame_count));
   const [notes, setNotes] = useState(row.lesion_notes ?? "");
 
-  const pickStenosis = (v: number) => {
-    setStenosis(String(v));
-    setStenosisSource("picked");
-  };
   const stenosisNum = Number(stenosis);
-  // Spec §2.2: a total occlusion should be a CTO, thrombotic, or TIMI 0 — warn, never block.
-  const occlusionWarning = stenosis.trim() !== "" && stenosisNum === 100 && !cto && !thrombus && timi !== "0";
+  // Spec §2.2: a total occlusion should be a CTO, thrombotic, or TIMI 0 — remind, never block.
+  const occlusionReminder = stenosis.trim() !== "" && stenosisNum === 100 && !cto && !thrombus && timi !== "0";
 
-  const payload = JSON.stringify({
+  const values = {
     vessel,
     segment,
     graft_id: graftId,
     stenosis_pct: stenosis,
     stenosis_source: stenosisSource,
     timi_flow: timi,
-    is_culprit: culprit,
+    // Untouched booleans save as false (the column default), as before Week 7.
+    is_culprit: culprit ?? false,
     lesion_length_mm: length,
     lesion_class: lesionClass,
     calcification,
-    thrombus,
-    ostial,
-    bifurcation,
+    thrombus: thrombus ?? false,
+    ostial: ostial ?? false,
+    bifurcation: bifurcation ?? false,
     bifurcation_medina: medina,
     tortuosity,
-    cto,
+    cto: cto ?? false,
     cto_duration_months: ctoMonths,
-    in_stent_restenosis: isr,
+    in_stent_restenosis: isr ?? false,
     isr_pattern: isrPattern,
     collaterals_rentrop: rentrop,
     timi_frame_count: frames,
     lesion_notes: notes,
-  });
+  };
+  const payload = JSON.stringify(values);
+  const [initial] = useState(payload);
+  const dirty = payload !== initial;
+  const close = useCloseSheet(closeHref, `edit-lesion-${row.id}`, dirty);
 
   const footer = (
     <div className="space-y-2">
+      {occlusionReminder && <p className="text-sm text-amber-900">Reminder: 100% without CTO, thrombus or TIMI 0.</p>}
       <div className="flex gap-2">
-        {/* §3.2 opens from here; it is built after the lesion sheet has been reviewed on a phone. */}
-        <button type="button" className="btn-secondary min-h-11 flex-1 text-sm" disabled title="Physiology & imaging sheet — next">
+        <SheetLink href={links.physiology} className="btn-secondary min-h-11 flex-1 text-sm" confirmDiscard={dirty}>
           Physiology
-        </button>
-        <button type="button" className="btn-secondary min-h-11 flex-1 text-sm" disabled title="Physiology & imaging sheet — next">
+        </SheetLink>
+        <SheetLink href={links.imaging} className="btn-secondary min-h-11 flex-1 text-sm" confirmDiscard={dirty}>
           Imaging
-        </button>
+        </SheetLink>
       </div>
       <div className="flex gap-2">
         <button type="button" className="btn-secondary min-h-11 flex-1" onClick={close}>
@@ -144,30 +156,50 @@ export function LesionSheet({
     </div>
   );
 
+  const pick = (v: number) => {
+    setStenosis(String(v));
+    setStenosisSource("picked");
+  };
+
   return (
-    <Sheet title="Lesion" subtitle={vessel === "graft" ? "Graft lesion" : lesionName(vessel as never, segment as never)} closeHref={closeHref} returnFocusId={`edit-lesion-${row.id}`} footer={footer} formAction={action}>
+    <Sheet
+      title="Lesion"
+      subtitle={vessel === "graft" ? "Graft lesion" : lesionName(vessel as never, segment as never)}
+      closeHref={closeHref}
+      returnFocusId={`edit-lesion-${row.id}`}
+      footer={footer}
+      formAction={action}
+      dirty={dirty}
+    >
       <div className="space-y-5">
         <input type="hidden" name="procedure_id" value={procedureId} />
         <input type="hidden" name="row_id" value={row.id} />
+        <input type="hidden" name="return_to" value={returnTo} />
         <input type="hidden" name="payload" value={payload} />
+        <RegistryLegend />
         <ErrorBanner message={state.error} />
 
         <Choice name="vessel" legend="Vessel" value={vessel} onChange={(v) => v && setVessel(v)} options={opts(ENUMS.vessel)} columns={4} error={e.vessel} />
-        {vessel === "graft" &&
-          (grafts.length === 0 ? (
-            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-              A graft lesion sits in a recorded graft. Add the graft first (Grafts sheet), then choose it here.
-            </p>
-          ) : (
-            <Choice
-              name="graft_id"
-              legend="Graft"
-              value={graftId}
-              onChange={setGraftId}
-              options={grafts.map((g) => ({ value: g.id, label: `${label(g.graft_type)} to ${label(g.target_vessel)}` }))}
-              error={e.graft_id}
-            />
-          ))}
+        {vessel === "graft" && (
+          <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+            {grafts.length > 0 ? (
+              <Choice
+                name="graft_id"
+                legend="Which graft"
+                value={graftId}
+                onChange={setGraftId}
+                options={grafts.map((g) => ({ value: g.id, label: `${label(g.graft_type)} to ${label(g.target_vessel)}` }))}
+                error={e.graft_id}
+              />
+            ) : (
+              <p className="text-sm text-slate-700">A graft lesion sits in a recorded graft. No graft is recorded yet.</p>
+            )}
+            {e.graft_id && grafts.length === 0 && <p className="text-sm text-red-700">{e.graft_id}</p>}
+            <SheetLink href={links.addGraft} className="btn-secondary min-h-11 text-sm" confirmDiscard={dirty}>
+              Add graft
+            </SheetLink>
+          </div>
+        )}
         <Choice name="segment" legend="Segment" value={segment} onChange={setSegment} options={opts(ENUMS.vessel_segment)} optional />
 
         <fieldset>
@@ -177,23 +209,13 @@ export function LesionSheet({
               <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-semibold text-violet-900">Measured in viewer</span>
             )}
           </legend>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={Number.isFinite(stenosisNum) ? stenosisNum : 0}
-            onChange={(ev) => pickStenosis(Number(ev.target.value))}
-            aria-label="Stenosis percent"
-            className="h-11 w-full accent-sky-700"
-          />
-          <div className="mt-1 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {PRESETS.map((v) => (
               <button
                 key={v}
                 type="button"
                 aria-pressed={stenosisNum === v}
-                onClick={() => pickStenosis(v)}
+                onClick={() => pick(v)}
                 className={`inline-flex min-h-11 min-w-12 items-center justify-center rounded-lg border px-2 text-sm font-semibold ${
                   stenosisNum === v ? "border-sky-700 bg-sky-700 text-white" : "border-slate-300 bg-white text-slate-800"
                 }`}
@@ -210,7 +232,7 @@ export function LesionSheet({
                   setStenosis(ev.target.value);
                   setStenosisSource("typed");
                 }}
-                aria-label="Stenosis percent, typed"
+                aria-label="Stenosis percent"
                 aria-invalid={e.stenosis_pct ? true : undefined}
                 className={`input w-20 ${e.stenosis_pct ? "border-red-600" : ""}`}
               />
@@ -218,11 +240,7 @@ export function LesionSheet({
             </span>
           </div>
           {e.stenosis_pct && <p className="mt-1 text-sm text-red-700">{e.stenosis_pct}</p>}
-          {occlusionWarning && (
-            <p role="status" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-              A 100% lesion is usually a CTO, thrombotic, or TIMI 0. Check those below — this is a reminder, not a rule.
-            </p>
-          )}
+          {occlusionReminder && <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">{REMINDER}</p>}
         </fieldset>
 
         <Choice
@@ -231,20 +249,12 @@ export function LesionSheet({
           registry
           value={timi}
           onChange={(v) => v && setTimi(v)}
-          options={["0", "1", "2", "3"].map((t) => ({ value: t, label: `TIMI ${["0", "I", "II", "III"][Number(t)]}` }))}
+          options={TIMI_LABELS.map((l, i) => ({ value: String(i), label: `TIMI ${l}` }))}
           error={e.timi_flow}
         />
         <YesNo name="is_culprit" legend="Culprit lesion" value={culprit} onChange={setCulprit} />
         <NumberWithUnit id="lesion_length_mm" label="Lesion length" unit="mm" decimal value={length} onChange={setLength} registry={treated} error={e.lesion_length_mm} />
-        <Choice
-          name="lesion_class"
-          legend="Lesion class (ACC/AHA)"
-          registry={treated}
-          value={lesionClass}
-          onChange={setLesionClass}
-          options={opts(ENUMS.lesion_class)}
-          optional
-        />
+        <Choice name="lesion_class" legend="Lesion class (ACC/AHA)" registry={treated} value={lesionClass} onChange={setLesionClass} options={opts(ENUMS.lesion_class)} optional />
         <Choice name="calcification" legend="Calcification" value={calcification} onChange={setCalcification} options={opts(ENUMS.calcification_grade)} optional />
         <YesNo name="thrombus" legend="Thrombus" value={thrombus} onChange={setThrombus} />
         <YesNo name="ostial" legend="Ostial" value={ostial} onChange={setOstial} />
@@ -271,9 +281,6 @@ export function LesionSheet({
           </label>
           <textarea id="lesion_notes" rows={3} value={notes} onChange={(ev) => setNotes(ev.target.value)} className="input" />
         </div>
-        <p className="text-xs text-slate-500">
-          <RegistryTag /> marks a registry element. Optional values can stay &ldquo;Not recorded&rdquo;.
-        </p>
       </div>
     </Sheet>
   );

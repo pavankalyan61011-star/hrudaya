@@ -15,6 +15,8 @@ import { THREE_STATE, type MeasurementStatus } from "./angiography-step";
 
 export type ComplicationRow = {
   key: string;
+  /** Saved row: updated in place, so its Week 7 treatment, resolution and outcome links survive. */
+  id?: string;
   complication: string;
   severity: string;
   management: string;

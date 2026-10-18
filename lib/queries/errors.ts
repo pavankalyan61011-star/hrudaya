@@ -19,6 +19,19 @@ export function friendlyError(error: DbError): string {
       return "Only a completed procedure can be marked as reviewed.";
     case "hrudaya:diagnostic_with_intervention":
       return "This is marked diagnostic only but has an intervention recorded. Change the procedure type or remove the intervention in step 4.";
+    // Week 7 (0011) in-hospital outcome rules (spec §2.11)
+    case "hrudaya:outcome_death_condition":
+      return "A death must also be the post-procedure condition (deceased). Change the immediate outcome first.";
+    case "hrudaya:outcome_death_discharged":
+      return "A patient who died has no discharge. Remove the discharge in step 6 first.";
+    case "hrudaya:outcome_contradicts_event":
+      return "An outcome can't be “No” while a procedural event of that type is recorded.";
+    case "hrudaya:outcome_link_invalid":
+      return "That event is not part of this procedure.";
+    case "hrudaya:outcome_vascular_type":
+      return "Choose which vascular complication.";
+    case "hrudaya:graft_lesion_needs_stenosis":
+      return "Enter the graft's stenosis before adding it as a lesion.";
   }
 
   if (error.code === "23505") {
@@ -33,7 +46,13 @@ export function friendlyError(error: DbError): string {
     if (message.includes("procedures_ends_after_start")) return "The end time must be after the start time.";
     if (message.includes("discharges_date_matches_time")) return "The discharge date and time disagree.";
     if (message.includes("status_matches") || message.includes("lvef_provenance")) return "A measurement value must match its status (recorded / not performed / not recorded).";
+    if (message.includes("vessel_findings_graft_link")) return "A graft lesion must name its graft.";
+    if (message.includes("outcomes_death_disposition")) return "Death and the “deceased” disposition go together.";
     return "One of the values is out of range.";
+  }
+  if (error.code === "23503") {
+    if (message.includes("vessel_findings_graft_fk")) return "A lesion is recorded in this graft. Remove or change that lesion first.";
+    return "That refers to something that no longer exists. Reload and try again.";
   }
   if (error.code === "23502") return "A required field is missing.";
   if (error.code === "42501") return "You don't have permission to do that.";

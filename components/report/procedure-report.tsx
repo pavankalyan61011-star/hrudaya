@@ -19,6 +19,7 @@ import {
 } from "@/lib/report-format";
 import { Facts, Section } from "@/components/report/section";
 import { SheetLink } from "@/components/report/sheets/sheet-link";
+import { sheetHref } from "@/lib/sheets";
 
 /**
  * The clinician report body, shared by the report page and the print page (Week 4 spec §8: the
@@ -52,6 +53,47 @@ function CulpritTag() {
   );
 }
 
+/** Opens the Week 7 sheet that edits this part of the report (only when the record is editable). */
+function EditLink({ href, id, children }: { href: string; id: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-2 flex justify-end print:hidden">
+      <SheetLink id={id} href={href} className="inline-flex min-h-11 items-center text-sm font-medium text-sky-800 underline">
+        {children}
+      </SheetLink>
+    </div>
+  );
+}
+
+const TRI: Record<string, string> = { yes: "Yes", no: "No", not_recorded: NOT_RECORDED };
+const ELLIS: Record<string, string> = { ellis_1: "Ellis I", ellis_2: "Ellis II", ellis_3: "Ellis III", ellis_3_cavity: "Ellis III (cavity spilling)" };
+
+/** Door-to-device in minutes: derived, never stored (spec §2.10). */
+function doorToDevice(door: string | null, device: string | null) {
+  if (!door || !device) return null;
+  const m = Math.round((Date.parse(device) - Date.parse(door)) / 60_000);
+  return Number.isFinite(m) && m >= 0 ? `${m} min` : null;
+}
+
+type Physio = ProcedureFull["vessel_findings"][number]["lesion_physiology"][number];
+type Imaging = ProcedureFull["vessel_findings"][number]["intravascular_imaging"][number];
+const physioLine = (x: Physio) =>
+  [`${label(x.index)} ${x.phase} ${Number(x.value).toFixed(2)}`, x.hyperaemic_agent && x.hyperaemic_agent !== "none" ? label(x.hyperaemic_agent) : null, x.decision ? label(x.decision).toLowerCase() : null]
+    .filter(Boolean)
+    .join(" · ");
+const imagingLine = (x: Imaging) =>
+  [
+    `${label(x.modality)} ${x.phase}`,
+    x.mla_mm2 !== null ? `MLA ${x.mla_mm2} mm²` : null,
+    x.plaque_burden_pct !== null ? `plaque burden ${x.plaque_burden_pct}%` : null,
+    x.calcium_arc_deg !== null ? `calcium arc ${x.calcium_arc_deg}°` : null,
+    x.msa_mm2 !== null ? `MSA ${x.msa_mm2} mm²` : null,
+    x.stent_expansion_pct !== null ? `expansion ${x.stent_expansion_pct}%` : null,
+    x.malapposition ? "malapposition" : null,
+    x.edge_dissection ? "edge dissection" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
 function SubHeading({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 mt-4 text-sm font-semibold text-slate-700 first:mt-0">{children}</h3>;
 }
@@ -81,12 +123,12 @@ export function initials(name: string) {
 }
 
 /**
- * `sheets`: where each Week 7 sheet opens for this record, when it can be edited (a draft, or a record
- * with an open amendment). Omitted on the print page and for read-only records.
+ * `sheetBase`: this page's URL when the record can be edited (a draft, or a record with an open
+ * amendment) — each section then offers the Week 7 sheet that edits it. Omitted on the print page and
+ * for read-only records.
  */
-export type SheetHrefs = { lesion: (vesselFindingId: string) => string };
-
-export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull; print?: boolean; sheets?: SheetHrefs }) {
+export function ProcedureReport({ p, print = false, sheetBase }: { p: ProcedureFull; print?: boolean; sheetBase?: string }) {
+  const edit = !print && sheetBase ? sheetBase : null;
   const pt = p.patient;
   const vesselById = new Map(p.vessel_findings.map((v) => [v.id, v]));
   const previous = pt?.risk_factors.filter((r) => PREVIOUS_PROCEDURES.has(r.factor)) ?? [];
@@ -152,6 +194,7 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
       </Section>
 
       <Section title="Presentation and baseline">
+        {edit && <EditLink id="edit-indication" href={sheetHref(edit, "indication", { tab: "indication" })}>Edit indication detail</EditLink>}
         <Facts
           items={[
             ["Indication", en(p.indication)],
@@ -160,8 +203,30 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
             ["Referring clinician", p.referring_clinician],
             ["Troponin elevated", yesNo(p.troponin_elevated)],
             ["ECG", p.ecg_findings],
+            ["CCS class", p.ccs_class],
+            ["NYHA class", p.nyha_class],
+            ["Stress test", p.stress_test_type ? `${label(p.stress_test_type)}${p.stress_test_result ? ` — ${label(p.stress_test_result).toLowerCase()}` : ""}` : null],
+            ["Cardiogenic shock", p.cardiogenic_shock ? "Yes" : "No"],
+            ["Cardiac arrest before the procedure", p.cardiac_arrest_pre_procedure ? "Yes" : "No"],
+            ["Previous PCI", yesNo(p.prior_pci)],
+            ["Previous CABG", yesNo(p.prior_cabg)],
+            ["Thrombolysis", p.thrombolysis_given ? "Yes" : "No"],
           ]}
         />
+        {p.indication === "stemi" && (
+          <>
+            <SubHeading>STEMI times</SubHeading>
+            <Facts
+              items={[
+                ["Symptom onset", p.symptom_onset_at ? formatDateTime(p.symptom_onset_at) : null],
+                ["First medical contact", p.first_medical_contact_at ? formatDateTime(p.first_medical_contact_at) : null],
+                ["Arrival (door)", p.door_at ? formatDateTime(p.door_at) : null],
+                ["First device", p.device_time_at ? formatDateTime(p.device_time_at) : null],
+                ["Door-to-device", doorToDevice(p.door_at, p.device_time_at)],
+              ]}
+            />
+          </>
+        )}
         <p className="mt-3 whitespace-pre-line">{orNotRecorded(p.presentation_notes)}</p>
         <SubHeading>Baseline</SubHeading>
         <Facts
@@ -193,13 +258,60 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
       </Section>
 
       <Section title="Coronary anatomy">
+        {edit && <EditLink id="edit-haemodynamics" href={sheetHref(edit, "haemodynamics")}>Edit haemodynamics &amp; LV</EditLink>}
         <Facts
           items={[
             ["Dominance", p.dominance ? (p.dominance === "co_dominant" ? "Co-dominant" : `${label(p.dominance)}-dominant`) : null],
-            ["Aortic pressure", pressure(p.aortic_pressure_systolic, p.aortic_pressure_diastolic)],
-            ["LVEDP", measurement(p.lvedp_status, `${p.lvedp_mmhg} mmHg`)],
+            ...(p.haemodynamics?.left_status === "not_performed"
+              ? ([["Left-heart pressures", "Not performed"]] as [string, React.ReactNode][])
+              : ([
+                  [
+                    "Aortic pressure",
+                    p.haemodynamics
+                      ? pressure(p.haemodynamics.ao_systolic, p.haemodynamics.ao_diastolic) &&
+                        `${pressure(p.haemodynamics.ao_systolic, p.haemodynamics.ao_diastolic)}${p.haemodynamics.ao_mean !== null ? ` (mean ${p.haemodynamics.ao_mean})` : ""}`
+                      : pressure(p.aortic_pressure_systolic, p.aortic_pressure_diastolic),
+                  ],
+                  ["LV systolic", num(p.haemodynamics?.lv_systolic ?? null, "mmHg")],
+                  ["LVEDP", measurement(p.lvedp_status, `${p.lvedp_mmhg} mmHg`)],
+                ] as [string, React.ReactNode][])),
+            ["Heart rate at measurement", num(p.haemodynamics?.heart_rate_at_measurement ?? null, "bpm")],
+            ["Rhythm", p.haemodynamics?.rhythm ? label(p.haemodynamics.rhythm) : null],
+            ["Mitral regurgitation", p.mitral_regurgitation_grade !== null ? `Grade ${p.mitral_regurgitation_grade}` : null],
+            ["LV-gram", yesNo(p.lv_gram_performed)],
+            [
+              "Wall motion",
+              p.lv_wall_motion.length
+                ? [...p.lv_wall_motion]
+                    .sort((a, b) => a.segment - b.segment)
+                    .map((w) => `${w.segment} ${w.motion}`)
+                    .join(", ")
+                : null,
+            ],
           ]}
         />
+        {(p.grafts.length > 0 || p.prior_cabg === true) && (
+          <>
+            <SubHeading>Bypass grafts</SubHeading>
+            {edit && <EditLink id="edit-grafts" href={sheetHref(edit, "grafts")}>{p.grafts.length ? "Edit grafts" : "+ Graft"}</EditLink>}
+            {p.grafts.length === 0 ? (
+              <p className="text-slate-600">None recorded</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {p.grafts.map((g) => (
+                  <li key={g.id}>
+                    <span className="font-semibold">
+                      {label(g.graft_type)} to {label(g.target_vessel)}
+                    </span>
+                    {g.sequential ? " (sequential)" : ""} · {g.patency === "stenosed" && g.stenosis_pct !== null ? `stenosed ${g.stenosis_pct}%` : label(g.patency).toLowerCase()}
+                    {g.lesion_location ? ` · ${label(g.lesion_location).toLowerCase()}` : ""}
+                    {g.cabg_year ? ` · CABG ${g.cabg_year}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
         {p.vessel_findings.length === 0 ? (
           <p className="mt-3 text-slate-600">No findings recorded</p>
         ) : (
@@ -235,14 +347,29 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
                       <span className="font-semibold">{name}</span>
                       {v.is_culprit && <CulpritTag />}
                       {detail.length > 0 && <span className="block break-words text-xs text-slate-600">{detail.join(" · ")}</span>}
-                      {sheets && !print && (
+                      {v.lesion_physiology.map((x) => (
+                        <span key={x.id} className="block text-xs text-slate-700">{physioLine(x)}</span>
+                      ))}
+                      {v.intravascular_imaging.map((x) => (
+                        <span key={x.id} className="block text-xs text-slate-700">{imagingLine(x)}</span>
+                      ))}
+                      {edit && (
                         <SheetLink
                           id={`edit-lesion-${v.id}`}
-                          href={sheets.lesion(v.id)}
+                          href={sheetHref(edit, "lesion", { row: v.id })}
                           label={`Edit lesion details: ${name}`}
                           className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-sky-800 underline"
                         >
                           Edit lesion
+                        </SheetLink>
+                      )}
+                      {edit && (
+                        <SheetLink
+                          href={sheetHref(edit, "physiology", { row: v.id, tab: "physiology" })}
+                          label={`Physiology and imaging: ${name}`}
+                          className="ml-3 mt-1 inline-flex min-h-11 items-center text-sm font-medium text-sky-800 underline"
+                        >
+                          Physiology &amp; imaging
                         </SheetLink>
                       )}
                     </td>
@@ -276,14 +403,21 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
                     )}
                     <span className="block text-sm font-normal text-slate-700">{label(iv.intervention_type)}</span>
                   </h3>
+                  {edit && <EditLink id={`edit-intervention-${iv.id}`} href={sheetHref(edit, "intervention", { row: iv.id })}>Edit intervention &amp; devices</EditLink>}
                   <Facts
                     items={[
-                      ["Guidewire", guidewireText(iv.guidewire)],
+                      ["Techniques", iv.techniques.length ? [...iv.techniques.filter((t) => t !== "other").map((t) => label(t)), ...(iv.technique_other ? [iv.technique_other] : [])].join(", ") : null],
+                      ["Bifurcation strategy", iv.bifurcation_strategy ? (iv.bifurcation_strategy === "other" ? iv.bifurcation_strategy_other : label(iv.bifurcation_strategy)) : null],
+                      ["Guide catheter", iv.guiding_catheter],
+                      [iv.wires.length > 1 ? "Wires" : "Guidewire", iv.wires.length > 1 ? iv.wires.join(", ") : guidewireText(iv.guidewire)],
                       ["Residual stenosis", `${iv.residual_stenosis_pct}%`],
                       ["Final flow", timi(iv.timi_flow_post)],
-                      ["Result", iv.success ? "Successful" : "Not successful"],
-                      ["Dissection", iv.dissection ? "Yes" : "No"],
-                      ["Perforation", iv.perforation ? "Yes" : "No"],
+                      ["Result", iv.success ? "Successful" : `Not successful${iv.failure_reason ? ` — ${label(iv.failure_reason).toLowerCase()}` : ""}`],
+                      ["Dissection", iv.dissection ? `Yes${iv.dissection_grade ? ` (type ${label(iv.dissection_grade)})` : ""}` : "No"],
+                      ["Perforation", iv.perforation ? `Yes${iv.perforation_class ? ` (${ELLIS[iv.perforation_class]})` : ""}` : "No"],
+                      ["No-reflow", iv.no_reflow ? "Yes" : "No"],
+                      ["Stent overlap", iv.stent_overlap ? "Yes" : null],
+                      ["Total stent length", num(iv.total_stent_length_mm, "mm")],
                     ]}
                   />
                   {iv.devices_used.length > 0 && (
@@ -303,6 +437,15 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
                                 </span>
                               )}
                               {d.udi && <span className="block break-all font-mono text-xs">UDI {d.udi}</span>}
+                              {d.device_inflations.length > 0 && (
+                                <span className="block text-xs text-slate-700">
+                                  Inflations:{" "}
+                                  {[...d.device_inflations]
+                                    .sort((a, b) => a.sequence - b.sequence)
+                                    .map((f) => `${f.pressure_atm} atm${f.duration_s !== null ? ` ${f.duration_s} s` : ""}`)
+                                    .join(" · ")}
+                                </span>
+                              )}
                             </li>
                           )),
                       )}
@@ -374,6 +517,7 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
       </Section>
 
       <Section title="Complications">
+        {edit && <EditLink id="edit-events" href={sheetHref(edit, "events")}>Edit procedural events</EditLink>}
         {p.complications.length === 0 ? (
           <p>None</p>
         ) : (
@@ -390,9 +534,16 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
                 <ul className="space-y-2">
                   {list.map((c) => (
                     <li key={c.id}>
-                      <span className="font-semibold">{label(c.complication)}</span> ({label(c.severity)})
+                      <span className="font-semibold">{label(c.complication)}</span>
+                      {c.grade && ` ${c.grade}`} ({label(c.severity)})
                       {c.onset_at && <span className="text-slate-700"> · {formatDateTime(c.onset_at)}</span>}
                       <span className="block">{c.management}</span>
+                      {c.treatments.length > 0 && (
+                        <span className="block text-sm text-slate-700">
+                          Treatment: {[...c.treatments.filter((t) => t !== "other").map((t) => label(t).toLowerCase()), ...(c.treatment_other ? [c.treatment_other] : [])].join(", ")}
+                        </span>
+                      )}
+                      {c.resolution && <span className="block text-sm text-slate-700">Resolution: {label(c.resolution).toLowerCase()}</span>}
                       {c.outcome && <span className="block text-sm text-slate-700">Outcome: {c.outcome}</span>}
                     </li>
                   ))}
@@ -421,6 +572,41 @@ export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull
             ["Notes", p.communication_notes],
           ]}
         />
+      </Section>
+
+      <Section title="In-hospital outcomes">
+        {edit && <EditLink id="edit-outcome" href={sheetHref(edit, "indication", { tab: "outcome" })}>Edit outcomes</EditLink>}
+        {!p.in_hospital_outcomes ? (
+          <p className="text-slate-600">Not recorded</p>
+        ) : (
+          <Facts
+            items={[
+              ["Periprocedural MI", TRI[p.in_hospital_outcomes.mi]],
+              ["Stroke", TRI[p.in_hospital_outcomes.stroke]],
+              ["Death", p.in_hospital_outcomes.death === "yes" && p.in_hospital_outcomes.death_cause ? `Yes — ${p.in_hospital_outcomes.death_cause}` : TRI[p.in_hospital_outcomes.death]],
+              [
+                "Bleeding",
+                p.in_hospital_outcomes.bleeding === "yes" && p.in_hospital_outcomes.bleeding_barc !== null
+                  ? `Yes — BARC ${p.in_hospital_outcomes.bleeding_barc}${p.in_hospital_outcomes.bleeding_barc_sub ?? ""}`
+                  : TRI[p.in_hospital_outcomes.bleeding],
+              ],
+              ["Transfusion", TRI[p.in_hospital_outcomes.transfusion]],
+              [
+                "Vascular complications",
+                p.in_hospital_outcomes.vascular_status === "yes"
+                  ? p.in_hospital_outcomes.vascular_complications.map((x) => label(x)).join(", ")
+                  : TRI[p.in_hospital_outcomes.vascular_status],
+              ],
+              ["Acute kidney injury", TRI[p.in_hospital_outcomes.aki]],
+              ["Creatinine after", num(p.in_hospital_outcomes.creatinine_post_umol_l, "µmol/L")],
+              ["New dialysis", TRI[p.in_hospital_outcomes.new_dialysis]],
+              ["Emergency CABG", TRI[p.in_hospital_outcomes.emergency_cabg]],
+              ["Cardiac tamponade", TRI[p.in_hospital_outcomes.cardiac_tamponade]],
+              ["Unplanned repeat PCI", TRI[p.in_hospital_outcomes.unplanned_repeat_pci]],
+              ["Disposition", p.in_hospital_outcomes.disposition ? label(p.in_hospital_outcomes.disposition) : null],
+            ]}
+          />
+        )}
       </Section>
 
       <Section title="Discharge">

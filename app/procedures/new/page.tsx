@@ -12,13 +12,16 @@ import { AngiographyStep, type VesselRow } from "./steps/angiography-step";
 import { InterventionStep, type InterventionRow } from "./steps/intervention-step";
 import { DetailsStep } from "./steps/details-step";
 import { DischargeStep } from "./steps/discharge-step";
+import { SheetHost } from "@/components/report/sheets/sheet-host";
+import { MoreDetail } from "@/components/report/sheets/more-detail";
+import { sheetHref } from "@/lib/sheets";
 
 export const dynamic = "force-dynamic";
 
 const str = (v: number | string | null | undefined) => (v === null || v === undefined ? "" : String(v));
 const PREFILLED_VESSELS = ["lmca", "lad", "lcx", "rca"] as const;
 
-type SearchParams = { id?: string; step?: string };
+type SearchParams = { id?: string; step?: string; sheet?: string; row?: string; tab?: string };
 
 export default async function NewProcedurePage({ searchParams }: { searchParams: SearchParams }) {
   const today = todayIST();
@@ -48,6 +51,11 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
   const patientLabel = patient
     ? `${patient.full_name}, ${ageOn(patient.date_of_birth, p.procedure_date ?? today)} ${patient.sex === "male" ? "M" : patient.sex === "female" ? "F" : ""}`.trim()
     : undefined;
+  // Week 7 §3.8: the steps open the same sheets as the report; saving a sheet returns to the step.
+  const stepBase = `/procedures/new?id=${p.id}&step=${step}`;
+  const sheet = <SheetHost p={p} base={stepBase} params={searchParams} editable />;
+  // A step remounts when the rows it shows change (e.g. after a sheet saved), so it never re-saves stale values.
+  const stamp = (...xs: (string | null | undefined)[]) => xs.join("|");
   const header = (
     <StepHeader step={step} procedureId={p.id} caseCode={p.case_code} patientLabel={patientLabel}
       amendment={amendment ? { no: amendment.amendment_no, reason: amendment.reason } : null} />
@@ -109,7 +117,12 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
       return (
         <>
           {header}
+          <MoreDetail
+            title="Indication detail"
+            links={[{ id: "edit-indication", href: sheetHref(stepBase, "indication", { tab: "indication" }), label: "CCS, NYHA, stress test, shock, previous PCI/CABG, STEMI times" }]}
+          />
           <IndicationStep
+            key={stamp(p.updated_at)}
             identityLocked={amending}
             procedureId={p.id}
             operators={operators}
@@ -144,6 +157,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
               primary_operator_id: p.primary_operator_id ?? "",
             }}
           />
+          {sheet}
         </>
       );
     }
@@ -165,17 +179,15 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
         <>
           {header}
           <AngiographyStep
+            key={stamp(p.updated_at, ...p.vessel_findings.map((v) => v.updated_at), ...p.grafts.map((g) => g.recorded_at))}
             procedureId={p.id}
             initial={initial}
-            anatomy={{
-              dominance: p.dominance ?? "",
-              aortic_pressure_systolic: str(p.aortic_pressure_systolic),
-              aortic_pressure_diastolic: str(p.aortic_pressure_diastolic),
-              lvedp_status: p.lvedp_status,
-              lvedp_mmhg: str(p.lvedp_mmhg),
-            }}
+            anatomy={{ dominance: p.dominance ?? "" }}
             treatedIds={p.interventions.map((i) => i.vessel_finding_id)}
+            showGrafts={p.prior_cabg === true || p.grafts.length > 0}
+            graftCount={p.grafts.length}
           />
+          {sheet}
         </>
       );
     }
@@ -187,11 +199,11 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
         is_culprit: v.is_culprit,
       }));
       const initial: InterventionRow[] = p.interventions.map((i) => ({
-        key: i.id, vessel_finding_id: i.vessel_finding_id, intervention_type: i.intervention_type, guidewire: i.guidewire,
+        key: i.id, id: i.id, vessel_finding_id: i.vessel_finding_id, intervention_type: i.intervention_type, guidewire: i.guidewire,
         residual_stenosis_pct: str(i.residual_stenosis_pct), timi_flow_post: str(i.timi_flow_post),
         success: i.success, dissection: i.dissection, perforation: i.perforation, notes: i.notes ?? "",
         devices: i.devices_used.map((d) => ({
-          key: d.id, phase: d.phase, category: d.category, product_name: d.product_name, diameter_mm: str(d.diameter_mm),
+          key: d.id, id: d.id, phase: d.phase, category: d.category, product_name: d.product_name, diameter_mm: str(d.diameter_mm),
           length_mm: str(d.length_mm), inflation_atm: str(d.inflation_atm), lot_number: d.lot_number ?? "",
           expiry_date: d.expiry_date ?? "", udi: d.udi ?? "", quantity: str(d.quantity),
         })),
@@ -199,7 +211,22 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
       return (
         <>
           {header}
-          <InterventionStep procedureId={p.id} diagnosticOnly={p.procedure_type === "diagnostic_angiography"} lesions={lesions} initial={initial} />
+          <MoreDetail
+            title="Technique, inflation log and events"
+            links={p.interventions.map((i) => ({
+              id: `edit-intervention-${i.id}`,
+              href: sheetHref(stepBase, "intervention", { row: i.id }),
+              label: `${lesions.find((l) => l.id === i.vessel_finding_id)?.label ?? "Intervention"} — details`,
+            }))}
+          />
+          <InterventionStep
+            key={stamp(...p.interventions.flatMap((i) => [i.updated_at, ...i.devices_used.map((d) => d.updated_at)]))}
+            procedureId={p.id}
+            diagnosticOnly={p.procedure_type === "diagnostic_angiography"}
+            lesions={lesions}
+            initial={initial}
+          />
+          {sheet}
         </>
       );
     }
@@ -209,7 +236,15 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
       return (
         <>
           {header}
+          <MoreDetail
+            title="Haemodynamics, LV and procedural events"
+            links={[
+              { id: "edit-haemodynamics", href: sheetHref(stepBase, "haemodynamics"), label: "Haemodynamics & LV" },
+              { id: "edit-events", href: sheetHref(stepBase, "events"), label: "Procedural events — grade, treatment, resolution" },
+            ]}
+          />
           <DetailsStep
+            key={stamp(p.updated_at, ...p.complications.map((c) => c.updated_at), ...p.procedure_medications.map((m) => m.updated_at))}
             procedureId={p.id}
             operators={operators}
             stepSaved={p.started_at !== null}
@@ -233,7 +268,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
                 notes: m.notes ?? "",
               })),
               complications: p.complications.map((c) => ({
-                key: c.id, complication: c.complication, severity: c.severity, management: c.management,
+                key: c.id, id: c.id, complication: c.complication, severity: c.severity, management: c.management,
                 onset: c.onset ?? "", onset_at: toISTInput(c.onset_at), outcome: c.outcome ?? "",
               })),
               post_procedure_condition: p.post_procedure_condition ?? "",
@@ -249,6 +284,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
               outcome_summary: p.outcome_summary ?? "",
             }}
           />
+          {sheet}
         </>
       );
     }
@@ -258,7 +294,12 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
       return (
         <>
           {header}
+          <MoreDetail
+            title="In-hospital outcomes"
+            links={[{ id: "edit-outcome", href: sheetHref(stepBase, "indication", { tab: "outcome" }), label: "MI, stroke, death, bleeding, AKI… and disposition" }]}
+          />
           <DischargeStep
+            key={stamp(d?.updated_at)}
             amending={amending}
             procedureId={p.id}
             initial={{
@@ -277,6 +318,7 @@ export default async function NewProcedurePage({ searchParams }: { searchParams:
               })),
             }}
           />
+          {sheet}
         </>
       );
     }

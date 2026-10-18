@@ -14,6 +14,8 @@ import { saveInterventionStep } from "../actions";
 
 export type DeviceRow = {
   key: string;
+  /** Saved row: updated in place, so its inflation log (Week 7) survives a re-save. */
+  id?: string;
   phase: Enums["device_phase"];
   category: string;
   product_name: string;
@@ -28,6 +30,8 @@ export type DeviceRow = {
 
 export type InterventionRow = {
   key: string;
+  /** Saved row: updated in place, so its Week 7 detail and events survive a re-save. */
+  id?: string;
   vessel_finding_id: string;
   intervention_type: string;
   guidewire: string;

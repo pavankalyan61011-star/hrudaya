@@ -11,7 +11,7 @@ type Result = { error: DbError };
 
 async function deleteByIds(
   db: DbClient,
-  table: "vessel_findings" | "interventions" | "complications" | "discharge_medications" | "procedure_medications",
+  table: "vessel_findings" | "interventions" | "devices_used" | "complications" | "discharge_medications" | "procedure_medications",
   ids: string[],
 ): Promise<Result> {
   if (ids.length === 0) return { error: null };
@@ -64,6 +64,7 @@ export async function saveVessels(db: DbClient, procedureId: string, rows: Vesse
 // ─── Step 4: interventions and devices ─────────────────────────────────────────
 
 export type DeviceInput = {
+  id?: string;
   phase: Enums["device_phase"];
   category: Enums["device_category"];
   product_name: string;
@@ -78,6 +79,7 @@ export type DeviceInput = {
 };
 
 export type InterventionInput = {
+  id?: string;
   vessel_finding_id: string;
   intervention_type: Enums["intervention_type"];
   guidewire: string;
@@ -90,37 +92,55 @@ export type InterventionInput = {
   devices: DeviceInput[];
 };
 
-/** Replace: insert the new set first; only when all of it saved, remove the old set. */
+/**
+ * Saved interventions and devices are updated in place (only the step's own fields), new ones
+ * inserted, removed ones deleted. Week 7: replacing every row on each save would drop each row's
+ * detail (techniques, grading), inflation log and the events linked to outcomes.
+ */
 export async function saveInterventions(db: DbClient, procedureId: string, items: InterventionInput[]): Promise<Result> {
-  const { data: existing, error: readError } = await db.from("interventions").select("id").eq("procedure_id", procedureId);
+  const { data: existing, error: readError } = await db.from("interventions").select("id, devices_used(id)").eq("procedure_id", procedureId);
   if (readError) return { error: readError };
+  const known = new Map((existing ?? []).map((e) => [e.id, new Set(e.devices_used.map((d) => d.id))]));
 
-  const created: string[] = [];
-  for (const { devices, ...fields } of items) {
-    const { data, error } = await db
-      .from("interventions")
-      .insert({ ...fields, procedure_id: procedureId })
-      .select("id")
-      .single();
-    if (error) {
-      await deleteByIds(db, "interventions", created);
-      return { error };
+  const kept = new Set<string>();
+  for (const { id, devices, ...fields } of items) {
+    let interventionId = id && known.has(id) ? id : null;
+    if (interventionId) {
+      const { error } = await db.from("interventions").update(fields).eq("id", interventionId).eq("procedure_id", procedureId);
+      if (error) return { error };
+    } else {
+      const { data, error } = await db.from("interventions").insert({ ...fields, procedure_id: procedureId }).select("id").single();
+      if (error) return { error };
+      interventionId = data.id;
     }
-    created.push(data.id);
-    if (devices.length > 0) {
-      const { error: devError } = await db.from("devices_used").insert(devices.map((d) => ({ ...d, intervention_id: data.id })));
-      if (devError) {
-        await deleteByIds(db, "interventions", created);
-        return { error: devError };
+    kept.add(interventionId);
+
+    const ownDevices = known.get(interventionId) ?? new Set<string>();
+    const keptDevices = new Set<string>();
+    const fresh = [];
+    for (const { id: deviceId, ...d } of devices) {
+      if (deviceId && ownDevices.has(deviceId)) {
+        const { error } = await db.from("devices_used").update(d).eq("id", deviceId).eq("intervention_id", interventionId);
+        if (error) return { error };
+        keptDevices.add(deviceId);
+      } else {
+        fresh.push({ ...d, intervention_id: interventionId });
       }
     }
+    if (fresh.length > 0) {
+      const { error } = await db.from("devices_used").insert(fresh);
+      if (error) return { error };
+    }
+    const del = await deleteByIds(db, "devices_used", [...ownDevices].filter((d) => !keptDevices.has(d)));
+    if (del.error) return del;
   }
-  return deleteByIds(db, "interventions", (existing ?? []).map((e) => e.id));
+  return deleteByIds(db, "interventions", [...known.keys()].filter((id) => !kept.has(id)));
 }
 
 // ─── Step 5: complications ─────────────────────────────────────────────────────
 
 export type ComplicationInput = {
+  id?: string;
   complication: Enums["complication_type"];
   severity: Enums["complication_severity"];
   management: string;
@@ -129,18 +149,28 @@ export type ComplicationInput = {
   outcome: string | null;
 };
 
+/** Kept events updated in place (step fields only), so Week 7 treatment, grade and outcome links survive. */
 export async function saveComplications(db: DbClient, procedureId: string, items: ComplicationInput[]): Promise<Result> {
   const { data: existing, error: readError } = await db.from("complications").select("id").eq("procedure_id", procedureId);
   if (readError) return { error: readError };
-  if (items.length > 0) {
-    const { data, error } = await db
-      .from("complications")
-      .insert(items.map((c) => ({ ...c, procedure_id: procedureId })))
-      .select("id");
-    if (error) return { error };
-    if ((data ?? []).length !== items.length) return { error: { message: "insert incomplete" } };
+  const known = new Set((existing ?? []).map((e) => e.id));
+  const kept = new Set<string>();
+  const fresh = [];
+  for (const { id, ...c } of items) {
+    if (id && known.has(id)) {
+      const { error } = await db.from("complications").update(c).eq("id", id).eq("procedure_id", procedureId);
+      if (error) return { error };
+      kept.add(id);
+    } else {
+      fresh.push({ ...c, procedure_id: procedureId });
+    }
   }
-  return deleteByIds(db, "complications", (existing ?? []).map((e) => e.id));
+  if (fresh.length > 0) {
+    const { data, error } = await db.from("complications").insert(fresh).select("id");
+    if (error) return { error };
+    if ((data ?? []).length !== fresh.length) return { error: { message: "insert incomplete" } };
+  }
+  return deleteByIds(db, "complications", [...known].filter((id) => !kept.has(id)));
 }
 
 // ─── Step 5: procedure medications ─────────────────────────────────────────────

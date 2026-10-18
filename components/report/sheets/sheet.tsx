@@ -29,9 +29,11 @@ export function markSheetOpened(href: string) {
   }
 }
 
-export function useCloseSheet(closeHref: string, returnFocusId?: string) {
+/** Close: when the sheet has unsaved changes, asks first ("Discard changes?"); otherwise just closes. */
+export function useCloseSheet(closeHref: string, returnFocusId?: string, dirty = false) {
   const router = useRouter();
   return () => {
+    if (dirty && !window.confirm("Discard changes?")) return;
     let fromPage = false;
     try {
       fromPage = sessionStorage.getItem(OPENED_FROM_PAGE) === window.location.pathname + window.location.search;
@@ -58,13 +60,15 @@ type Props = {
   footer?: React.ReactNode;
   /** When set, body and footer are one form, so the footer's submit button sees its pending state. */
   formAction?: (formData: FormData) => void;
+  /** Unsaved changes: Close, Escape and the backdrop ask before discarding them. */
+  dirty?: boolean;
   children: React.ReactNode;
 };
 
-export function Sheet({ title, subtitle, closeHref, returnFocusId, footer, formAction, children }: Props) {
+export function Sheet({ title, subtitle, closeHref, returnFocusId, footer, formAction, dirty = false, children }: Props) {
   const panel = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const close = useCloseSheet(closeHref, returnFocusId);
+  const close = useCloseSheet(closeHref, returnFocusId, dirty);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);

@@ -1,10 +1,48 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 /**
  * Inputs shared by the Week 7 sheets (spec §3): every picker is a row of big buttons (44 px), every
  * typed number has its unit beside it, an optional value can be set back to "Not recorded", and a
  * registry element carries a small "R" tag.
  */
+
+const LEGEND_DISMISSED = "hrudaya.registryLegendDismissed";
+
+/** "R = needed for the registry", shown at the top of a sheet until dismissed (remembered per browser). */
+export function RegistryLegend() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    try {
+      setShow(localStorage.getItem(LEGEND_DISMISSED) !== "1");
+    } catch {
+      setShow(true);
+    }
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1 text-sm text-sky-950">
+      <span>
+        <RegistryTag /> = needed for the registry
+      </span>
+      <button
+        type="button"
+        className="btn min-h-11 px-3 text-sm font-medium text-sky-900 underline"
+        onClick={() => {
+          setShow(false);
+          try {
+            localStorage.setItem(LEGEND_DISMISSED, "1");
+          } catch {
+            /* not remembered; it simply shows again next time */
+          }
+        }}
+      >
+        Got it
+      </button>
+    </div>
+  );
+}
 
 export function RegistryTag() {
   return (
@@ -84,14 +122,18 @@ export function Choice<T extends string>({
   );
 }
 
-/** Yes / No as two big buttons (a recorded boolean; the database default is "No"). */
-export function YesNo({ name, legend, value, onChange, registry }: { name: string; legend: string; value: boolean; onChange: (v: boolean) => void; registry?: boolean }) {
+/**
+ * Yes / No as two big buttons. `null` = untouched: neither is selected, because an untouched "No"
+ * would look like a recorded finding. The Week 1 columns behind these are `boolean default false`,
+ * so an untouched value still saves as false (backlog: booleans → tri_state in Week 7b).
+ */
+export function YesNo({ name, legend, value, onChange, registry }: { name: string; legend: string; value: boolean | null; onChange: (v: boolean) => void; registry?: boolean }) {
   return (
     <Choice
       name={name}
       legend={legend}
       registry={registry}
-      value={value ? "yes" : "no"}
+      value={value === null ? null : value ? "yes" : "no"}
       onChange={(v) => onChange(v === "yes")}
       options={[
         { value: "yes", label: "Yes" },
@@ -166,7 +208,8 @@ export function MedinaPicker({ value, onChange }: { value: string | null; onChan
     next[i] = !next[i];
     onChange(next.map((b) => (b ? "1" : "0")).join(","));
   };
-  const stroke = (on: boolean) => (on ? "#b91c1c" : "#94a3b8");
+  // Ink for a diseased segment, light grey for a clear one; red is kept for "needs attention".
+  const stroke = (on: boolean) => (on ? "#1A232B" : "#cbd5e1");
   const names = ["Proximal main vessel", "Distal main vessel", "Side branch"];
   const toggle = (i: number, className: string) => (
     <button
@@ -174,7 +217,7 @@ export function MedinaPicker({ value, onChange }: { value: string | null; onChan
       aria-pressed={parts[i]}
       onClick={() => set(i)}
       className={`absolute inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold ${
-        parts[i] ? "border-red-700 bg-red-50 text-red-800" : "border-slate-300 bg-white text-slate-700"
+        parts[i] ? "border-[#1A232B] bg-[#1A232B] text-white" : "border-slate-300 bg-white text-slate-700"
       } ${className}`}
     >
       <span className="text-base tabular-nums">{parts[i] ? "1" : "0"}</span> {names[i]}
@@ -210,4 +253,116 @@ export function MedinaPicker({ value, onChange }: { value: string | null; onChan
       </div>
     </fieldset>
   );
+}
+
+/** yes / no / not recorded (tri_state). "Not recorded" is grey when chosen, and is the default. */
+export function TriState({ name, legend, value, onChange, registry }: { name: string; legend: string; value: "yes" | "no" | "not_recorded"; onChange: (v: "yes" | "no" | "not_recorded") => void; registry?: boolean }) {
+  return (
+    <Choice
+      name={name}
+      legend={legend}
+      registry={registry}
+      value={value === "not_recorded" ? null : value}
+      onChange={(v) => onChange(v ?? "not_recorded")}
+      options={[
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ]}
+      optional
+    />
+  );
+}
+
+/** A nullable boolean (e.g. previous PCI): Yes / No / Not recorded. */
+export function YesNoUnknown({ name, legend, value, onChange, registry }: { name: string; legend: string; value: boolean | null; onChange: (v: boolean | null) => void; registry?: boolean }) {
+  return (
+    <Choice
+      name={name}
+      legend={legend}
+      registry={registry}
+      value={value === null ? null : value ? "yes" : "no"}
+      onChange={(v) => onChange(v === null ? null : v === "yes")}
+      options={[
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ]}
+      optional
+    />
+  );
+}
+
+/** Multi-select chips (techniques, treatments, vascular complications): each a 44 px toggle. */
+export function Chips<T extends string>({ legend, values, onChange, options, error }: { legend?: string; values: T[]; onChange: (v: T[]) => void; options: { value: T; label: string }[]; error?: string }) {
+  const toggle = (v: T) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
+  const chips = (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const on = values.includes(o.value);
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => toggle(o.value)}
+            className={`inline-flex min-h-11 items-center justify-center rounded-full border px-3 text-sm font-semibold ${
+              on ? "border-sky-700 bg-sky-700 text-white" : "border-slate-300 bg-white text-slate-800"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+  if (!legend) return chips;
+  return (
+    <fieldset>
+      <legend className="label">{legend}</legend>
+      {chips}
+      {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
+    </fieldset>
+  );
+}
+
+/** The three-state rule as a status pill (spec §3: "Not performed" is a recorded fact). */
+export function StatusPill({ name, legend, value, onChange, registry }: { name: string; legend: string; value: "not_recorded" | "not_performed" | "recorded"; onChange: (v: "not_recorded" | "not_performed" | "recorded") => void; registry?: boolean }) {
+  return (
+    <Choice
+      name={name}
+      legend={legend}
+      registry={registry}
+      value={value}
+      onChange={(v) => v && onChange(v)}
+      options={[
+        { value: "not_recorded", label: "Not recorded" },
+        { value: "not_performed", label: "Not performed" },
+        { value: "recorded", label: "Recorded" },
+      ]}
+    />
+  );
+}
+
+/** A date and time in India time (datetime-local; the server adds +05:30). */
+export function DateTimeField({ id, label, value, onChange, error }: { id: string; label: string; value: string; onChange: (v: string) => void; error?: string }) {
+  return (
+    <div>
+      <label htmlFor={id} className="label">
+        {label} <span className="font-normal text-slate-500">(IST)</span>
+      </label>
+      <input
+        id={id}
+        type="datetime-local"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={error ? true : undefined}
+        className={`input max-w-[16rem] ${error ? "border-red-600" : ""}`}
+      />
+      {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+/** Field-level message under a group that has no input of its own. */
+export function FieldError({ message }: { message?: string }) {
+  return message ? <p className="text-sm text-red-700">{message}</p> : null;
 }

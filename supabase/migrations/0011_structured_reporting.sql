@@ -14,7 +14,8 @@
 --  + procedure_snapshot (Week 6) extended to every new table and column
 --
 -- Copied into the new homes, old columns kept: procedures.aortic_pressure_* and lvedp_mmhg →
--- haemodynamics (left block); interventions.guidewire → interventions.wires[1].
+-- haemodynamics (left block); interventions.guidewire → interventions.wires[1], except the seed's
+-- "Not recorded" placeholder (guidewire is NOT NULL since 0001), which is not a wire: wires stays empty.
 --
 -- Interpretations (listed so they can be reviewed):
 --  * New tables carry recorded_by / recorded_at (spec §2) instead of created_* / updated_at; a
@@ -418,7 +419,8 @@ where p.aortic_pressure_systolic is not null or p.aortic_pressure_diastolic is n
 
 alter table public.interventions disable trigger guard_reviewed_child;
 alter table public.interventions disable trigger set_audit_columns;
-update public.interventions set wires = array[btrim(guidewire)] where nullif(btrim(guidewire), '') is not null;
+update public.interventions set wires = array[btrim(guidewire)]
+  where nullif(btrim(guidewire), '') is not null and lower(btrim(guidewire)) <> 'not recorded';
 alter table public.interventions enable trigger set_audit_columns;
 alter table public.interventions enable trigger guard_reviewed_child;
 

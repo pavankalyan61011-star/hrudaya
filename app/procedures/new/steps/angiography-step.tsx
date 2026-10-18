@@ -11,6 +11,8 @@ import { CheckRow, Segmented } from "@/components/form/yes-no";
 import { ErrorBanner, RemoveButton, StepActions, type StepState } from "@/components/form/form-status";
 import { errorCount, useFocusFirstError } from "@/components/form/use-focus-first-error";
 import { saveAngiographyStep } from "../actions";
+import { SheetLink } from "@/components/report/sheets/sheet-link";
+import { sheetHref } from "@/lib/sheets";
 
 export type VesselRow = {
   key: string;
@@ -29,16 +31,14 @@ export type VesselRow = {
 
 export type MeasurementStatus = "not_recorded" | "not_performed" | "recorded";
 
-export type AnatomyValues = {
-  dominance: string;
-  aortic_pressure_systolic: string;
-  aortic_pressure_diastolic: string;
-  lvedp_status: MeasurementStatus;
-  lvedp_mmhg: string;
-};
+/** Week 7: aortic pressure and LVEDP moved to the Haemodynamics & LV sheet (step 5). */
+export type AnatomyValues = { dominance: string };
 
-/** treatedIds: saved vessel rows that an intervention (step 4) points at. */
-type Props = { procedureId: string; initial: VesselRow[]; anatomy: AnatomyValues; treatedIds: string[] };
+/**
+ * treatedIds: saved vessel rows that an intervention (step 4) points at. showGrafts: the patient had
+ * CABG, or grafts are recorded (spec §3.4).
+ */
+type Props = { procedureId: string; initial: VesselRow[]; anatomy: AnatomyValues; treatedIds: string[]; showGrafts: boolean; graftCount: number };
 
 export const THREE_STATE = [
   { value: "recorded" as const, label: "Recorded" },
@@ -53,7 +53,8 @@ const blankVessel = (): VesselRow => ({
   lesion_length_mm: "", calcification: "", thrombus: false, bifurcation: false,
 });
 
-export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy, treatedIds }: Props) {
+export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy, treatedIds, showGrafts, graftCount }: Props) {
+  const base = `/procedures/new?id=${procedureId}&step=3`;
   const [state, formAction] = useFormState<StepState, FormData>(saveAngiographyStep, {});
   useFocusFirstError(state);
   const errors = state.fieldErrors ?? {};
@@ -79,25 +80,16 @@ export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy,
       <input type="hidden" name="payload" value={JSON.stringify(payload)} />
       <ErrorBanner message={state.error ?? errors.vessels} />
 
-      <section className="card grid grid-cols-2 gap-3">
-        <h2 className="col-span-2 font-semibold">Anatomy and haemodynamics <span className="text-sm font-normal text-slate-600">(optional)</span></h2>
-        <Field label="Coronary dominance" htmlFor="dominance" className="col-span-2">
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Anatomy <span className="text-sm font-normal text-slate-600">(optional)</span></h2>
+        <Field label="Coronary dominance" htmlFor="dominance">
           <EnumSelect id="dominance" value={anatomy.dominance} onChange={setA("dominance")} options={ENUMS.coronary_dominance} placeholder="—" />
         </Field>
-        <Field label="Aortic systolic (mmHg)" htmlFor="ao_sys" error={errors.aortic_pressure_systolic}>
-          <TextInput id="ao_sys" inputMode="numeric" value={anatomy.aortic_pressure_systolic} onChange={setA("aortic_pressure_systolic")} invalid={!!errors.aortic_pressure_systolic} />
-        </Field>
-        <Field label="Aortic diastolic (mmHg)" htmlFor="ao_dia" error={errors.aortic_pressure_diastolic}>
-          <TextInput id="ao_dia" inputMode="numeric" value={anatomy.aortic_pressure_diastolic} onChange={setA("aortic_pressure_diastolic")} invalid={!!errors.aortic_pressure_diastolic} />
-        </Field>
-        <div className="col-span-2">
-          <Segmented name="lvedp_status" legend="LVEDP" value={anatomy.lvedp_status}
-            onChange={(x) => setAnatomy((s) => ({ ...s, lvedp_status: x }))} options={THREE_STATE} />
-        </div>
-        {anatomy.lvedp_status === "recorded" && (
-          <Field label="LVEDP (mmHg)" htmlFor="lvedp" required error={errors.lvedp_mmhg}>
-            <TextInput id="lvedp" inputMode="numeric" value={anatomy.lvedp_mmhg} onChange={setA("lvedp_mmhg")} invalid={!!errors.lvedp_mmhg} />
-          </Field>
+        <p className="text-sm text-slate-600">Aortic pressure and LVEDP are recorded in Haemodynamics &amp; LV (step 5).</p>
+        {showGrafts && (
+          <SheetLink id="edit-grafts" href={sheetHref(base, "grafts")} className="btn-secondary min-h-11 text-sm">
+            {graftCount ? `Bypass grafts (${graftCount})` : "+ Graft"}
+          </SheetLink>
         )}
       </section>
 
@@ -124,7 +116,8 @@ export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy,
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Vessel" htmlFor={`v-${r.key}-vessel`} required error={e("vessel")}>
-                <EnumSelect id={`v-${r.key}-vessel`} value={r.vessel} onChange={(x) => update(r.key, { vessel: x })} options={ENUMS.vessel} invalid={!!e("vessel")} />
+                {/* A graft lesion names its graft (0011): it is added from the Grafts sheet, not here. */}
+                <EnumSelect id={`v-${r.key}-vessel`} value={r.vessel} onChange={(x) => update(r.key, { vessel: x })} options={ENUMS.vessel.filter((v) => v !== "graft" || r.vessel === "graft")} invalid={!!e("vessel")} />
               </Field>
               <Field label="Segment" htmlFor={`v-${r.key}-segment`}>
                 <EnumSelect id={`v-${r.key}-segment`} value={r.segment} onChange={(x) => update(r.key, { segment: x })} options={ENUMS.vessel_segment} placeholder="—" />
@@ -158,6 +151,13 @@ export function AngiographyStep({ procedureId, initial, anatomy: initialAnatomy,
             <Field label="Lesion notes (optional)" htmlFor={`v-${r.key}-notes`}>
               <TextInput id={`v-${r.key}-notes`} value={r.lesion_notes} onChange={(x) => update(r.key, { lesion_notes: x })} placeholder="Calcification, thrombus, bifurcation…" />
             </Field>
+            {r.id ? (
+              <SheetLink id={`edit-lesion-${r.id}`} href={sheetHref(base, "lesion", { row: r.id })} className="btn-secondary min-h-11 text-sm">
+                Details — class, Medina, CTO, physiology…
+              </SheetLink>
+            ) : (
+              <p className="text-xs text-slate-500">Save this step to add details (class, Medina, CTO, physiology, imaging).</p>
+            )}
           </fieldset>
         );
       })}

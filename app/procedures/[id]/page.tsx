@@ -20,7 +20,10 @@ import { summaryConfigured } from "@/lib/summary/generate";
 import { procedureToBundle } from "@/lib/fhir/mapper";
 import { SyntheticNotice } from "@/components/synthetic-notice";
 import { ProcedureReport } from "@/components/report/procedure-report";
-import { LesionSheet } from "@/components/report/sheets/lesion-sheet";
+import { SheetHost } from "@/components/report/sheets/sheet-host";
+import { RegistryCount } from "@/components/report/registry-count";
+import { NIC_ELEMENTS } from "@/lib/registry/nic-elements";
+import { registryHref } from "@/lib/registry/links";
 import { STEPS } from "../new/step-header";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +70,7 @@ export default async function ProcedureDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { sheet?: string; row?: string };
+  searchParams: { sheet?: string; row?: string; tab?: string };
 }) {
   const db = createClient();
   const { procedure: p, error } = await getProcedureFull(db, params.id);
@@ -83,11 +86,12 @@ export default async function ProcedureDetailPage({
   }
   if (!p) notFound();
   const amending = (p.status as string) === "amending";
-  const [{ operators }, summary, me, amendmentRows] = await Promise.all([
+  const [{ operators }, summary, me, amendmentRows, registryRes] = await Promise.all([
     p.status === "completed" || p.status === "reviewed" ? listOperators(db) : Promise.resolve({ operators: [] }),
     loadSummaryCard(db, p),
     getCurrentUser(),
     listAmendments(db, p.id),
+    db.rpc("registry_completeness", { p_procedure_id: p.id }).maybeSingle(),
   ]);
   const amendments = toAmendmentViews(amendmentRows.amendments, me ? { id: me.id, email: me.email } : null);
   const openAmendment = amendments.find((a) => a.status === "open") ?? null;
@@ -98,8 +102,13 @@ export default async function ProcedureDetailPage({
   // Week 7 sheets (spec §3): open by URL; editable for a draft or during an amendment, as the capture form.
   const editable = p.status === "draft" || amending;
   const base = `/procedures/${p.id}`;
-  const sheets = editable ? { lesion: (row: string) => `${base}?sheet=lesion&row=${row}` } : undefined;
-  const lesionRow = editable && searchParams.sheet === "lesion" ? p.vessel_findings.find((v) => v.id === searchParams.row) : undefined;
+  // Week 7 §3.7: the registry count; a failed read shows nothing rather than a wrong number.
+  const registry = registryRes.error || !registryRes.data ? null : registryRes.data;
+  const registryMissing = (registry?.missing ?? []).map((key) => ({
+    key,
+    label: NIC_ELEMENTS.find((e) => e.key === key)?.label ?? key,
+    href: registryHref(key, p, base, editable),
+  }));
 
   return (
     <article className="space-y-4">
@@ -111,6 +120,7 @@ export default async function ProcedureDetailPage({
           <h1 className="font-mono text-2xl font-bold">{p.case_code}</h1>
           <StatusBadge status={p.status} amendedCount={closedCount} />
           {p.status === "reviewed" && <AmendButton procedureId={p.id} />}
+          {registry && <RegistryCount filled={registry.filled} total={registry.total} missing={registryMissing} />}
         </div>
         <p className="text-slate-700">
           {en(p.procedure_type)} · {p.procedure_date ? formatDate(p.procedure_date) : NOT_RECORDED} · {p.operator?.full_name ?? "Operator not recorded"}
@@ -155,7 +165,7 @@ export default async function ProcedureDetailPage({
       {amendmentRows.error && (
         <p role="alert" className="card text-sm text-red-900">Could not load this record&apos;s amendments. Reload to try again.</p>
       )}
-      {p.status === "completed" && <ReviewPanel procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} />}
+      {p.status === "completed" && <ReviewPanel procedureId={p.id} operators={operators} defaultClinicianId={p.primary_operator_id} registry={registry} />}
       {/* Spec §7: export and preview for reviewed procedures only; built from the rows already loaded. */}
       <FhirExport
         procedureId={p.id}
@@ -173,17 +183,8 @@ export default async function ProcedureDetailPage({
 
       <AmendmentsCard amendments={amendments} />
 
-      <ProcedureReport p={p} sheets={sheets} />
-      {lesionRow && (
-        <LesionSheet
-          key={lesionRow.id}
-          procedureId={p.id}
-          row={lesionRow}
-          grafts={p.grafts.map((g) => ({ id: g.id, graft_type: g.graft_type, target_vessel: g.target_vessel }))}
-          treated={p.interventions.some((i) => i.vessel_finding_id === lesionRow.id)}
-          closeHref={base}
-        />
-      )}
+      <ProcedureReport p={p} sheetBase={editable ? base : undefined} />
+      <SheetHost p={p} base={base} params={searchParams} editable={editable} />
 
       <SyntheticNotice />
     </article>

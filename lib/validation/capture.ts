@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { ENUMS } from "@/lib/labels";
+import { gradeAllowed } from "@/lib/events";
 
 const blankToUndefined = (v: unknown) => {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -169,22 +170,17 @@ function threeState<V>(status: "not_recorded" | "not_performed" | "recorded", va
   if (status === "recorded" && value === null) ctx.addIssue({ code: "custom", path: [path], message: "Required when recorded" });
 }
 
-export const AngiographyStepSchema = z
-  .object({
-    vessels: z.array(VesselSchema).min(1, "Add at least one vessel"),
-    dominance: optionalEnum(ENUMS.coronary_dominance),
-    aortic_pressure_systolic: optionalInt(1),
-    aortic_pressure_diastolic: optionalInt(1),
-    lvedp_status: z.enum(ENUMS.measurement_status),
-    lvedp_mmhg: optionalInt(0),
-  })
-  .superRefine((v, ctx) => threeState(v.lvedp_status, v.lvedp_mmhg, ctx, "lvedp_mmhg"))
-  .transform((v) => ({ ...v, lvedp_mmhg: v.lvedp_status === "recorded" ? v.lvedp_mmhg : null }));
+/** Week 7: aortic pressure and LVEDP are saved by the Haemodynamics & LV sheet, which keeps the old columns in step. */
+export const AngiographyStepSchema = z.object({
+  vessels: z.array(VesselSchema).min(1, "Add at least one vessel"),
+  dominance: optionalEnum(ENUMS.coronary_dominance),
+});
 
 // ─── Step 4: intervention & devices ────────────────────────────────────────────
 
 export const DeviceSchema = z
   .object({
+    id: z.uuid().optional(),
     phase: z.enum(ENUMS.device_phase),
     category: z.enum(ENUMS.device_category, { error: "Required" }),
     product_name: text,
@@ -204,6 +200,7 @@ export const DeviceSchema = z
   });
 
 export const InterventionSchema = z.object({
+  id: z.uuid().optional(),
   vessel_finding_id: z.uuid({ error: "Choose the lesion treated" }),
   intervention_type: z.enum(ENUMS.intervention_type, { error: "Required" }),
   guidewire: text,
@@ -223,6 +220,7 @@ export const InterventionStepSchema = z.object({
 // ─── Step 5: procedure details & complications ─────────────────────────────────
 
 export const ComplicationSchema = z.object({
+  id: z.uuid().optional(),
   complication: z.enum(ENUMS.complication_type, { error: "Required" }),
   severity: z.enum(ENUMS.complication_severity, { error: "Required" }),
   management: text,
@@ -401,3 +399,273 @@ export const LesionSheetSchema = z
   }));
 
 export type LesionSheetInput = z.infer<typeof LesionSheetSchema>;
+
+const triState = z.enum(ENUMS.tri_state);
+/** Yes / No / unknown (null) — for nullable booleans such as prior PCI. */
+const optionalBool = z.union([z.boolean(), z.null(), z.undefined()]).transform((v) => (v === undefined ? null : v));
+
+/** §3.2 Physiology row. Resting indices take no hyperaemic agent; a dose needs an agent. */
+export const PhysiologyRowSchema = z
+  .object({
+    id: optionalUuid,
+    phase: z.enum(ENUMS.measurement_phase, { error: "Required" }),
+    index: z.enum(ENUMS.physiology_index, { error: "Required" }),
+    value: decimal(0, 1),
+    hyperaemic_agent: optionalEnum(ENUMS.hyperaemic_agent),
+    agent_dose: optionalText,
+    decision: optionalEnum(ENUMS.physiology_decision),
+    method: optionalEnum(ENUMS.physiology_method),
+    notes: optionalText,
+  })
+  .superRefine((v, ctx) => {
+    const resting = v.index !== "ffr";
+    if (resting && v.hyperaemic_agent && v.hyperaemic_agent !== "none") {
+      ctx.addIssue({ code: "custom", path: ["hyperaemic_agent"], message: "A resting index is measured without a hyperaemic agent" });
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    value: Math.round(v.value * 100) / 100,
+    agent_dose: v.hyperaemic_agent && v.hyperaemic_agent !== "none" ? v.agent_dose : null,
+  }));
+
+/** §3.2 Imaging row: OCT-only, NIRS-only and post-only values are dropped when they don't apply. */
+export const ImagingRowSchema = z
+  .object({
+    id: optionalUuid,
+    modality: z.enum(ENUMS.imaging_modality, { error: "Required" }),
+    phase: z.enum(ENUMS.measurement_phase, { error: "Required" }),
+    mla_mm2: optionalDecimal(0, 999.99),
+    eem_area_mm2: optionalDecimal(0.01, 999.99),
+    plaque_burden_pct: optionalInt(0, 100),
+    calcium_arc_deg: optionalInt(0, 360),
+    calcium_thickness_mm: optionalDecimal(0, 99.99),
+    lipid_arc_deg: optionalInt(0, 360),
+    max_lcbi_4mm: optionalInt(0, 1000),
+    msa_mm2: optionalDecimal(0.01, 999.99),
+    stent_expansion_pct: optionalInt(0, 150),
+    malapposition: optionalBool,
+    edge_dissection: optionalBool,
+    pullback_length_mm: optionalInt(1, 10_000),
+    method: optionalEnum(ENUMS.imaging_method),
+    notes: optionalText,
+  })
+  .transform((v) => ({
+    ...v,
+    calcium_thickness_mm: v.modality === "oct" ? v.calcium_thickness_mm : null,
+    lipid_arc_deg: v.modality === "oct" ? v.lipid_arc_deg : null,
+    max_lcbi_4mm: v.modality === "nirs_ivus" ? v.max_lcbi_4mm : null,
+    msa_mm2: v.phase === "post" ? v.msa_mm2 : null,
+    stent_expansion_pct: v.phase === "post" ? v.stent_expansion_pct : null,
+    malapposition: v.phase === "post" ? v.malapposition : null,
+    edge_dissection: v.phase === "post" ? v.edge_dissection : null,
+  }));
+
+/**
+ * §3.3 Haemodynamics (left heart) and LV. Three-state rule for the left block and LVEF: values are
+ * required for "recorded" and dropped otherwise. Heart rate and rhythm stand outside the block.
+ */
+export const HaemodynamicsSheetSchema = z
+  .object({
+    left_status: z.enum(ENUMS.measurement_status),
+    ao_systolic: optionalInt(1, 400),
+    ao_diastolic: optionalInt(1, 300),
+    ao_mean: optionalInt(1, 300),
+    lv_systolic: optionalInt(1, 400),
+    lv_edp: optionalInt(0, 100),
+    heart_rate_at_measurement: optionalInt(1, 300),
+    rhythm: optionalEnum(ENUMS.heart_rhythm),
+    lvef_status: z.enum(ENUMS.measurement_status),
+    lvef_pct: optionalInt(0, 100),
+    lvef_source: optionalEnum(ENUMS.lvef_source),
+    lvef_measured_on: optionalDate,
+    mitral_regurgitation_grade: optionalInt(0, 4),
+    lv_gram_performed: optionalBool,
+    wall_motion: z.array(z.object({ segment: z.number().int().min(1).max(17), motion: z.enum(ENUMS.wall_motion) })).max(17),
+  })
+  .superRefine((v, ctx) => {
+    if (v.left_status === "recorded" && [v.ao_systolic, v.ao_diastolic, v.ao_mean, v.lv_systolic, v.lv_edp].every((x) => x === null)) {
+      ctx.addIssue({ code: "custom", path: ["ao_systolic"], message: "Enter at least one pressure, or choose another status" });
+    }
+    threeState(v.lvef_status, v.lvef_pct, ctx, "lvef_pct");
+    if (new Set(v.wall_motion.map((w) => w.segment)).size !== v.wall_motion.length) {
+      ctx.addIssue({ code: "custom", path: ["wall_motion"], message: "Each segment once" });
+    }
+  })
+  .transform((v) => {
+    const left = v.left_status === "recorded";
+    const lvef = v.lvef_status === "recorded";
+    return {
+      ...v,
+      ao_systolic: left ? v.ao_systolic : null,
+      ao_diastolic: left ? v.ao_diastolic : null,
+      ao_mean: left ? v.ao_mean : null,
+      lv_systolic: left ? v.lv_systolic : null,
+      lv_edp: left ? v.lv_edp : null,
+      lvef_pct: lvef ? v.lvef_pct : null,
+      lvef_source: lvef ? v.lvef_source : null,
+      lvef_measured_on: lvef ? v.lvef_measured_on : null,
+    };
+  });
+
+/** §3.4 Graft. Stenosis % only for a stenosed graft; lesion location only for a diseased one. */
+export const GraftSchema = z
+  .object({
+    id: optionalUuid,
+    graft_type: z.enum(ENUMS.graft_type, { error: "Required" }),
+    target_vessel: z.enum(ENUMS.vessel, { error: "Required" }),
+    sequential: z.boolean(),
+    patency: z.enum(ENUMS.graft_patency, { error: "Required" }),
+    stenosis_pct: optionalInt(0, 100),
+    lesion_location: optionalEnum(ENUMS.graft_lesion_location),
+    cabg_year: optionalInt(1950, 2100),
+    notes: optionalText,
+    /** "Add as lesion": also create the graft lesion, with its pre-intervention TIMI flow. */
+    add_lesion: z.boolean().optional(),
+    add_lesion_timi: optionalInt(0, 3),
+  })
+  .superRefine((v, ctx) => {
+    if (v.add_lesion && v.add_lesion_timi === null) ctx.addIssue({ code: "custom", path: ["add_lesion_timi"], message: "Choose the TIMI flow to add the lesion" });
+    if (v.add_lesion && v.patency === "stenosed" && v.stenosis_pct === null) ctx.addIssue({ code: "custom", path: ["stenosis_pct"], message: "Enter the stenosis to add the lesion" });
+  })
+  .transform((v) => ({
+    ...v,
+    stenosis_pct: v.patency === "stenosed" ? v.stenosis_pct : null,
+    lesion_location: v.patency === "stenosed" || v.patency === "occluded" ? v.lesion_location : null,
+  }));
+
+/** §3.5 Intervention detail. "Other" needs its description; grades only with their finding. */
+export const InterventionSheetSchema = z
+  .object({
+    techniques: z.array(z.enum(ENUMS.technique)),
+    technique_other: optionalText,
+    bifurcation_strategy: optionalEnum(ENUMS.bifurcation_strategy),
+    bifurcation_strategy_other: optionalText,
+    guiding_catheter: optionalText,
+    wires: z.array(z.string()).transform((ws) => ws.map((w) => w.trim()).filter(Boolean)),
+    residual_stenosis_pct: int(0, 100),
+    timi_flow_post: int(0, 3),
+    success: z.boolean(),
+    failure_reason: optionalEnum(ENUMS.pci_failure_reason),
+    dissection: z.boolean(),
+    dissection_grade: optionalEnum(ENUMS.dissection_grade),
+    perforation: z.boolean(),
+    perforation_class: optionalEnum(ENUMS.perforation_class),
+    no_reflow: z.boolean(),
+    stent_overlap: z.boolean(),
+    total_stent_length_mm: optionalDecimal(0.1, 9999.9),
+  })
+  .superRefine((v, ctx) => {
+    if (v.techniques.includes("other") && !v.technique_other) ctx.addIssue({ code: "custom", path: ["technique_other"], message: "Describe the other technique" });
+    if (v.bifurcation_strategy === "other" && !v.bifurcation_strategy_other) {
+      ctx.addIssue({ code: "custom", path: ["bifurcation_strategy_other"], message: "Describe the strategy" });
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    techniques: [...new Set(v.techniques)],
+    technique_other: v.techniques.includes("other") ? v.technique_other : null,
+    bifurcation_strategy_other: v.bifurcation_strategy === "other" ? v.bifurcation_strategy_other : null,
+    failure_reason: v.success ? null : v.failure_reason,
+    dissection_grade: v.dissection ? v.dissection_grade : null,
+    perforation_class: v.perforation ? v.perforation_class : null,
+  }));
+
+/** §3.5 Procedural event. Grade validated per event type (lib/events.ts); "none" stands alone. */
+export const EventSchema = z
+  .object({
+    id: optionalUuid,
+    complication: z.enum(ENUMS.complication_type, { error: "Required" }),
+    severity: z.enum(ENUMS.complication_severity, { error: "Required" }),
+    management: text,
+    onset: optionalEnum(ENUMS.complication_onset),
+    onset_at: optionalDateTime,
+    grade: z
+      .union([z.string(), z.null(), z.undefined()])
+      .transform((g) => (g ? g : null)),
+    treatments: z.array(z.enum(ENUMS.event_treatment)),
+    treatment_other: optionalText,
+    resolution: optionalEnum(ENUMS.event_resolution),
+    outcome: optionalText,
+  })
+  .superRefine((v, ctx) => {
+    if (!gradeAllowed(v.complication, v.grade)) ctx.addIssue({ code: "custom", path: ["grade"], message: "Not a grade for this event" });
+    if (v.treatments.includes("none") && v.treatments.length > 1) ctx.addIssue({ code: "custom", path: ["treatments"], message: "“None” cannot go with a treatment" });
+    if (v.treatments.includes("other") && !v.treatment_other) ctx.addIssue({ code: "custom", path: ["treatment_other"], message: "Describe the other treatment" });
+  })
+  .transform((v) => ({ ...v, treatments: [...new Set(v.treatments)], treatment_other: v.treatments.includes("other") ? v.treatment_other : null }));
+
+/** §2.9 One inflation; its sequence number is the next free one for the device. */
+export const InflationSchema = z.object({
+  device_id: z.uuid(),
+  pressure_atm: int(1, 40),
+  duration_s: optionalInt(0, 3600),
+});
+
+/** §3.6 Indication tab. Device time may not precede door time (no negative door-to-device). */
+export const IndicationSheetSchema = z
+  .object({
+    ccs_class: optionalInt(1, 4),
+    nyha_class: optionalInt(1, 4),
+    stress_test_type: optionalEnum(ENUMS.stress_test_type),
+    stress_test_result: optionalEnum(ENUMS.stress_test_result),
+    cardiogenic_shock: z.boolean(),
+    cardiac_arrest_pre_procedure: z.boolean(),
+    thrombolysis_given: z.boolean(),
+    prior_pci: optionalBool,
+    prior_cabg: optionalBool,
+    symptom_onset_at: optionalDateTime,
+    first_medical_contact_at: optionalDateTime,
+    door_at: optionalDateTime,
+    device_time_at: optionalDateTime,
+  })
+  .superRefine((v, ctx) => {
+    if (v.door_at && v.device_time_at && v.device_time_at < v.door_at) {
+      ctx.addIssue({ code: "custom", path: ["device_time_at"], message: "Device time is before door time" });
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    stress_test_result: v.stress_test_type && v.stress_test_type !== "none" ? v.stress_test_result : null,
+  }));
+
+/**
+ * §3.6 Outcome tab: every outcome yes / no / not recorded (never defaulted to "no"). A death sets
+ * the disposition to deceased; dependent values are dropped when their outcome isn't "yes".
+ */
+export const OutcomeSheetSchema = z
+  .object({
+    mi: triState,
+    stroke: triState,
+    death: triState,
+    death_cause: optionalText,
+    bleeding: triState,
+    bleeding_barc: optionalInt(0, 5),
+    bleeding_barc_sub: z.union([z.enum(["a", "b", "c"]), z.literal(""), z.null(), z.undefined()]).transform((v) => (v ? v : null)),
+    transfusion: triState,
+    vascular_status: triState,
+    vascular_complications: z.array(z.enum(ENUMS.vascular_complication)),
+    aki: triState,
+    creatinine_post_umol_l: optionalDecimal(1, 100_000),
+    new_dialysis: triState,
+    emergency_cabg: triState,
+    cardiac_tamponade: triState,
+    unplanned_repeat_pci: triState,
+    disposition: optionalEnum(ENUMS.disposition),
+  })
+  .superRefine((v, ctx) => {
+    if (v.vascular_status === "yes" && v.vascular_complications.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["vascular_complications"], message: "Choose at least one, or record “No”" });
+    }
+    if (v.death !== "yes" && v.disposition === "deceased") {
+      ctx.addIssue({ code: "custom", path: ["disposition"], message: "“Deceased” goes with Death = Yes" });
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    death_cause: v.death === "yes" ? v.death_cause : null,
+    disposition: v.death === "yes" ? ("deceased" as const) : v.disposition,
+    bleeding_barc: v.bleeding === "yes" ? v.bleeding_barc : null,
+    bleeding_barc_sub: v.bleeding === "yes" && v.bleeding_barc === 3 ? v.bleeding_barc_sub : null,
+    vascular_complications: v.vascular_status === "yes" ? [...new Set(v.vascular_complications)] : [],
+  }));
