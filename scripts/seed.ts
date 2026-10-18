@@ -3,10 +3,18 @@
  *
  *   npm run seed        (= node --env-file=.env.local scripts/seed.ts)
  *
- * Inserts 20 synthetic cases:
+ * Inserts 24 synthetic cases:
  *   PCI-2026-001        docs/cases/PCI-2026-001.md, mapped as in docs/week1-spec.md §4
  *   PCI-2026-002 … 017  docs/cases/synthetic-cases-002-020.md
  *   CAG-2026-018 … 020  same file (diagnostic-only)
+ *   PCI-2026-022 … 025  docs/cases/synthetic-cases-022-025.md (Week 7, owner 2026-10-18)
+ * (PCI-2026-021 is a case entered in the app on production, not seeded.)
+ *
+ * Week 7 (0011, owner 2026-10-18): every case gets its haemodynamics row as migration 0011 copies it,
+ * wires (empty for the "Not recorded" placeholder), techniques read from its devices, and previous
+ * PCI/CABG where the case file states them; the §6 scenarios are written per case (see the case
+ * files' "Week 7 additions"). Outcomes are recorded for most discharged cases; some are left out on
+ * purpose so the registry count shows gaps. Requires migrations up to 0011.
  *
  * Conventions (owner, 2026-10-15):
  *   "residual <10%" → 5 · "mild irregularities" → 10 · "normal" → 0
@@ -37,6 +45,32 @@ type SeedVessel = {
   timi_flow: number;
   is_culprit?: boolean;
   lesion_notes?: string;
+  /** Week 7: for vessel = graft, the index into the case's `grafts`. */
+  graft_index?: number;
+  /** Week 7 lesion detail (0011), only where the case states it or §6 asks for it. */
+  detail?: SeedLesionDetail;
+};
+
+type SeedLesionDetail = {
+  lesion_class?: Enums["lesion_class"];
+  lesion_length_mm?: number;
+  calcification?: Enums["calcification_grade"];
+  ostial?: boolean;
+  bifurcation?: boolean;
+  bifurcation_medina?: string;
+  tortuosity?: Enums["tortuosity_grade"];
+  cto?: boolean;
+  in_stent_restenosis?: boolean;
+  isr_pattern?: Enums["isr_pattern"];
+  physiology?: {
+    phase: Enums["measurement_phase"]; index: Enums["physiology_index"]; value: number;
+    hyperaemic_agent?: Enums["hyperaemic_agent"]; agent_dose?: string; decision?: Enums["physiology_decision"];
+  }[];
+  imaging?: {
+    modality: Enums["imaging_modality"]; phase: Enums["measurement_phase"]; mla_mm2?: number; eem_area_mm2?: number;
+    plaque_burden_pct?: number; msa_mm2?: number; stent_expansion_pct?: number; malapposition?: boolean; edge_dissection?: boolean;
+    method?: Enums["imaging_method"];
+  }[];
 };
 
 type SeedDevice = {
@@ -49,6 +83,8 @@ type SeedDevice = {
   inflation_atm?: number;
   lot_number?: string; // required for stents — fictional, SYN- prefix
   quantity?: number;
+  /** Week 7 inflation log: [atm, seconds | null] in order. */
+  inflations?: [number, number | null][];
 };
 
 type SeedIntervention = {
@@ -63,6 +99,14 @@ type SeedIntervention = {
   perforation?: boolean;
   notes?: string;
   devices: SeedDevice[];
+  /** Week 7 (0011). Techniques default to what the devices show (see techniquesFrom). */
+  w7?: {
+    techniques?: Enums["technique"][];
+    bifurcation_strategy?: Enums["bifurcation_strategy"];
+    wires?: string[];
+    perforation_class?: Enums["perforation_class"];
+    stent_overlap?: boolean;
+  };
 };
 
 type SeedMedication = {
@@ -117,7 +161,35 @@ type SeedCase = {
     /** Hours after ended_at, when the onset time is known. */
     onset_after_end_hours?: number;
     outcome?: string;
+    /** Week 7 procedural-event detail (0011). */
+    grade?: string;
+    treatments?: Enums["event_treatment"][];
+    treatment_other?: string;
+    resolution?: Enums["event_resolution"];
   }[];
+  /** Week 7: bypass grafts seen on this study. */
+  grafts?: { graft_type: Enums["graft_type"]; target_vessel: Enums["vessel"]; patency: Enums["graft_patency"]; stenosis_pct?: number; lesion_location?: Enums["graft_lesion_location"]; cabg_year?: number }[];
+  /** Week 7 indication detail, STEMI times and in-hospital outcomes. */
+  w7?: {
+    procedure?: {
+      ccs_class?: number; nyha_class?: number; prior_pci?: boolean; prior_cabg?: boolean;
+      cardiogenic_shock?: boolean; mitral_regurgitation_grade?: number;
+    };
+    /** STEMI: minutes before arrival (door = admission) and the first device minutes after the start. */
+    stemi?: { onset_before_door_min: number; fmc_before_door_min: number; device_after_start_min: number };
+    /** Omitted = no outcomes row (registry shows the gaps). Unlisted outcomes are "no" unless in notRecorded. */
+    outcomes?: {
+      yes?: ("mi" | "stroke" | "death" | "bleeding" | "transfusion" | "aki" | "new_dialysis" | "emergency_cabg" | "cardiac_tamponade" | "unplanned_repeat_pci")[];
+      notRecorded?: string[];
+      bleeding_barc?: number; bleeding_barc_sub?: "a" | "b" | "c";
+      vascular?: Enums["vascular_complication"][];
+      creatinine_post_umol_l?: number;
+      disposition: Enums["disposition"];
+      /** Indices into `complications` that explain these outcomes. */
+      links?: number[];
+    };
+    wall_motion?: [number, Enums["wall_motion"]][];
+  };
   immediate_care_notes?: string;
   communication_notes?: string;
   /** null = patient remains admitted; no discharge row. */
@@ -226,13 +298,14 @@ const gtnPrn = (): SeedMedication => ({
 
 const NORMAL_LM = v("lmca", null, 0, 3);
 
-// ─── The 20 cases ──────────────────────────────────────────────────────────────
+// ─── Cases 001–020 ─────────────────────────────────────────────────────────────
 
 const CASES: SeedCase[] = [
   // PCI-2026-001 — reference case, spec §4.
   {
     case_code: "PCI-2026-001",
     patient: { mrn: "SYN-MRN-0001", full_name: "Synthetic Patient 001", sex: "male", date_of_birth: "1968-02-11" },
+    w7: { procedure: { prior_pci: false, prior_cabg: false }, outcomes: { disposition: "home" } },
     risk_factors: [
       { factor: "hypertension", detail: "10 years" },
       { factor: "diabetes_t2", detail: "8 years" },
@@ -297,6 +370,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-002",
     patient: { mrn: "SYN-MRN-0002", full_name: "Synthetic Patient 002", sex: "female", date_of_birth: "1962-03-12" },
+    w7: { outcomes: { disposition: "home", notRecorded: ["aki"] } }, // no post-procedure creatinine
     risk_factors: [{ factor: "hypertension" }, { factor: "diabetes_t2" }],
     operator: ARJUN,
     procedure: {
@@ -322,6 +396,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-003",
     patient: { mrn: "SYN-MRN-0003", full_name: "Synthetic Patient 003", sex: "male", date_of_birth: "1955-04-13" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }, { factor: "ex_smoker" }],
     operator: MEERA,
     procedure: {
@@ -348,6 +423,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-004",
     patient: { mrn: "SYN-MRN-0004", full_name: "Synthetic Patient 004", sex: "male", date_of_birth: "1967-05-14" },
+    w7: { outcomes: { disposition: "home", notRecorded: ["aki"] } }, // no post-procedure creatinine
     // ASSUMPTION: "diabetes" without a type is recorded as diabetes_t2 (also 006, 008, 009, 010, 015, 019, 020).
     risk_factors: [{ factor: "diabetes_t2" }, { factor: "hypertension" }, { factor: "smoking" }],
     operator: ARJUN,
@@ -378,6 +454,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-005",
     patient: { mrn: "SYN-MRN-0005", full_name: "Synthetic Patient 005", sex: "female", date_of_birth: "1958-06-15" },
+    w7: { outcomes: { yes: ["bleeding"], bleeding_barc: 2, vascular: ["haematoma"], disposition: "home", links: [0] } }, // ASSUMPTION: BARC 2 (prompted evaluation)
     risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }],
     operator: MEERA,
     procedure: {
@@ -403,6 +480,7 @@ const CASES: SeedCase[] = [
         // Owner correction 2026-10-15: 15:10 IST, after sheath removal at 14:49 (was 13:49, before it).
         onset_after_end_hours: 4.35,
         outcome: "Resolved with compression; no intervention",
+        resolution: "resolved",
       },
     ],
     discharge: {
@@ -444,6 +522,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-007",
     patient: { mrn: "SYN-MRN-0007", full_name: "Synthetic Patient 007", sex: "male", date_of_birth: "1950-08-17" },
+    w7: { outcomes: { disposition: "home", notRecorded: ["aki"] } }, // no post-procedure creatinine
     risk_factors: [{ factor: "hypertension" }, { factor: "ex_smoker" }],
     operator: MEERA,
     procedure: {
@@ -470,6 +549,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-008",
     patient: { mrn: "SYN-MRN-0008", full_name: "Synthetic Patient 008", sex: "male", date_of_birth: "1964-01-18" },
+    w7: { stemi: { onset_before_door_min: 120, fmc_before_door_min: 40, device_after_start_min: 10 }, outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "smoking" }, { factor: "dyslipidaemia" }],
     operator: ARJUN,
     procedure: {
@@ -499,6 +579,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-009",
     patient: { mrn: "SYN-MRN-0009", full_name: "Synthetic Patient 009", sex: "female", date_of_birth: "1971-02-19" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "diabetes_t2" }, { factor: "hypertension" }],
     operator: MEERA,
     procedure: {
@@ -530,6 +611,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-010",
     patient: { mrn: "SYN-MRN-0010", full_name: "Synthetic Patient 010", sex: "male", date_of_birth: "1959-03-20" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "diabetes_t2" }, { factor: "smoking" }],
     operator: ARJUN,
     procedure: {
@@ -554,6 +636,8 @@ const CASES: SeedCase[] = [
         management: "Transient no-reflow, TIMI I; dissection excluded; intracoronary vasodilator treatment restored TIMI III.",
         onset: "intraprocedural",
         outcome: "Resolved, TIMI III restored",
+        treatments: ["intracoronary_vasodilator"],
+        resolution: "resolved",
       },
     ],
     discharge: {
@@ -570,6 +654,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-011",
     patient: { mrn: "SYN-MRN-0011", full_name: "Synthetic Patient 011", sex: "male", date_of_birth: "1978-04-21" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "smoking" }, { factor: "family_history", detail: "premature coronary disease" }],
     operator: MEERA,
     procedure: {
@@ -597,6 +682,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-012",
     patient: { mrn: "SYN-MRN-0012", full_name: "Synthetic Patient 012", sex: "female", date_of_birth: "1953-05-22" },
+    w7: { stemi: { onset_before_door_min: 240, fmc_before_door_min: 60, device_after_start_min: 50 }, outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }],
     operator: ARJUN,
     procedure: {
@@ -652,6 +738,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-014",
     patient: { mrn: "SYN-MRN-0014", full_name: "Synthetic Patient 014", sex: "female", date_of_birth: "1960-07-24" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }],
     operator: ARJUN,
     procedure: {
@@ -682,6 +769,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-015",
     patient: { mrn: "SYN-MRN-0015", full_name: "Synthetic Patient 015", sex: "male", date_of_birth: "1963-08-10" },
+    w7: { procedure: { prior_pci: true }, outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "diabetes_t2" }, { factor: "hypertension" }, { factor: "prior_pci", detail: "RCA DES 3 years ago" }],
     operator: MEERA,
     procedure: {
@@ -694,7 +782,21 @@ const CASES: SeedCase[] = [
       outcome_summary:
         "Drug-coated balloon angioplasty to mid RCA in-stent restenosis after IVUS-guided scoring balloon preparation; no new stent. Final residual 20%, TIMI III. No complications.",
     },
-    vessels: [NORMAL_LM, v("lad", "mid", 30, 3), v("lcx", null, 0, 3), v("rca", "mid", 80, 3, { lesion_notes: "Focal in-stent restenosis" })],
+    vessels: [
+      NORMAL_LM, v("lad", "mid", 30, 3), v("lcx", null, 0, 3),
+      v("rca", "mid", 80, 3, {
+        lesion_notes: "Focal in-stent restenosis",
+        // Week 7 §6: IVUS pre and post (case file: "IVUS: neointimal restenosis without significant underexpansion").
+        // ASSUMPTION: the areas are authored; the case file states the findings, not the numbers.
+        detail: {
+          in_stent_restenosis: true, isr_pattern: "focal",
+          imaging: [
+            { modality: "ivus", phase: "pre", mla_mm2: 2.6, eem_area_mm2: 11.8, method: "manual" },
+            { modality: "ivus", phase: "post", mla_mm2: 5.1, msa_mm2: 6.9, stent_expansion_pct: 88, malapposition: false, edge_dissection: false, method: "manual" },
+          ],
+        },
+      }),
+    ],
     interventions: [
       {
         vessel_index: 3,
@@ -710,6 +812,7 @@ const CASES: SeedCase[] = [
           {
             phase: "deployment", category: "balloon_dcb", product_name: "Paclitaxel-coated balloon",
             diameter_mm: 3.0, length_mm: 20, inflation_atm: 8, lot_number: "SYN-DCB-260015",
+            inflations: [[8, 60]], // case file: "inflated for 60 s"
           },
         ],
       },
@@ -729,6 +832,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-016",
     patient: { mrn: "SYN-MRN-0016", full_name: "Synthetic Patient 016", sex: "female", date_of_birth: "1969-01-11" },
+    w7: { procedure: { prior_pci: false } },
     risk_factors: [{ factor: "dyslipidaemia" }],
     operator: ARJUN,
     procedure: {
@@ -755,6 +859,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "PCI-2026-017",
     patient: { mrn: "SYN-MRN-0017", full_name: "Synthetic Patient 017", sex: "male", date_of_birth: "1966-02-12" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }, { factor: "ex_smoker" }],
     operator: MEERA,
     procedure: {
@@ -812,6 +917,7 @@ const CASES: SeedCase[] = [
   {
     case_code: "CAG-2026-019",
     patient: { mrn: "SYN-MRN-0019", full_name: "Synthetic Patient 019", sex: "male", date_of_birth: "1968-04-14" },
+    w7: { outcomes: { disposition: "home" } },
     risk_factors: [{ factor: "diabetes_t2" }, { factor: "dyslipidaemia" }, { factor: "ex_smoker" }],
     operator: MEERA,
     procedure: {
@@ -822,9 +928,15 @@ const CASES: SeedCase[] = [
       contrast_volume_ml: 55, procedure_duration_min: 25, fluoroscopy_time_min: 4.2,
       haemostasis_method: "radial_compression_band",
       outcome_summary:
-        "Diagnostic coronary angiography only; non-obstructive disease, no flow-limiting epicardial lesion identified; no balloon or stent. Aspirin after bleeding-risk review; no DAPT.",
+        "Diagnostic coronary angiography only; non-obstructive disease, no flow-limiting epicardial lesion identified; mid RCA 40% FFR 0.86 — not significant, deferred to medical therapy; no balloon or stent. Aspirin after bleeding-risk review; no DAPT.",
     },
-    vessels: [NORMAL_LM, v("lad", "proximal", 30, 3), v("lcx", "mid", 20, 3), v("rca", "mid", 40, 3)],
+    vessels: [
+      NORMAL_LM, v("lad", "proximal", 30, 3), v("lcx", "mid", 20, 3),
+      // Week 7 §6: the FFR-deferred lesion (Week 7 addition to the case file).
+      v("rca", "mid", 40, 3, {
+        detail: { physiology: [{ phase: "pre", index: "ffr", value: 0.86, hyperaemic_agent: "adenosine_iv", agent_dose: "140 µg/kg/min", decision: "defer" }] },
+      }),
+    ],
     interventions: [],
     complications: [],
     discharge: {
@@ -860,6 +972,225 @@ const CASES: SeedCase[] = [
     // Remains admitted: no discharge row. NOT STORED: inpatient medications (aspirin 75 OD, atorvastatin
     // 80 OD, bisoprolol 2.5 OD, isosorbide mononitrate 30 OD) — the schema only holds discharge medications.
     discharge: null,
+  },
+];
+
+// ─── Week 7 cases 022–025 (owner, 2026-10-18) ──────────────────────────────────
+// Four new synthetic cases for the Week 7 §6 scenarios that no existing story has, so cases 001–020
+// stay as reviewed. Written up in docs/cases/synthetic-cases-022-025.md.
+
+const W7_CASES: SeedCase[] = [
+  // PCI-2026-022 — post-CABG: SVG-OM1 stenosis treated, LIMA-LAD patent
+  {
+    case_code: "PCI-2026-022",
+    patient: { mrn: "SYN-MRN-0022", full_name: "Synthetic Patient 022", sex: "male", date_of_birth: "1955-03-09" },
+    risk_factors: [
+      { factor: "prior_cabg", detail: "LIMA-LAD, SVG-OM1 (2014)" }, { factor: "hypertension" }, { factor: "diabetes_t2" }, { factor: "dyslipidaemia" },
+    ],
+    operator: ARJUN,
+    w7: { procedure: { prior_cabg: true, prior_pci: false }, outcomes: { disposition: "home" } },
+    procedure: {
+      procedure_date: "2026-10-06", procedure_type: "angiography_and_pci", indication: "unstable_angina",
+      presentation_notes: "Unstable angina 3 days after CABG 12 years ago (LIMA-LAD, SVG-OM1). History: hypertension, diabetes, dyslipidaemia.",
+      access_site: "right_radial", sheath_size_fr: 6, diagnostic_catheters: [], guiding_catheter: "6F MPA",
+      contrast_volume_ml: 140, procedure_duration_min: 62, fluoroscopy_time_min: 16.8,
+      haemostasis_method: "radial_compression_band",
+      outcome_summary:
+        "Native LAD and proximal LCX occluded/severely diseased and grafted. LIMA-LAD patent. SVG-OM1 body 85% (culprit) treated with an everolimus DES (3.5 × 18 mm). Final graft residual <10%, TIMI III. No complications.",
+    },
+    grafts: [
+      { graft_type: "lima", target_vessel: "lad", patency: "patent", cabg_year: 2014 },
+      { graft_type: "svg", target_vessel: "om1", patency: "stenosed", stenosis_pct: 85, lesion_location: "body", cabg_year: 2014 },
+    ],
+    vessels: [
+      NORMAL_LM, v("lad", "proximal", 100, 0, { lesion_notes: "Occluded; grafted (LIMA)" }), v("lcx", "proximal", 90, 3, { lesion_notes: "Grafted (SVG to OM1)" }),
+      v("rca", "mid", 40, 3),
+      v("graft", null, 85, 3, { is_culprit: true, graft_index: 1, lesion_notes: "SVG body stenosis", detail: { lesion_class: "b2", lesion_length_mm: 14 } }),
+    ],
+    interventions: [
+      {
+        ...desPci(4, [3.0, 15, 12], ["Everolimus DES", 3.5, 18, 14, "SYN-DES-260022"], [3.75, 12, 16]),
+        w7: { wires: ["Workhorse 0.014 wire"] },
+      },
+    ],
+    complications: [],
+    discharge: {
+      length_of_stay_hours: 48, clinical_status: "Clinically stable", follow_up_after_days: 14, follow_up_clinic: OPD,
+      advice: ["DAPT adherence", "Diabetes review", "Graft follow-up with the cardiac surgical team"],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
+      medications: [...dapt("Ticagrelor", "12 months"), mg("Atorvastatin", 80, "od"), mg("Ramipril", 5, "od"), mg("Metoprolol", 25, "bd")],
+    },
+  },
+
+  // PCI-2026-023 — LAD/D1 bifurcation: provisional strategy, POT, kissing balloon
+  {
+    case_code: "PCI-2026-023",
+    patient: { mrn: "SYN-MRN-0023", full_name: "Synthetic Patient 023", sex: "male", date_of_birth: "1962-11-27" },
+    risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }, { factor: "ex_smoker" }],
+    operator: MEERA,
+    w7: { procedure: { ccs_class: 3, prior_pci: false, prior_cabg: false }, outcomes: { disposition: "home" } },
+    procedure: {
+      procedure_date: "2026-10-07", procedure_type: "angiography_and_pci", indication: "stable_angina",
+      presentation_notes: "Stable angina CCS III despite two anti-anginals; anterior ischaemia. History: hypertension, dyslipidaemia, former smoker.",
+      access_site: "right_radial", sheath_size_fr: 6, diagnostic_catheters: [], guiding_catheter: "6F EBU 3.5",
+      contrast_volume_ml: 160, procedure_duration_min: 70, fluoroscopy_time_min: 18.4,
+      haemostasis_method: "radial_compression_band",
+      outcome_summary:
+        "Proximal LAD/D1 bifurcation (Medina 1,1,1) treated with a provisional strategy: everolimus DES (3.5 × 24 mm) across D1, proximal optimisation, then final kissing balloon. LAD residual <10%, D1 ostium 30%, TIMI III in both. No complications.",
+    },
+    vessels: [
+      NORMAL_LM,
+      v("lad", "proximal", 85, 3, {
+        is_culprit: true,
+        detail: { lesion_class: "b2", lesion_length_mm: 20, bifurcation: true, bifurcation_medina: "1,1,1", calcification: "mild" },
+      }),
+      v("d1", "ostial", 70, 3), v("lcx", "mid", 20, 3), v("rca", null, 0, 3),
+    ],
+    interventions: [
+      {
+        vessel_index: 1, intervention_type: "pci_des", guidewire: "Workhorse 0.014 wire (LAD)",
+        residual_stenosis_pct: 5, timi_flow_post: 3, success: true,
+        notes: "Both branches wired. D1 ostium 30% after kissing; no side-branch stent needed.",
+        devices: [
+          { ...preDil(2.5, 15, 12), inflations: [[12, 15]] },
+          { ...stent("Everolimus DES", 3.5, 24, 14, "SYN-DES-260023"), inflations: [[14, 20]] },
+          { phase: "post_dilation", category: "balloon_nc", product_name: "Non-compliant balloon (POT)", diameter_mm: 4.0, length_mm: 8, inflation_atm: 18, inflations: [[18, 10]] },
+          { phase: "post_dilation", category: "balloon_nc", product_name: "Non-compliant balloon (kissing, LAD)", diameter_mm: 3.5, length_mm: 12, inflation_atm: 12, inflations: [[12, 10]] },
+          { phase: "post_dilation", category: "balloon_sc", product_name: "Semi-compliant balloon (kissing, D1)", diameter_mm: 2.5, length_mm: 12, inflation_atm: 10, inflations: [[10, 10]] },
+        ],
+        w7: {
+          techniques: ["predilation", "pot", "kissing_balloon"], bifurcation_strategy: "provisional",
+          wires: ["Workhorse 0.014 wire (LAD)", "Workhorse 0.014 wire (D1)"],
+        },
+      },
+    ],
+    complications: [],
+    discharge: {
+      length_of_stay_hours: 24, clinical_status: "Clinically stable", follow_up_after_days: 28, follow_up_clinic: OPD,
+      advice: ["DAPT adherence", "Activity advice", "Access-site care"],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
+      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 80, "od"), mg("Amlodipine", 5, "od"), gtnPrn()],
+    },
+  },
+
+  // PCI-2026-024 — elderly CKD, small-vessel POBA only; femoral bleed with transfusion (BARC 3a); contrast AKI
+  {
+    case_code: "PCI-2026-024",
+    patient: { mrn: "SYN-MRN-0024", full_name: "Synthetic Patient 024", sex: "female", date_of_birth: "1948-02-02" },
+    risk_factors: [{ factor: "ckd", detail: "stage 3b" }, { factor: "hypertension" }, { factor: "diabetes_t2" }],
+    operator: ARJUN,
+    w7: {
+      procedure: { prior_pci: false, prior_cabg: false },
+      outcomes: {
+        yes: ["bleeding", "transfusion", "aki"], bleeding_barc: 3, bleeding_barc_sub: "a", vascular: ["haematoma"],
+        creatinine_post_umol_l: 196, disposition: "home", links: [0, 1],
+      },
+    },
+    procedure: {
+      procedure_date: "2026-10-08", procedure_type: "angiography_and_pci", indication: "nstemi",
+      presentation_notes:
+        "NSTEMI; chest pain 8 h, elevated troponin. CKD stage 3b. Radial access failed (spasm); right femoral. History: hypertension, diabetes.",
+      troponin_elevated: true, access_site: "right_femoral", sheath_size_fr: 6, diagnostic_catheters: [],
+      contrast_volume_ml: 60, procedure_duration_min: 46, fluoroscopy_time_min: 9.8,
+      haemostasis_method: "manual_compression",
+      outcome_summary:
+        "Culprit mid OM2 90% in a 2.0-mm vessel, too small for the available stents: balloon angioplasty only (2.0 × 15 mm). Final residual 30%, TIMI III. Contrast kept to 60 mL. Femoral haematoma with haemoglobin fall needing one unit of blood; contrast-associated kidney injury.",
+    },
+    vessels: [
+      NORMAL_LM, v("lad", "mid", 30, 3), v("lcx", "mid", 40, 3),
+      v("om2", "mid", 90, 3, { is_culprit: true, detail: { lesion_class: "b1", lesion_length_mm: 12 } }), v("rca", "mid", 30, 3),
+    ],
+    interventions: [
+      {
+        vessel_index: 3, intervention_type: "poba", guidewire: WIRE_NOT_RECORDED,
+        residual_stenosis_pct: 30, timi_flow_post: 3, success: true,
+        notes: "Vessel 2.0 mm: below the smallest stent available; balloon angioplasty only.",
+        devices: [{ ...preDil(2.0, 15, 10), phase: "deployment", inflations: [[8, 30], [10, 30]] }],
+        w7: { techniques: ["poba"] },
+      },
+    ],
+    complications: [
+      {
+        complication: "access_site_haematoma", severity: "major",
+        management: "Femoral haematoma 6 h after sheath removal; haemoglobin 11.2 → 7.4 g/dL; manual compression and one unit of red cells.",
+        onset: "inpatient", onset_after_end_hours: 10, outcome: "Haemoglobin 9.1 g/dL at discharge",
+        treatments: ["transfusion"], resolution: "resolved",
+      },
+      {
+        complication: "contrast_nephropathy", severity: "major",
+        management: "Creatinine 128 → 196 µmol/L on day 2; intravenous fluids, nephrotoxic drugs held. No dialysis.",
+        onset: "inpatient", onset_after_end_hours: 40, outcome: "Creatinine 150 µmol/L at discharge",
+        treatments: ["other"], treatment_other: "Intravenous fluids", resolution: "ongoing_at_discharge",
+      },
+    ],
+    discharge: {
+      length_of_stay_hours: 120, clinical_status: "Clinically stable", follow_up_after_days: 7, follow_up_clinic: OPD,
+      advice: ["Kidney function blood test in 1 week", "Groin care", "DAPT adherence with bleeding review"],
+      red_flags: standardRedFlags("groin", "blood-thinning tablets"),
+      medications: [...dapt("Clopidogrel", "6 months with bleeding review"), mg("Atorvastatin", 40, "od"), mg("Amlodipine", 5, "od")],
+    },
+  },
+
+  // PCI-2026-025 — perforation after post-dilation: covered stent, pericardiocentesis for tamponade
+  {
+    case_code: "PCI-2026-025",
+    patient: { mrn: "SYN-MRN-0025", full_name: "Synthetic Patient 025", sex: "male", date_of_birth: "1957-07-19" },
+    risk_factors: [{ factor: "hypertension" }, { factor: "dyslipidaemia" }, { factor: "smoking", detail: "30 pack-years" }],
+    operator: MEERA,
+    w7: {
+      procedure: { ccs_class: 2, prior_pci: false, prior_cabg: false },
+      // Tamponade from a coronary perforation is BARC 3b.
+      outcomes: { yes: ["cardiac_tamponade", "bleeding"], bleeding_barc: 3, bleeding_barc_sub: "b", disposition: "home", links: [0, 1] },
+    },
+    procedure: {
+      procedure_date: "2026-10-09", procedure_type: "angiography_and_pci", indication: "stable_angina",
+      presentation_notes: "Stable angina CCS II with positive stress echo; heavily calcified mid LAD. History: hypertension, dyslipidaemia, current smoker.",
+      access_site: "right_radial", sheath_size_fr: 7, diagnostic_catheters: [], guiding_catheter: "7F EBU 3.5",
+      contrast_volume_ml: 210, procedure_duration_min: 95, fluoroscopy_time_min: 28.5,
+      haemostasis_method: "radial_compression_band",
+      outcome_summary:
+        "Mid LAD 90% heavily calcified (class C) treated with an everolimus DES (3.0 × 28 mm). Ellis III perforation after high-pressure post-dilation, sealed with prolonged balloon inflation and a covered stent (3.0 × 16 mm). Tamponade treated by pericardiocentesis (250 mL). Final TIMI III, haemodynamically stable.",
+    },
+    vessels: [
+      NORMAL_LM,
+      v("lad", "mid", 90, 3, { is_culprit: true, detail: { lesion_class: "c", lesion_length_mm: 26, calcification: "severe" } }),
+      v("lcx", "mid", 30, 3), v("rca", null, 10, 3),
+    ],
+    interventions: [
+      {
+        vessel_index: 1, intervention_type: "pci_des", guidewire: WIRE_NOT_RECORDED,
+        residual_stenosis_pct: 5, timi_flow_post: 3, success: true, perforation: true,
+        notes: "Ellis III perforation after NC 3.5 mm at 20 atm; prolonged balloon inflation, then covered stent.",
+        devices: [
+          { ...preDil(2.5, 12, 18), category: "balloon_nc", product_name: "Non-compliant balloon" },
+          stent("Everolimus DES", 3.0, 28, 14, "SYN-DES-260025"),
+          { ...ncPost(3.5, 12, 20), inflations: [[20, 15], [6, 300]] },
+          { ...stent("Covered stent", 3.0, 16, 14, "SYN-CS-260025") },
+        ],
+        w7: { techniques: ["predilation", "post_dilation", "bailout_stent"], perforation_class: "ellis_3", stent_overlap: true },
+      },
+    ],
+    complications: [
+      {
+        complication: "perforation", severity: "major",
+        management: "Ellis III perforation after high-pressure post-dilation; prolonged balloon inflation and covered stent sealed it.",
+        onset: "intraprocedural", outcome: "Sealed; no further leak",
+        grade: "Ellis III", treatments: ["prolonged_balloon_inflation", "covered_stent"], resolution: "resolved",
+      },
+      {
+        complication: "cardiac_tamponade", severity: "major",
+        management: "Pericardial effusion with hypotension; pericardiocentesis, 250 mL drained; drain removed at 24 h.",
+        onset: "intraprocedural", outcome: "Resolved; no reaccumulation on echo at 48 h",
+        treatments: ["pericardiocentesis"], resolution: "resolved",
+      },
+    ],
+    immediate_care_notes: "CCU; echo at 6 and 24 h; pericardial drain review.",
+    discharge: {
+      length_of_stay_hours: 120, clinical_status: "Clinically stable", follow_up_after_days: 7, follow_up_clinic: OPD,
+      advice: ["Repeat echo before review", "DAPT adherence", "Smoking cessation"],
+      red_flags: standardRedFlags("wrist", "blood-thinning tablets"),
+      medications: [...dapt("Clopidogrel", "6 months"), mg("Atorvastatin", 80, "od"), mg("Ramipril", 2.5, "od")],
+    },
   },
 ];
 
@@ -1023,6 +1354,7 @@ function procedureMeds(c: SeedCase, t: ReturnType<typeof timeline>): ProcMed[] {
 
 function destination(c: SeedCase): Enums["post_procedure_destination"] {
   if (c.case_code === "CAG-2026-020") return "ward";
+  if (c.case_code === "PCI-2026-025") return "ccu"; // perforation and tamponade
   const a = acuity(c);
   return a === "stemi" ? "ccu" : a === "urgent" ? "ward" : "day_case_recovery";
 }
@@ -1036,6 +1368,37 @@ function lvefFields(c: SeedCase) {
   }
   return { lvef_status: (isPci(c) ? "not_recorded" : "not_performed") as Enums["measurement_status"], lvef_pct: null, lvef_source: null, lvef_measured_on: null };
 }
+
+// ─── Week 7 derivations (0011) ─────────────────────────────────────────────────
+
+/** Techniques the devices already show (owner rule, Week 7): unless a case states them. */
+function techniquesFrom(iv: SeedIntervention): Enums["technique"][] {
+  if (iv.w7?.techniques) return iv.w7.techniques;
+  const t = new Set<Enums["technique"]>();
+  if (iv.intervention_type === "poba") t.add("poba");
+  if (iv.intervention_type === "drug_coated_balloon") t.add("drug_coated_balloon");
+  for (const d of iv.devices) {
+    if (d.category === "balloon_scoring") t.add("scoring_balloon");
+    else if (d.phase === "pre_dilation") t.add("predilation");
+    if (d.phase === "post_dilation") t.add("post_dilation");
+  }
+  if (iv.intervention_type === "pci_des" && !iv.devices.some((d) => d.phase === "pre_dilation")) t.add("direct_stent");
+  return [...t];
+}
+
+/** Wires: the stated guidewire(s); the "Not recorded" placeholder is not a wire (as migration 0011). */
+const wiresOf = (iv: SeedIntervention) => iv.w7?.wires ?? (iv.guidewire === WIRE_NOT_RECORDED ? [] : [iv.guidewire]);
+
+/** Previous PCI / CABG: true when a risk factor says so; false only where the case file says "no previous". */
+function priorProcedures(c: SeedCase) {
+  const has = (f: Enums["risk_factor"]) => c.risk_factors.some((r) => r.factor === f);
+  return {
+    prior_pci: c.w7?.procedure?.prior_pci ?? (has("prior_pci") ? true : null),
+    prior_cabg: c.w7?.procedure?.prior_cabg ?? (has("prior_cabg") ? true : null),
+  };
+}
+
+const OUTCOME_COLUMNS = ["mi", "stroke", "death", "bleeding", "transfusion", "aki", "new_dialysis", "emergency_cabg", "cardiac_tamponade", "unplanned_repeat_pci"] as const;
 
 // ─── Runner ────────────────────────────────────────────────────────────────────
 
@@ -1132,10 +1495,26 @@ async function getOrCreatePatient(db: Db, c: SeedCase) {
 }
 
 async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operatorId: string, t: ReturnType<typeof timeline>) {
+  // Week 7: grafts first, so a graft lesion can name its graft.
+  const graftIds: string[] = [];
+  for (const g of c.grafts ?? []) {
+    graftIds.push(
+      must(
+        "insert graft",
+        await db
+          .from("grafts")
+          .insert({ procedure_id: procedureId, ...g, stenosis_pct: g.stenosis_pct ?? null, lesion_location: g.lesion_location ?? null, cabg_year: g.cabg_year ?? null, source: "typed" })
+          .select("id")
+          .single(),
+      ).id,
+    );
+  }
+
   // One insert per vessel, so each id is known to belong to its row (bulk RETURNING order
   // is not guaranteed by Postgres).
   const vesselIds: string[] = [];
   for (const v of c.vessels) {
+    const { physiology = [], imaging = [], ...detail } = v.detail ?? {};
     const row = must(
       "insert vessel finding",
       await db
@@ -1150,11 +1529,32 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
           lesion_notes: v.lesion_notes ?? null,
           // Owner: thrombus from the case text (the thrombotic occlusions); nothing else is stated.
           thrombus: /thromb/i.test(v.lesion_notes ?? ""),
+          ...detail,
+          graft_id: v.graft_index === undefined ? null : graftIds[v.graft_index],
         })
         .select("id")
         .single(),
     );
     vesselIds.push(row.id);
+    if (physiology.length) {
+      must("insert physiology", await db.from("lesion_physiology").insert(physiology.map((x) => ({ ...x, vessel_finding_id: row.id, method: "pressure_wire" as const, source: "typed" as const }))).select("id"));
+    }
+    if (imaging.length) {
+      must("insert imaging", await db.from("intravascular_imaging").insert(imaging.map((x) => ({ ...x, vessel_finding_id: row.id, source: "typed" as const }))).select("id"));
+    }
+  }
+
+  // Week 7: haemodynamics as 0011 copies it — the left block from the authored aortic pressure and LVEDP.
+  const a = authored(c);
+  must(
+    "insert haemodynamics",
+    await db
+      .from("haemodynamics")
+      .insert({ procedure_id: procedureId, left_status: "recorded", ao_systolic: a.aortic_pressure_systolic, ao_diastolic: a.aortic_pressure_diastolic, lv_edp: a.lvedp_mmhg, source: "typed" })
+      .select("id"),
+  );
+  if (c.w7?.wall_motion?.length) {
+    must("insert wall motion", await db.from("lv_wall_motion").insert(c.w7.wall_motion.map(([segment, motion]) => ({ procedure_id: procedureId, segment, motion, source: "picked" as const }))).select("id"));
   }
 
   for (const iv of withLots(c)) {
@@ -1173,31 +1573,46 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
           dissection: iv.dissection ?? false,
           perforation: iv.perforation ?? false,
           notes: iv.notes ?? null,
+          // Week 7 (0011)
+          techniques: techniquesFrom(iv),
+          wires: wiresOf(iv),
+          bifurcation_strategy: iv.w7?.bifurcation_strategy ?? null,
+          perforation_class: iv.w7?.perforation_class ?? null,
+          stent_overlap: iv.w7?.stent_overlap ?? false,
         })
         .select("id")
         .single(),
     );
-    if (iv.devices.length > 0) {
-      must(
-        "insert devices",
+    // One insert per device, so each inflation log goes with its own device.
+    for (const d of iv.devices) {
+      const device = must(
+        "insert device",
         await db
           .from("devices_used")
-          .insert(
-            iv.devices.map((d) => ({
-              intervention_id: intervention.id,
-              phase: d.phase,
-              category: d.category,
-              product_name: d.product_name,
-              manufacturer: d.manufacturer ?? null,
-              diameter_mm: d.diameter_mm,
-              length_mm: d.length_mm,
-              inflation_atm: d.inflation_atm ?? null,
-              lot_number: d.lot_number ?? null,
-              quantity: d.quantity ?? 1,
-            })),
-          )
-          .select("id"),
+          .insert({
+            intervention_id: intervention.id,
+            phase: d.phase,
+            category: d.category,
+            product_name: d.product_name,
+            manufacturer: d.manufacturer ?? null,
+            diameter_mm: d.diameter_mm,
+            length_mm: d.length_mm,
+            inflation_atm: d.inflation_atm ?? null,
+            lot_number: d.lot_number ?? null,
+            quantity: d.quantity ?? 1,
+          })
+          .select("id")
+          .single(),
       );
+      if (d.inflations?.length) {
+        must(
+          "insert inflations",
+          await db
+            .from("device_inflations")
+            .insert(d.inflations.map(([pressure_atm, duration_s], i) => ({ device_id: device.id, sequence: i + 1, pressure_atm, duration_s, source: "typed" as const })))
+            .select("id"),
+        );
+      }
     }
   }
 
@@ -1206,13 +1621,15 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
     await db.from("procedure_medications").insert(procedureMeds(c, t).map((m) => ({ ...m, procedure_id: procedureId }))).select("id"),
   );
 
-  if (c.complications.length > 0) {
-    must(
-      "insert complications",
-      await db
-        .from("complications")
-        .insert(
-          c.complications.map(({ onset_after_end_hours, ...x }) => ({
+  // One insert per event, so outcome links can name each event's id.
+  const eventIds: string[] = [];
+  for (const { onset_after_end_hours, ...x } of c.complications) {
+    eventIds.push(
+      must(
+        "insert complication",
+        await db
+          .from("complications")
+          .insert({
             procedure_id: procedureId,
             complication: x.complication,
             severity: x.severity,
@@ -1220,9 +1637,14 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
             onset: x.onset ?? null,
             onset_at: onset_after_end_hours === undefined ? null : plusMin(t.ended, Math.round(onset_after_end_hours * 60)).toISOString(),
             outcome: x.outcome ?? null,
-          })),
-        )
-        .select("id"),
+            grade: x.grade ?? null,
+            treatments: x.treatments ?? [],
+            treatment_other: x.treatment_other ?? null,
+            resolution: x.resolution ?? null,
+          })
+          .select("id")
+          .single(),
+      ).id,
     );
   }
 
@@ -1274,6 +1696,31 @@ async function insertCaseBody(db: Db, c: SeedCase, procedureId: string, operator
           .select("id"),
       );
     }
+  }
+
+  // Week 7: in-hospital outcomes (tri-state; no row = not recorded at all). Written after the discharge
+  // and before review, while the guards still allow it.
+  const o = c.w7?.outcomes;
+  if (o) {
+    const tri = (k: string) => (o.yes?.includes(k as never) ? "yes" : o.notRecorded?.includes(k) ? "not_recorded" : "no") as Enums["tri_state"];
+    must(
+      "insert outcomes",
+      await db
+        .from("in_hospital_outcomes")
+        .insert({
+          procedure_id: procedureId,
+          ...Object.fromEntries(OUTCOME_COLUMNS.map((k) => [k, tri(k)])),
+          bleeding_barc: o.bleeding_barc ?? null,
+          bleeding_barc_sub: o.bleeding_barc_sub ?? null,
+          vascular_status: o.vascular?.length ? "yes" : o.notRecorded?.includes("vascular") ? "not_recorded" : "no",
+          vascular_complications: o.vascular ?? [],
+          creatinine_post_umol_l: o.creatinine_post_umol_l ?? null,
+          disposition: o.disposition,
+          event_links: (o.links ?? []).map((i) => eventIds[i]),
+          source: "typed",
+        })
+        .select("id"),
+    );
   }
 
   // The completion trigger checks the record is whole.
@@ -1337,6 +1784,20 @@ async function seedCase(db: Db, c: SeedCase, facilityId: string): Promise<"inser
         findings_communicated_to_patient_at: plusMin(t.ended, 60).toISOString(),
         findings_communicated_to_team: true,
         communication_notes: c.communication_notes ?? null,
+        // Week 7 (0011): indication detail, STEMI times (door = arrival = admission).
+        ...priorProcedures(c),
+        ccs_class: c.w7?.procedure?.ccs_class ?? null,
+        nyha_class: c.w7?.procedure?.nyha_class ?? null,
+        cardiogenic_shock: c.w7?.procedure?.cardiogenic_shock ?? false,
+        mitral_regurgitation_grade: c.w7?.procedure?.mitral_regurgitation_grade ?? null,
+        ...(c.w7?.stemi
+          ? {
+              symptom_onset_at: plusMin(t.admitted, -c.w7.stemi.onset_before_door_min).toISOString(),
+              first_medical_contact_at: plusMin(t.admitted, -c.w7.stemi.fmc_before_door_min).toISOString(),
+              door_at: t.admitted.toISOString(),
+              device_time_at: plusMin(t.started, c.w7.stemi.device_after_start_min).toISOString(),
+            }
+          : {}),
         status: "draft",
       })
       .select("id")
@@ -1361,7 +1822,8 @@ async function main() {
     process.exit(1);
   }
 
-  const problems = validate(CASES);
+  const ALL = [...CASES, ...W7_CASES];
+  const problems = validate(ALL);
   if (problems.length > 0) {
     console.error(`Seed data failed validation (${problems.length}):\n  ${problems.join("\n  ")}`);
     process.exit(1);
@@ -1373,7 +1835,7 @@ async function main() {
   let inserted = 0;
   let skipped = 0;
   let failed = 0;
-  for (const c of CASES) {
+  for (const c of ALL) {
     try {
       const result = await seedCase(db, c, facilityId);
       if (result === "inserted") inserted++;
@@ -1385,7 +1847,7 @@ async function main() {
     }
   }
 
-  console.log(`\n${CASES.length} cases in seed: ${inserted} inserted, ${skipped} already present, ${failed} failed.`);
+  console.log(`\n${ALL.length} cases in seed: ${inserted} inserted, ${skipped} already present, ${failed} failed.`);
   if (failed > 0) process.exit(1);
 }
 

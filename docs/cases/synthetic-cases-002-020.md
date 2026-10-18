@@ -5,6 +5,34 @@
 > Mix: 6 NSTEMI (002–007) · 5 STEMI (008–012) · 4 stable angina (013–016) · 1 unstable angina (017) · 3 diagnostic-only (018–020).
 > Femoral access: 005, 012 · Two stents: 004, 014 · Drug-coated balloon: 015 · Complications: 005 (haematoma), 010 (no-reflow).
 
+## Week 7 additions (18 Oct 2026)
+
+Structured-reporting values added to these cases by `scripts/seed.ts` (Week 7 spec §6). The stories
+above are unchanged; the scenarios that no story has are in cases 022–025
+(`synthetic-cases-022-025.md`).
+
+- **Every case:** a haemodynamics row with the left block as migration 0011 copies it (aortic
+  pressure, plus LVEDP for the STEMI cases); wires left empty where the guidewire is "Not recorded";
+  techniques read from the devices (pre-dilation balloon → pre-dilation, NC post-dilation →
+  post-dilation, 015 → scoring balloon and drug-coated balloon).
+- **PCI-2026-005:** the haematoma as an in-hospital outcome (vascular: haematoma; bleeding, BARC 2,
+  ASSUMPTION — ultrasound evaluation prompted), linked to the event; event resolved.
+- **PCI-2026-008:** STEMI times — symptom onset 2 h before arrival, first medical contact 40 min
+  before, first device 10 min after the start: door-to-device 85 min.
+- **PCI-2026-010:** the no-reflow event treated with an intracoronary vasodilator, resolved.
+- **PCI-2026-012:** STEMI times — onset 4 h before arrival, first medical contact 60 min before,
+  first device 50 min after the start (femoral access after radial was unsuitable): door-to-device
+  125 min.
+- **PCI-2026-015:** previous PCI; RCA focal in-stent restenosis with IVUS pre (MLA 2.6 mm²) and post
+  (MLA 5.1 mm², MSA 6.9 mm², expansion 88%, no malapposition or edge dissection) — areas are
+  ASSUMPTION, the findings are the case file's; DCB inflation logged at 8 atm for 60 s.
+- **PCI-2026-016:** no previous PCI (case file).
+- **CAG-2026-019:** RCA mid 40%: FFR 0.86 with IV adenosine 140 µg/kg/min — not significant,
+  deferred to medical therapy (the FFR-deferred lesion). Final impression updated to say so.
+- **Outcomes:** recorded for most discharged cases (all "no", disposition home). Left out on
+  purpose so the registry count shows gaps: no outcomes row for 006, 013, 016, 018 and 020 (still
+  admitted); AKI not recorded for 002, 004 and 007 (no post-procedure creatinine).
+
 ## Owner-approved data corrections (15 Oct 2026)
 
 Applied to `scripts/seed.ts` and the live database, and logged in `docs/backlog.md`.
