@@ -20,6 +20,7 @@ import { summaryConfigured } from "@/lib/summary/generate";
 import { procedureToBundle } from "@/lib/fhir/mapper";
 import { SyntheticNotice } from "@/components/synthetic-notice";
 import { ProcedureReport } from "@/components/report/procedure-report";
+import { LesionSheet } from "@/components/report/sheets/lesion-sheet";
 import { STEPS } from "../new/step-header";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +62,13 @@ async function loadSummaryCard(db: ReturnType<typeof createClient>, p: Procedure
   };
 }
 
-export default async function ProcedureDetailPage({ params }: { params: { id: string } }) {
+export default async function ProcedureDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { sheet?: string; row?: string };
+}) {
   const db = createClient();
   const { procedure: p, error } = await getProcedureFull(db, params.id);
   if (error) {
@@ -88,6 +95,11 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
   // no-change amendment is still listed in the Amendments card.
   const closedCount = amendments.filter((a) => a.status === "closed" && (a.changes?.length ?? 0) > 0).length;
 
+  // Week 7 sheets (spec §3): open by URL; editable for a draft or during an amendment, as the capture form.
+  const editable = p.status === "draft" || amending;
+  const base = `/procedures/${p.id}`;
+  const sheets = editable ? { lesion: (row: string) => `${base}?sheet=lesion&row=${row}` } : undefined;
+  const lesionRow = editable && searchParams.sheet === "lesion" ? p.vessel_findings.find((v) => v.id === searchParams.row) : undefined;
 
   return (
     <article className="space-y-4">
@@ -161,7 +173,17 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
 
       <AmendmentsCard amendments={amendments} />
 
-      <ProcedureReport p={p} />
+      <ProcedureReport p={p} sheets={sheets} />
+      {lesionRow && (
+        <LesionSheet
+          key={lesionRow.id}
+          procedureId={p.id}
+          row={lesionRow}
+          grafts={p.grafts.map((g) => ({ id: g.id, graft_type: g.graft_type, target_vessel: g.target_vessel }))}
+          treated={p.interventions.some((i) => i.vessel_finding_id === lesionRow.id)}
+          closeHref={base}
+        />
+      )}
 
       <SyntheticNotice />
     </article>

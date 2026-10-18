@@ -18,6 +18,7 @@ import {
   timingHeading,
 } from "@/lib/report-format";
 import { Facts, Section } from "@/components/report/section";
+import { SheetLink } from "@/components/report/sheets/sheet-link";
 
 /**
  * The clinician report body, shared by the report page and the print page (Week 4 spec §8: the
@@ -79,7 +80,13 @@ export function initials(name: string) {
     .join(" ");
 }
 
-export function ProcedureReport({ p, print = false }: { p: ProcedureFull; print?: boolean }) {
+/**
+ * `sheets`: where each Week 7 sheet opens for this record, when it can be edited (a draft, or a record
+ * with an open amendment). Omitted on the print page and for read-only records.
+ */
+export type SheetHrefs = { lesion: (vesselFindingId: string) => string };
+
+export function ProcedureReport({ p, print = false, sheets }: { p: ProcedureFull; print?: boolean; sheets?: SheetHrefs }) {
   const pt = p.patient;
   const vesselById = new Map(p.vessel_findings.map((v) => [v.id, v]));
   const previous = pt?.risk_factors.filter((r) => PREVIOUS_PROCEDURES.has(r.factor)) ?? [];
@@ -206,19 +213,38 @@ export function ProcedureReport({ p, print = false }: { p: ProcedureFull; print?
             </thead>
             <tbody>
               {p.vessel_findings.map((v) => {
+                const graft = v.graft_id ? p.grafts.find((g) => g.id === v.graft_id) : undefined;
                 const detail = [
                   v.lesion_length_mm !== null ? `${v.lesion_length_mm} mm long` : null,
+                  v.lesion_class ? `class ${label(v.lesion_class)}` : null,
+                  v.ostial ? "ostial" : null,
                   v.calcification ? `${label(v.calcification).toLowerCase()} calcification` : null,
                   v.thrombus ? "thrombus" : null,
-                  v.bifurcation ? "bifurcation" : null,
+                  v.bifurcation ? (v.bifurcation_medina ? `bifurcation (Medina ${v.bifurcation_medina})` : "bifurcation") : null,
+                  v.tortuosity && v.tortuosity !== "none" ? `${label(v.tortuosity).toLowerCase()} tortuosity` : null,
+                  v.cto ? (v.cto_duration_months !== null ? `CTO (${v.cto_duration_months} months)` : "CTO") : null,
+                  v.in_stent_restenosis ? (v.isr_pattern ? `in-stent restenosis (${label(v.isr_pattern).toLowerCase()})` : "in-stent restenosis") : null,
+                  v.collaterals_rentrop !== null ? `Rentrop ${v.collaterals_rentrop} collaterals` : null,
+                  v.timi_frame_count !== null ? `corrected TIMI frame count ${v.timi_frame_count}` : null,
                   v.lesion_notes,
                 ].filter(Boolean);
+                const name = graft ? `${label(graft.graft_type)} to ${label(graft.target_vessel)}` : lesionName(v.vessel, v.segment);
                 return (
-                  <tr key={v.id} className={`border-t border-slate-100 align-top ${v.is_culprit ? "bg-red-50" : ""}`}>
+                  <tr key={v.id} id={`lesion-${v.id}`} className={`border-t border-slate-100 align-top ${v.is_culprit ? "bg-red-50" : ""}`}>
                     <td className="py-2 pr-2">
-                      <span className="font-semibold">{lesionName(v.vessel, v.segment)}</span>
+                      <span className="font-semibold">{name}</span>
                       {v.is_culprit && <CulpritTag />}
                       {detail.length > 0 && <span className="block break-words text-xs text-slate-600">{detail.join(" · ")}</span>}
+                      {sheets && !print && (
+                        <SheetLink
+                          id={`edit-lesion-${v.id}`}
+                          href={sheets.lesion(v.id)}
+                          label={`Edit lesion details: ${name}`}
+                          className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-sky-800 underline"
+                        >
+                          Edit lesion
+                        </SheetLink>
+                      )}
                     </td>
                     <td className="py-2">{v.stenosis_pct === 0 ? "0% (normal)" : `${v.stenosis_pct}%`}</td>
                     <td className="py-2">{timi(v.timi_flow)}</td>

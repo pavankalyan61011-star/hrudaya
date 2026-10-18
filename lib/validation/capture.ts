@@ -353,3 +353,51 @@ export const DischargeStepSchema = z.discriminatedUnion("admitted", [
   z.object({ admitted: z.literal(true) }),
   z.object({ admitted: z.literal(false), discharge: DischargeSchema }),
 ]);
+
+// ─── Week 7 sheets (spec §3) ───────────────────────────────────────────────────
+
+/**
+ * §3.1 Lesion sheet. Mirrors migration 0011's "present only when" rules: a dependent value is
+ * dropped when its parent is switched off (Medina without bifurcation, CTO months without CTO, ISR
+ * pattern without ISR, a graft without vessel = graft), so a toggle switched off never leaves a
+ * stale value behind.
+ */
+export const LesionSheetSchema = z
+  .object({
+    vessel: z.enum(ENUMS.vessel, { error: "Required" }),
+    segment: optionalEnum(ENUMS.vessel_segment),
+    graft_id: optionalUuid,
+    stenosis_pct: int(0, 100),
+    stenosis_source: z.enum(ENUMS.value_source),
+    timi_flow: int(0, 3),
+    is_culprit: z.boolean(),
+    lesion_length_mm: optionalDecimal(0.1, 1_000_000),
+    lesion_class: optionalEnum(ENUMS.lesion_class),
+    calcification: optionalEnum(ENUMS.calcification_grade),
+    thrombus: z.boolean(),
+    ostial: z.boolean(),
+    bifurcation: z.boolean(),
+    bifurcation_medina: z
+      .union([z.string().regex(/^[01],[01],[01]$/, "Medina is three 0/1 values"), z.literal(""), z.null(), z.undefined()])
+      .transform((v) => (v ? v : null)),
+    tortuosity: optionalEnum(ENUMS.tortuosity_grade),
+    cto: z.boolean(),
+    cto_duration_months: optionalInt(0, 600),
+    in_stent_restenosis: z.boolean(),
+    isr_pattern: optionalEnum(ENUMS.isr_pattern),
+    collaterals_rentrop: optionalInt(0, 3),
+    timi_frame_count: optionalInt(0, 1000),
+    lesion_notes: optionalText,
+  })
+  .superRefine((v, ctx) => {
+    if (v.vessel === "graft" && !v.graft_id) ctx.addIssue({ code: "custom", path: ["graft_id"], message: "Choose the graft this lesion is in" });
+  })
+  .transform((v) => ({
+    ...v,
+    graft_id: v.vessel === "graft" ? v.graft_id : null,
+    bifurcation_medina: v.bifurcation ? v.bifurcation_medina : null,
+    cto_duration_months: v.cto ? v.cto_duration_months : null,
+    isr_pattern: v.in_stent_restenosis ? v.isr_pattern : null,
+  }));
+
+export type LesionSheetInput = z.infer<typeof LesionSheetSchema>;
