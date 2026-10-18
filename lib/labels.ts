@@ -26,6 +26,26 @@ const LABELS: Record<string, string> = {
   sc: "SC", iv: "IV",
   // operators
   interventional_cardiologist: "Interventional cardiologist",
+  // Week 7 (0011): lesion class / dissection grade (shared letters), physiology, imaging, grafts
+  a: "A", b: "B", b1: "B1", b2: "B2", c: "C", d: "D", e: "E", f: "F",
+  ffr: "FFR", ifr: "iFR", rfr: "RFR", dfr: "DFR", pd_pa_rest: "Pd/Pa (rest)",
+  adenosine_iv: "Adenosine IV", adenosine_ic: "Adenosine IC",
+  ivus: "IVUS", oct: "OCT", nirs_ivus: "NIRS-IVUS", vendor_auto: "Vendor automatic",
+  lima: "LIMA", rima: "RIMA", svg: "SVG", not_visualised: "Not visualised",
+  qca_manual_edge: "QCA (manual edge)", qca_auto_edge: "QCA (automatic edge)",
+  measured_viewer: "Measured in viewer", hemo_system: "Haemodynamic system", xray_dose: "X-ray dose report",
+  // techniques and bifurcation strategy
+  pot: "POT", re_pot: "Re-POT", direct_stent: "Direct stenting", bailout_stent: "Bail-out stent",
+  intravascular_lithotripsy: "IVL (lithotripsy)",
+  cto_antegrade: "CTO antegrade", cto_retrograde: "CTO retrograde",
+  t_tap: "T-TAP", dk_crush: "DK-crush", mini_crush: "Mini-crush", simultaneous_kissing_stents: "SKS (simultaneous kissing stents)",
+  ellis_1: "Ellis I", ellis_2: "Ellis II", ellis_3: "Ellis III", ellis_3_cavity: "Ellis III (cavity spilling)",
+  // events, treatments, outcomes
+  gp_iib_iiia: "GP IIb/IIIa inhibitor", iabp: "IABP", impella_or_ecmo: "Impella / ECMO",
+  new_cardiogenic_shock: "New cardiogenic shock", unplanned_repeat_pci: "Unplanned repeat PCI",
+  av_fistula: "AV fistula", ccu: "CCU", icu: "ICU", left_against_advice: "Left against medical advice",
+  // indication detail
+  tmt: "TMT (treadmill)", spect: "SPECT", pet: "PET", cmr: "Cardiac MRI", ct_ffr: "CT-FFR", af: "AF",
 };
 
 /** Human label for any enum value: explicit where clinical shorthand matters, otherwise "snake_case" → "Snake case". */

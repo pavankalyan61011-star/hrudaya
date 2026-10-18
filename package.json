@@ -11,7 +11,7 @@
     "db:types": "supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > lib/database.types.ts",
     "seed": "node --env-file=.env.local scripts/seed.ts",
     "fhir:verify-codes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fhir-verify-codes.ts",
-    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/fhir/*.test.ts lib/summary/input.test.ts lib/summary/audit.test.ts lib/summary/generate.test.ts lib/summary/api.test.ts lib/summary/markdown.test.ts lib/summary/sections.test.ts lib/summary/flag-locations.test.ts lib/amendments/diff.test.ts lib/amendments/api.test.ts",
+    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/fhir/*.test.ts lib/summary/input.test.ts lib/summary/audit.test.ts lib/summary/generate.test.ts lib/summary/api.test.ts lib/summary/markdown.test.ts lib/summary/sections.test.ts lib/summary/flag-locations.test.ts lib/amendments/diff.test.ts lib/amendments/api.test.ts lib/registry/nic-elements.test.ts",
     "fhir:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/fhir-validate.ts",
     "fhir:hapi": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/fhir-hapi.ts",
     "test:seeded": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local lib/summary/input.seeded.test.ts lib/amendments/snapshot.seeded.test.ts",

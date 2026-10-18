@@ -122,3 +122,56 @@ test("fields an amendment cannot change are not in the diff (case code, date, pa
   p.patient = { ...p.patient, full_name: "Someone Else" };
   assert.deepEqual(diffSnapshots(before, snap(p)), []);
 });
+
+// ─── Week 7 (0011) tables ─────────────────────────────────────────────────────
+
+const LAD = "40000000-0000-4000-8000-000000000002";
+const withPhysiology = (value: number): Any => {
+  const p = base();
+  p.vessel_findings = p.vessel_findings.map((v: Any) =>
+    v.id === LAD ? { ...v, lesion_physiology: [{ id: "phys-1", vessel_finding_id: LAD, phase: "pre", index: "ffr", value, hyperaemic_agent: "adenosine_iv", agent_dose: null, decision: "defer", method: "pressure_wire", image_study_uid: null, image_series_uid: null, source: "typed", recorded_by: null, recorded_at: "2026-10-18T00:00:00+00:00", notes: null }] } : v);
+  return p;
+};
+
+test("Week 7: a physiology value changed on a lesion", () => {
+  const d = diffSnapshots(snap(withPhysiology(0.86)), snap(withPhysiology(0.78)));
+  assert.deepEqual(d, [
+    { path: "vessel_findings[lad/proximal].physiology[pre/ffr].value", label: "Physiology · Proximal LAD · FFR pre · value", before: 0.86, after: 0.78, kind: "changed" },
+  ]);
+});
+
+test("Week 7: an outcome goes from not recorded to yes (tri-state, not a boolean)", () => {
+  const outcome = (mi: string): Any => ({ ...base(), in_hospital_outcomes: { id: "o1", procedure_id: "x", mi, stroke: "not_recorded", event_links: [], recorded_at: "t", recorded_by: null } });
+  assert.deepEqual(diffSnapshots(snap(outcome("not_recorded")), snap(outcome("yes"))), [
+    { path: "in_hospital_outcomes.mi", label: "In-hospital outcome · MI", before: "not_recorded", after: "yes", kind: "changed" },
+  ]);
+});
+
+test("Week 7: a graft and its graft lesion added; graft lesions keyed by their graft", () => {
+  const p = base();
+  const graft = { id: "g1", procedure_id: "x", graft_type: "svg", target_vessel: "om1", sequential: false, patency: "stenosed", stenosis_pct: 85, lesion_location: "body", cabg_year: 2014, source: "typed", recorded_at: "t", recorded_by: null, notes: null };
+  p.grafts = [graft, { ...graft, id: "g2", graft_type: "lima", target_vessel: "lad", patency: "patent", stenosis_pct: null, lesion_location: null }];
+  p.vessel_findings = [...p.vessel_findings,
+    { ...p.vessel_findings[0], id: "gv1", vessel: "graft", segment: null, stenosis_pct: 85, graft_id: "g1" },
+    { ...p.vessel_findings[0], id: "gv2", vessel: "graft", segment: null, stenosis_pct: 0, graft_id: "g2" }];
+  assert.deepEqual(diffSnapshots(before, snap(p)).map((c) => [c.kind, c.label]), [
+    ["added", "Vessel finding · Graft lesion · LIMA to LAD · added"],
+    ["added", "Vessel finding · Graft lesion · SVG to OM1 · added"],
+    ["added", "Graft · LIMA to LAD · added"],
+    ["added", "Graft · SVG to OM1 · added"],
+  ]);
+});
+
+test("Week 7: an inflation added to a device's log", () => {
+  const p = base();
+  p.interventions[0].devices_used = p.interventions[0].devices_used.map((d: Any) =>
+    d.product_name === "Test DES" ? { ...d, device_inflations: [{ id: "f1", device_id: d.id, sequence: 1, pressure_atm: 14, duration_s: 20, source: "typed", recorded_at: "t", recorded_by: null, notes: null }] } : d);
+  assert.deepEqual(diffSnapshots(before, snap(p)).map((c) => [c.kind, c.label]), [["added", "Device · Test DES 3.5×28 · inflation 1 · added"]]);
+});
+
+test("Week 7: haemodynamics marked not performed (three-state) is a change", () => {
+  const h = (left_status: string, ao: number | null): Any => ({ ...base(), haemodynamics: { id: "h", procedure_id: "x", left_status, ao_systolic: ao, ao_diastolic: null, ao_mean: null, lv_systolic: null, lv_edp: null, heart_rate_at_measurement: null, rhythm: null, source: "typed", recorded_at: "t", recorded_by: null, notes: null } });
+  assert.deepEqual(diffSnapshots(snap(h("recorded", 130)), snap(h("not_performed", null))).map((c) => c.label), [
+    "Haemodynamics · aortic systolic (mmHg)", "Haemodynamics · left heart",
+  ]);
+});

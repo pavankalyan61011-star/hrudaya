@@ -61,11 +61,15 @@ const FULL_SELECT = `
   consent_by:operators!procedures_consent_by_operator_id_fkey(id, full_name),
   timeout_by:operators!procedures_timeout_by_operator_id_fkey(id, full_name),
   facility:facilities(id, name, cath_lab_name, city),
-  vessel_findings!vessel_findings_procedure_id_fkey(*),
-  interventions(*, devices_used(*)),
+  vessel_findings!vessel_findings_procedure_id_fkey(*, lesion_physiology(*), intravascular_imaging(*)),
+  interventions(*, devices_used(*, device_inflations(*))),
   procedure_medications(*),
   complications(*),
   discharge:discharges(*, discharge_medications(*)),
+  grafts!grafts_procedure_id_fkey(*),
+  haemodynamics(*),
+  lv_wall_motion(*),
+  in_hospital_outcomes(*),
   amendments:procedure_amendments(id, amendment_no, status, reason, opened_at, closed_at, changes, reviewer:operators!procedure_amendments_reviewing_clinician_id_fkey(id, full_name, role))
 ` as const;
 

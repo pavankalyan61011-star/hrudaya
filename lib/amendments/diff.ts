@@ -30,6 +30,23 @@ const FIELD: Record<string, string> = {
   ecg_findings: "ECG", creatinine_umol_l: "creatinine (µmol/L)", haemoglobin_g_dl: "haemoglobin (g/dL)",
   platelets_x10e9_l: "platelets (×10⁹/L)", primary_operator_id: "primary operator", facility_id: "facility",
   consent_by_operator_id: "consent taken by", timeout_by_operator_id: "time-out by",
+  // Week 7 (0011)
+  lesion_class: "lesion class", cto: "CTO", cto_duration_months: "CTO duration (months)", in_stent_restenosis: "in-stent restenosis",
+  isr_pattern: "ISR pattern", collaterals_rentrop: "collaterals (Rentrop)", timi_frame_count: "TIMI frame count",
+  bifurcation_medina: "Medina", mld_mm: "MLD (mm)", rvd_mm: "RVD (mm)", image_view: "image view",
+  agent_dose: "agent dose", mla_mm2: "MLA (mm²)", eem_area_mm2: "EEM area (mm²)", plaque_burden_pct: "plaque burden %",
+  calcium_arc_deg: "calcium arc (°)", calcium_thickness_mm: "calcium thickness (mm)", lipid_arc_deg: "lipid arc (°)",
+  max_lcbi_4mm: "maxLCBI 4 mm", msa_mm2: "MSA (mm²)", stent_expansion_pct: "stent expansion %", pullback_length_mm: "pullback length (mm)",
+  ao_systolic: "aortic systolic (mmHg)", ao_diastolic: "aortic diastolic (mmHg)", ao_mean: "aortic mean (mmHg)",
+  lv_systolic: "LV systolic (mmHg)", lv_edp: "LVEDP (mmHg)", left_status: "left heart", heart_rate_at_measurement: "heart rate (bpm)",
+  mitral_regurgitation_grade: "MR grade", lv_gram_performed: "LV-gram performed", ccs_class: "CCS class", nyha_class: "NYHA class",
+  first_medical_contact_at: "first medical contact", device_time_at: "first device time", door_at: "door time",
+  cardiac_arrest_pre_procedure: "cardiac arrest before the procedure", prior_pci: "previous PCI", prior_cabg: "previous CABG",
+  technique_other: "technique (other)", bifurcation_strategy_other: "bifurcation strategy (other)", total_stent_length_mm: "total stent length (mm)",
+  treatment_other: "treatment (other)", pressure_atm: "pressure (atm)", duration_s: "duration (s)", cabg_year: "CABG year",
+  mi: "MI", aki: "AKI", bleeding_barc: "BARC class", bleeding_barc_sub: "BARC sub-class", creatinine_post_umol_l: "creatinine after (µmol/L)",
+  new_dialysis: "new dialysis", emergency_cabg: "emergency CABG", unplanned_repeat_pci: "unplanned repeat PCI",
+  vascular_status: "vascular complications", vascular_complications: "vascular complication types", linked_events: "linked events",
 };
 const field = (k: string) => FIELD[k] ?? label(k).toLowerCase();
 
@@ -91,10 +108,24 @@ function listChanges(path: string, title: string, before: unknown, after: unknow
   return out;
 }
 
+const graftName = (g: Row) => `${label(g.graft_type as string)} to ${label(g.target_vessel as string)}`;
 const lesion = (r: Row) => {
   const l = (isObj(r.lesion) ? r.lesion : r) as Row;
+  if (l.vessel === "graft" && isObj(l.graft)) return `Graft lesion · ${graftName(l.graft)}`;
   return l.vessel ? lesionName(l.vessel as never, (l.segment ?? null) as never) : "Unknown vessel";
 };
+/** Graft lesions all have vessel = graft, so their graft is part of the key. */
+const lesionKey = (r: Row) => {
+  const g = isObj(r.graft) ? `/${r.graft.graft_type}/${r.graft.target_vessel}` : "";
+  return `${r.vessel}/${r.segment ?? ""}${g}`;
+};
+
+/** One-row-per-procedure blocks (discharge, haemodynamics, outcomes): added, removed or field changes. */
+function block(path: string, title: string, before: Row | null, after: Row | null, skip: string[] = []): Change[] {
+  if (before && !after) return [{ path, label: `${title} · removed`, before, after: null, kind: "removed" }];
+  if (!before && after) return [{ path, label: `${title} · added`, before: null, after, kind: "added" }];
+  return before && after ? fieldChanges(path, title, before, after, skip) : [];
+}
 const size = (d: Row) => `${d.diameter_mm ?? "?"}×${d.length_mm ?? "?"}`;
 
 export function diffSnapshots(before: Snapshot, after: Snapshot): Change[] {
@@ -103,8 +134,16 @@ export function diffSnapshots(before: Snapshot, after: Snapshot): Change[] {
   out.push(...fieldChanges("procedure", "Procedure", before.procedure, after.procedure));
 
   out.push(...matched("vessel_findings", before.vessel_findings, after.vessel_findings,
-    (r) => `${r.vessel}/${r.segment ?? ""}`, (r) => `Vessel finding · ${lesion(r)}`,
-    (p, t, b, a) => fieldChanges(p, t, b, a)));
+    lesionKey, (r) => `Vessel finding · ${lesion(r)}`,
+    (p, t, b, a) => [
+      ...fieldChanges(p, t, b, a, ["physiology", "imaging"]),
+      ...matched(`${p}.physiology`, (b.physiology as Row[]) ?? [], (a.physiology as Row[]) ?? [],
+        (x) => `${x.phase}/${x.index}`, (x) => `Physiology · ${lesion(b)} · ${label(x.index as string)} ${x.phase}`,
+        (pp, tt, xb, xa) => fieldChanges(pp, tt, xb, xa)),
+      ...matched(`${p}.imaging`, (b.imaging as Row[]) ?? [], (a.imaging as Row[]) ?? [],
+        (x) => `${x.modality}/${x.phase}`, (x) => `Imaging · ${lesion(b)} · ${label(x.modality as string)} ${x.phase}`,
+        (pp, tt, xb, xa) => fieldChanges(pp, tt, xb, xa)),
+    ]));
 
   out.push(...matched("interventions", before.interventions, after.interventions,
     (r) => `${(r.lesion as Row)?.vessel}/${(r.lesion as Row)?.segment ?? ""}/${r.intervention_type}`,
@@ -114,7 +153,12 @@ export function diffSnapshots(before: Snapshot, after: Snapshot): Change[] {
       ...matched(`${p}.devices`, (b.devices as Row[]) ?? [], (a.devices as Row[]) ?? [],
         (d) => `${d.phase}/${d.category}/${d.product_name}/${size(d)}`,
         (d) => `Device · ${d.product_name} ${size(d)}`,
-        (dp, dt, db, da) => fieldChanges(dp, dt, db, da)),
+        (dp, dt, db, da) => [
+          ...fieldChanges(dp, dt, db, da, ["inflations"]),
+          ...matched(`${dp}.inflations`, (db.inflations as Row[]) ?? [], (da.inflations as Row[]) ?? [],
+            (f) => `${f.sequence}`, (f) => `${dt} · inflation ${f.sequence}`,
+            (fp, ft, fb, fa) => fieldChanges(fp, ft, fb, fa)),
+        ]),
     ]));
 
   out.push(...matched("procedure_medications", before.procedure_medications, after.procedure_medications,
@@ -126,15 +170,23 @@ export function diffSnapshots(before: Snapshot, after: Snapshot): Change[] {
     (p, t, b, a) => fieldChanges(p, t, b, a)));
 
   const bd = before.discharge, ad = after.discharge;
-  if (bd && !ad) out.push({ path: "discharge", label: "Discharge · removed", before: bd, after: null, kind: "removed" });
-  else if (!bd && ad) out.push({ path: "discharge", label: "Discharge · added", before: null, after: ad, kind: "added" });
-  else if (bd && ad) {
-    out.push(...fieldChanges("discharge", "Discharge", bd, ad, ["medications", "advice", "red_flags"]));
+  out.push(...block("discharge", "Discharge", bd, ad, ["medications", "advice", "red_flags"]));
+  if (bd && ad) {
     out.push(...listChanges("discharge.advice", "Discharge · advice", bd.advice, ad.advice));
     out.push(...listChanges("discharge.red_flags", "Discharge · red flag", bd.red_flags, ad.red_flags));
     out.push(...matched("discharge.medications", (bd.medications as Row[]) ?? [], (ad.medications as Row[]) ?? [],
       (r) => `${r.drug_name}`, (r) => `Discharge medication · ${r.drug_name}`,
       (p, t, b, a) => fieldChanges(p, t, b, a)));
   }
+
+  // Week 7 (0011). Snapshots taken before 0011 have none of these keys: treated as empty.
+  out.push(...matched("grafts", before.grafts ?? [], after.grafts ?? [],
+    (r) => `${r.graft_type}/${r.target_vessel}`, (r) => `Graft · ${graftName(r)}`,
+    (p, t, b, a) => fieldChanges(p, t, b, a)));
+  out.push(...block("haemodynamics", "Haemodynamics", before.haemodynamics ?? null, after.haemodynamics ?? null));
+  out.push(...matched("lv_wall_motion", before.lv_wall_motion ?? [], after.lv_wall_motion ?? [],
+    (r) => `${r.segment}`, (r) => `LV wall motion · segment ${r.segment}`,
+    (p, t, b, a) => fieldChanges(p, t, b, a)));
+  out.push(...block("in_hospital_outcomes", "In-hospital outcome", before.in_hospital_outcomes ?? null, after.in_hospital_outcomes ?? null));
   return out;
 }
