@@ -1,0 +1,2365 @@
+{
+  "resourceType": "Bundle",
+  "id": "d562d5cb-84fe-5d41-91e3-ba0227ecef8c",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://hrudaya.dev/tags",
+        "code": "synthetic",
+        "display": "Synthetic data — not a real patient"
+      }
+    ]
+  },
+  "identifier": {
+    "system": "https://hrudaya.dev/case-code",
+    "value": "PCI-2026-002"
+  },
+  "type": "document",
+  "timestamp": "2026-10-18T10:26:45.358Z",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:165393d8-f023-5475-96a2-20d168a22029",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "165393d8-f023-5475-96a2-20d168a22029",
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "34896-1",
+              "display": "Cardiology Interventional procedure note"
+            }
+          ],
+          "text": "Cardiac catheterisation report"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "date": "2026-09-04T03:30:00+00:00",
+        "author": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "title": "Cardiac catheterisation report — PCI-2026-002",
+        "attester": [
+          {
+            "mode": "professional",
+            "time": "2026-09-04T03:30:00+00:00",
+            "party": {
+              "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+              "display": "Dr Arjun Reddy"
+            }
+          }
+        ],
+        "custodian": {
+          "reference": "urn:uuid:6284e669-2d69-4b02-8a48-2d600eeb1e44",
+          "display": "Synthetic District Hospital"
+        },
+        "section": [
+          {
+            "title": "Patient & baseline",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>Indication: NSTEMI.</p><p>Urgency: Urgent.</p><p>2 risk factor(s) recorded.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+              },
+              {
+                "reference": "urn:uuid:a8ec43b4-be9e-5f67-89a8-229bb19dc040"
+              },
+              {
+                "reference": "urn:uuid:5553a82a-aaf0-44d8-a35c-4a20ab6bb8ca"
+              },
+              {
+                "reference": "urn:uuid:e44b6743-6f7b-4846-85a5-8287190eda3e"
+              },
+              {
+                "reference": "urn:uuid:eb80b28c-b73a-5f7b-af59-a891d4c3ee66"
+              },
+              {
+                "reference": "urn:uuid:058fa4b2-4972-5fad-accf-8a75ed376a66"
+              },
+              {
+                "reference": "urn:uuid:92d5e4c0-a0f8-588d-b4d9-7374c9b5a515"
+              },
+              {
+                "reference": "urn:uuid:4db7fbfa-adf9-5bca-a3ed-6a65e0e42680"
+              },
+              {
+                "reference": "urn:uuid:1d03f3ed-1b89-5b04-b04c-b50d8bfab333"
+              },
+              {
+                "reference": "urn:uuid:a980a72c-6a92-5fb4-a3b0-3c0c51ec719c"
+              }
+            ]
+          },
+          {
+            "title": "Access",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>Access: Right radial, 6F sheath.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:431b067c-68d1-413b-a575-9c8f74072d62"
+              }
+            ]
+          },
+          {
+            "title": "Angiography",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>4 vessel(s) assessed.</p><p>Culprit: Mid LAD.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:24fa3263-435a-4305-afda-856c176ec314"
+              },
+              {
+                "reference": "urn:uuid:21df003e-8519-5f01-8979-40d6d433fb42"
+              },
+              {
+                "reference": "urn:uuid:79fc2e99-a24c-44fe-a44a-338be955dd48"
+              },
+              {
+                "reference": "urn:uuid:4cde20a4-703b-56aa-a322-eb54162fe76d"
+              },
+              {
+                "reference": "urn:uuid:abc2dd80-b8ba-46fc-ad39-d42256e2a21e"
+              },
+              {
+                "reference": "urn:uuid:a45d7b28-e5ec-51fc-81bf-f0ef8365fff4"
+              },
+              {
+                "reference": "urn:uuid:33a1493b-6319-4633-94f2-68123f144b5e"
+              },
+              {
+                "reference": "urn:uuid:dd7ff487-8f93-50f6-99c3-c0aaae814b49"
+              },
+              {
+                "reference": "urn:uuid:d00d8320-e47d-5d84-bd17-14098442da28"
+              },
+              {
+                "reference": "urn:uuid:c5b7ecb4-8917-5b42-a64a-e2fa8c15634a"
+              }
+            ]
+          },
+          {
+            "title": "Intervention & devices",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>1 treated lesion(s); 3 device(s) recorded.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:431b067c-68d1-413b-a575-9c8f74072d62"
+              },
+              {
+                "reference": "urn:uuid:6d51112e-5869-45b1-b1d8-bcbc40c6e4de"
+              },
+              {
+                "reference": "urn:uuid:ae9bb0fa-e11a-4f27-be56-1a86e9b276ec"
+              },
+              {
+                "reference": "urn:uuid:9f2acd48-067b-4d38-abc8-fb0b89242c1a"
+              },
+              {
+                "reference": "urn:uuid:16f8a972-4426-57aa-85b1-440a6bd852b5"
+              },
+              {
+                "reference": "urn:uuid:3a89580b-ea1c-5dd2-9481-57b04ffbf3c9"
+              }
+            ]
+          },
+          {
+            "title": "Procedure medications",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>5 medication(s) given around the procedure.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:c89840be-c8f5-43d5-8273-20c1fde0f9cc"
+              },
+              {
+                "reference": "urn:uuid:c7d681e3-8da7-4db2-8eb3-de5455025d73"
+              },
+              {
+                "reference": "urn:uuid:74500563-04fe-422d-909c-97d229c67774"
+              },
+              {
+                "reference": "urn:uuid:4faaef58-d1c8-4817-94ea-1c6a22cad587"
+              },
+              {
+                "reference": "urn:uuid:85927bdc-b9ed-499a-81e0-4d1fafae559e"
+              },
+              {
+                "reference": "urn:uuid:60331377-9abd-589f-ab1d-faa257fa777a"
+              }
+            ]
+          },
+          {
+            "title": "Procedure details",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>Procedure duration: 46 min.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:431b067c-68d1-413b-a575-9c8f74072d62"
+              },
+              {
+                "reference": "urn:uuid:6b57a840-d600-5b0d-a0d3-3ea611749e62"
+              },
+              {
+                "reference": "urn:uuid:e0823105-1a9d-5b03-93fc-1d75ae8d2a9c"
+              },
+              {
+                "reference": "urn:uuid:3ad8f8bd-2633-5850-a712-1666359217cb"
+              },
+              {
+                "reference": "urn:uuid:a188a067-9980-5fc1-a938-6cc55a09c456"
+              }
+            ]
+          },
+          {
+            "title": "Complications",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>None.</p></div>"
+            },
+            "emptyReason": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/list-empty-reason",
+                  "code": "nilknown",
+                  "display": "Nil Known"
+                }
+              ]
+            }
+          },
+          {
+            "title": "Immediate outcome",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>Condition: Stable.</p><p>Destination: Ward.</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+              }
+            ]
+          },
+          {
+            "title": "Discharge",
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p>Discharged 2026-09-04; follow-up 2026-09-17 (Cardiology OPD).</p></div>"
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+              },
+              {
+                "reference": "urn:uuid:1045fa23-c999-4bb9-92a1-6c8c0024c282"
+              },
+              {
+                "reference": "urn:uuid:88b0b022-0f55-42ce-9762-ebfab1ebafa1"
+              },
+              {
+                "reference": "urn:uuid:4a30a840-922f-4d62-a6e0-9083ffb6a07b"
+              },
+              {
+                "reference": "urn:uuid:088024ba-f0ac-4c24-8a54-46754626d667"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "3cd1e14d-45ea-40a7-b682-ba4cfcede75a",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://hrudaya.dev/tags",
+              "code": "synthetic",
+              "display": "Synthetic data — not a real patient"
+            }
+          ]
+        },
+        "identifier": [
+          {
+            "system": "https://hrudaya.dev/mrn",
+            "value": "SYN-MRN-0002"
+          }
+        ],
+        "name": [
+          {
+            "text": "Synthetic Patient 002"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1962-03-12"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "0e6cf4f7-f34e-50b0-a726-afc6e8906eb5",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "IMP",
+          "display": "inpatient encounter"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "period": {
+          "start": "2026-09-02T02:30:00+00:00",
+          "end": "2026-09-04T04:30:00+00:00"
+        },
+        "reasonReference": [
+          {
+            "reference": "urn:uuid:a8ec43b4-be9e-5f67-89a8-229bb19dc040"
+          }
+        ],
+        "location": [
+          {
+            "location": {
+              "reference": "urn:uuid:8b47a7f2-890b-5092-8b9a-0ccbcc156b58",
+              "display": "Cath Lab 1"
+            }
+          }
+        ],
+        "serviceProvider": {
+          "reference": "urn:uuid:6284e669-2d69-4b02-8a48-2d600eeb1e44",
+          "display": "Synthetic District Hospital"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6284e669-2d69-4b02-8a48-2d600eeb1e44",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "6284e669-2d69-4b02-8a48-2d600eeb1e44",
+        "name": "Synthetic District Hospital",
+        "address": [
+          {
+            "city": "Chittoor"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8b47a7f2-890b-5092-8b9a-0ccbcc156b58",
+      "resource": {
+        "resourceType": "Location",
+        "id": "8b47a7f2-890b-5092-8b9a-0ccbcc156b58",
+        "name": "Cath Lab 1",
+        "managingOrganization": {
+          "reference": "urn:uuid:6284e669-2d69-4b02-8a48-2d600eeb1e44",
+          "display": "Synthetic District Hospital"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "91f200b5-b581-4148-8975-3e1fa4bd3610",
+        "name": [
+          {
+            "text": "Dr Arjun Reddy"
+          }
+        ],
+        "qualification": [
+          {
+            "code": {
+              "text": "Interventional cardiologist"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a8ec43b4-be9e-5f67-89a8-229bb19dc040",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "a8ec43b4-be9e-5f67-89a8-229bb19dc040",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis",
+                "display": "Encounter Diagnosis"
+              }
+            ],
+            "text": "Indication for procedure"
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "401314000",
+              "display": "Acute non-ST segment elevation myocardial infarction"
+            }
+          ],
+          "text": "NSTEMI"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5553a82a-aaf0-44d8-a35c-4a20ab6bb8ca",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "5553a82a-aaf0-44d8-a35c-4a20ab6bb8ca",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item",
+                "display": "Problem List Item"
+              }
+            ],
+            "text": "Risk factor"
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "38341003",
+              "display": "Hypertensive disorder"
+            }
+          ],
+          "text": "Hypertension"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e44b6743-6f7b-4846-85a5-8287190eda3e",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "e44b6743-6f7b-4846-85a5-8287190eda3e",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item",
+                "display": "Problem List Item"
+              }
+            ],
+            "text": "Risk factor"
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "44054006",
+              "display": "Type 2 diabetes mellitus"
+            }
+          ],
+          "text": "Diabetes t2"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:431b067c-68d1-413b-a575-9c8f74072d62",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "431b067c-68d1-413b-a575-9c8f74072d62",
+        "extension": [
+          {
+            "url": "https://hrudaya.dev/fhir/StructureDefinition/urgency",
+            "valueCode": "urgent"
+          },
+          {
+            "url": "https://hrudaya.dev/fhir/StructureDefinition/access-site",
+            "valueCodeableConcept": {
+              "text": "Right radial"
+            }
+          },
+          {
+            "url": "https://hrudaya.dev/fhir/StructureDefinition/coronary-dominance",
+            "valueCode": "right"
+          }
+        ],
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "415070008",
+              "display": "Percutaneous coronary intervention"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "33367005",
+              "display": "Angiography of coronary artery"
+            }
+          ],
+          "text": "Coronary angiography and percutaneous coronary intervention"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "performedPeriod": {
+          "start": "2026-09-03T04:30:00+00:00",
+          "end": "2026-09-03T05:16:00+00:00"
+        },
+        "performer": [
+          {
+            "actor": {
+              "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+              "display": "Dr Arjun Reddy"
+            }
+          }
+        ],
+        "location": {
+          "reference": "urn:uuid:8b47a7f2-890b-5092-8b9a-0ccbcc156b58",
+          "display": "Cath Lab 1"
+        },
+        "bodySite": [
+          {
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "59438005",
+                "display": "Structure of left anterior descending artery"
+              }
+            ],
+            "text": "Mid LAD"
+          }
+        ],
+        "focalDevice": [
+          {
+            "action": {
+              "text": "implanted"
+            },
+            "manipulated": {
+              "reference": "urn:uuid:ae9bb0fa-e11a-4f27-be56-1a86e9b276ec",
+              "display": "Everolimus DES"
+            }
+          }
+        ],
+        "note": [
+          {
+            "text": "PCI to mid LAD with an everolimus DES (3.0 × 24 mm). Final LAD residual <10%, TIMI III. No complications. Non-obstructive disease in mid LCX (30%) and proximal RCA (40%) — for medical management."
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6d51112e-5869-45b1-b1d8-bcbc40c6e4de",
+      "resource": {
+        "resourceType": "Device",
+        "id": "6d51112e-5869-45b1-b1d8-bcbc40c6e4de",
+        "lotNumber": "SYN-SCB-26002a",
+        "deviceName": [
+          {
+            "name": "Semi-compliant balloon",
+            "type": "user-friendly-name"
+          }
+        ],
+        "type": {
+          "text": "Semi-compliant balloon — Pre-dilation semi-compliant balloon"
+        },
+        "property": [
+          {
+            "type": {
+              "text": "Diameter"
+            },
+            "valueQuantity": [
+              {
+                "value": 2.5,
+                "unit": "mm",
+                "system": "http://unitsofmeasure.org",
+                "code": "mm"
+              }
+            ]
+          },
+          {
+            "type": {
+              "text": "Length"
+            },
+            "valueQuantity": [
+              {
+                "value": 15,
+                "unit": "mm",
+                "system": "http://unitsofmeasure.org",
+                "code": "mm"
+              }
+            ]
+          },
+          {
+            "type": {
+              "text": "Inflation pressure"
+            },
+            "valueQuantity": [
+              {
+                "value": 12,
+                "unit": "atm",
+                "system": "http://unitsofmeasure.org",
+                "code": "atm"
+              }
+            ]
+          }
+        ],
+        "patient": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:ae9bb0fa-e11a-4f27-be56-1a86e9b276ec",
+      "resource": {
+        "resourceType": "Device",
+        "id": "ae9bb0fa-e11a-4f27-be56-1a86e9b276ec",
+        "lotNumber": "SYN-DES-260002",
+        "deviceName": [
+          {
+            "name": "Everolimus DES",
+            "type": "user-friendly-name"
+          }
+        ],
+        "type": {
+          "text": "Everolimus DES — Deployed stent"
+        },
+        "property": [
+          {
+            "type": {
+              "text": "Diameter"
+            },
+            "valueQuantity": [
+              {
+                "value": 3,
+                "unit": "mm",
+                "system": "http://unitsofmeasure.org",
+                "code": "mm"
+              }
+            ]
+          },
+          {
+            "type": {
+              "text": "Length"
+            },
+            "valueQuantity": [
+              {
+                "value": 24,
+                "unit": "mm",
+                "system": "http://unitsofmeasure.org",
+                "code": "mm"
+              }
+            ]
+          },
+          {
+            "type": {
+              "text": "Inflation pressure"
+            },
+            "valueQuantity": [
+              {
+                "value": 14,
+                "unit": "atm",
+                "system": "http://unitsofmeasure.org",
+                "code": "atm"
+              }
+            ]
+          }
+        ],
+        "patient": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9f2acd48-067b-4d38-abc8-fb0b89242c1a",
+      "resource": {
+        "resourceType": "Device",
+        "id": "9f2acd48-067b-4d38-abc8-fb0b89242c1a",
+        "lotNumber": "SYN-NCB-26002b",
+        "deviceName": [
+          {
+            "name": "Non-compliant balloon",
+            "type": "user-friendly-name"
+          }
+        ],
+        "type": {
+          "text": "Non-compliant balloon — Post-dilation non-compliant balloon"
+        },
+        "property": [
+          {
+            "type": {
+              "text": "Diameter"
+            },
+            "valueQuantity": [
+              {
+                "value": 3.25,
+                "unit": "mm",
+                "system": "http://unitsofmeasure.org",
+                "code": "mm"
+              }
+            ]
+          },
+          {
+            "type": {
+              "text": "Length"
+            },
+            "valueQuantity": [
+              {
+                "value": 12,
+                "unit": "mm",
+                "system": "http://unitsofmeasure.org",
+                "code": "mm"
+              }
+            ]
+          },
+          {
+            "type": {
+              "text": "Inflation pressure"
+            },
+            "valueQuantity": [
+              {
+                "value": 16,
+                "unit": "atm",
+                "system": "http://unitsofmeasure.org",
+                "code": "atm"
+              }
+            ]
+          }
+        ],
+        "patient": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:eb80b28c-b73a-5f7b-af59-a891d4c3ee66",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "eb80b28c-b73a-5f7b-af59-a891d4c3ee66",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "85354-9",
+              "display": "Blood pressure panel with all children optional"
+            }
+          ],
+          "text": "Blood pressure"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T02:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "component": [
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8480-6",
+                  "display": "Systolic blood pressure"
+                }
+              ],
+              "text": "Systolic blood pressure"
+            },
+            "valueQuantity": {
+              "value": 144,
+              "unit": "mm[Hg]",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8462-4",
+                  "display": "Diastolic blood pressure"
+                }
+              ],
+              "text": "Diastolic blood pressure"
+            },
+            "valueQuantity": {
+              "value": 84,
+              "unit": "mm[Hg]",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:058fa4b2-4972-5fad-accf-8a75ed376a66",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "058fa4b2-4972-5fad-accf-8a75ed376a66",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T02:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 77,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:92d5e4c0-a0f8-588d-b4d9-7374c9b5a515",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "92d5e4c0-a0f8-588d-b4d9-7374c9b5a515",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "14682-9",
+              "display": "Creatinine [Moles/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "Creatinine"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T02:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 92,
+          "unit": "umol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "umol/L"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4db7fbfa-adf9-5bca-a3ed-6a65e0e42680",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "4db7fbfa-adf9-5bca-a3ed-6a65e0e42680",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "62238-1",
+              "display": "Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)/1.73 sq M"
+            }
+          ],
+          "text": "eGFR"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T02:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 63,
+          "unit": "mL/min/{1.73_m2}",
+          "system": "http://unitsofmeasure.org",
+          "code": "mL/min/{1.73_m2}"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:1d03f3ed-1b89-5b04-b04c-b50d8bfab333",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "1d03f3ed-1b89-5b04-b04c-b50d8bfab333",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "718-7",
+              "display": "Hemoglobin [Mass/volume] in Blood"
+            }
+          ],
+          "text": "Haemoglobin"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T02:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 13.1,
+          "unit": "g/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "g/dL"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a980a72c-6a92-5fb4-a3b0-3c0c51ec719c",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a980a72c-6a92-5fb4-a3b0-3c0c51ec719c",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "777-3",
+              "display": "Platelets [#/volume] in Blood by Automated count"
+            }
+          ],
+          "text": "Platelets"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T02:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 286,
+          "unit": "10*9/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "10*9/L"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:24fa3263-435a-4305-afda-856c176ec314",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "24fa3263-435a-4305-afda-856c176ec314",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Coronary artery stenosis — LMCA"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "text": "LMCA"
+        },
+        "valueQuantity": {
+          "value": 0,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        },
+        "component": [
+          {
+            "code": {
+              "text": "Culprit lesion"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Thrombus"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Bifurcation"
+            },
+            "valueBoolean": false
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:21df003e-8519-5f01-8979-40d6d433fb42",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "21df003e-8519-5f01-8979-40d6d433fb42",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "TIMI flow grade — LMCA"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "text": "LMCA"
+        },
+        "valueInteger": 3
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:79fc2e99-a24c-44fe-a44a-338be955dd48",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "79fc2e99-a24c-44fe-a44a-338be955dd48",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Coronary artery stenosis — Mid LAD"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "59438005",
+              "display": "Structure of left anterior descending artery"
+            }
+          ],
+          "text": "Mid LAD"
+        },
+        "valueQuantity": {
+          "value": 95,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        },
+        "component": [
+          {
+            "code": {
+              "text": "Culprit lesion"
+            },
+            "valueBoolean": true
+          },
+          {
+            "code": {
+              "text": "Thrombus"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Bifurcation"
+            },
+            "valueBoolean": false
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4cde20a4-703b-56aa-a322-eb54162fe76d",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "4cde20a4-703b-56aa-a322-eb54162fe76d",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "TIMI flow grade — Mid LAD"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "59438005",
+              "display": "Structure of left anterior descending artery"
+            }
+          ],
+          "text": "Mid LAD"
+        },
+        "valueInteger": 2
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:abc2dd80-b8ba-46fc-ad39-d42256e2a21e",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "abc2dd80-b8ba-46fc-ad39-d42256e2a21e",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Coronary artery stenosis — Mid LCX"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "text": "Mid LCX"
+        },
+        "valueQuantity": {
+          "value": 30,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        },
+        "component": [
+          {
+            "code": {
+              "text": "Culprit lesion"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Thrombus"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Bifurcation"
+            },
+            "valueBoolean": false
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a45d7b28-e5ec-51fc-81bf-f0ef8365fff4",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a45d7b28-e5ec-51fc-81bf-f0ef8365fff4",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "TIMI flow grade — Mid LCX"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "text": "Mid LCX"
+        },
+        "valueInteger": 3
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:33a1493b-6319-4633-94f2-68123f144b5e",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "33a1493b-6319-4633-94f2-68123f144b5e",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Coronary artery stenosis — Proximal RCA"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "13647002",
+              "display": "Right coronary artery structure"
+            }
+          ],
+          "text": "Proximal RCA"
+        },
+        "valueQuantity": {
+          "value": 40,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        },
+        "component": [
+          {
+            "code": {
+              "text": "Culprit lesion"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Thrombus"
+            },
+            "valueBoolean": false
+          },
+          {
+            "code": {
+              "text": "Bifurcation"
+            },
+            "valueBoolean": false
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:dd7ff487-8f93-50f6-99c3-c0aaae814b49",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "dd7ff487-8f93-50f6-99c3-c0aaae814b49",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "TIMI flow grade — Proximal RCA"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "13647002",
+              "display": "Right coronary artery structure"
+            }
+          ],
+          "text": "Proximal RCA"
+        },
+        "valueInteger": 3
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:d00d8320-e47d-5d84-bd17-14098442da28",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "d00d8320-e47d-5d84-bd17-14098442da28",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "procedure",
+                "display": "Procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Aortic pressure (invasive)"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "component": [
+          {
+            "code": {
+              "text": "Aortic systolic pressure"
+            },
+            "valueQuantity": {
+              "value": 138,
+              "unit": "mm[Hg]",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "text": "Aortic diastolic pressure"
+            },
+            "valueQuantity": {
+              "value": 80,
+              "unit": "mm[Hg]",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c5b7ecb4-8917-5b42-a64a-e2fa8c15634a",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "c5b7ecb4-8917-5b42-a64a-e2fa8c15634a",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "procedure",
+                "display": "Procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Left ventricular end-diastolic pressure"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "dataAbsentReason": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+              "code": "not-performed",
+              "display": "Not Performed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:16f8a972-4426-57aa-85b1-440a6bd852b5",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "16f8a972-4426-57aa-85b1-440a6bd852b5",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Residual stenosis post-intervention — Mid LAD"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T05:16:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "59438005",
+              "display": "Structure of left anterior descending artery"
+            }
+          ],
+          "text": "Mid LAD"
+        },
+        "valueQuantity": {
+          "value": 5,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3a89580b-ea1c-5dd2-9481-57b04ffbf3c9",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "3a89580b-ea1c-5dd2-9481-57b04ffbf3c9",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "TIMI flow grade post-intervention — Mid LAD"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T05:16:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "59438005",
+              "display": "Structure of left anterior descending artery"
+            }
+          ],
+          "text": "Mid LAD"
+        },
+        "valueInteger": 3
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6b57a840-d600-5b0d-a0d3-3ea611749e62",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "6b57a840-d600-5b0d-a0d3-3ea611749e62",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "procedure",
+                "display": "Procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Contrast volume administered"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 105,
+          "unit": "mL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mL"
+        },
+        "note": [
+          {
+            "text": "Iohexol 350"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e0823105-1a9d-5b03-93fc-1d75ae8d2a9c",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "e0823105-1a9d-5b03-93fc-1d75ae8d2a9c",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "procedure",
+                "display": "Procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Fluoroscopy time"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 9.8,
+          "unit": "min",
+          "system": "http://unitsofmeasure.org",
+          "code": "min"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3ad8f8bd-2633-5850-a712-1666359217cb",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "3ad8f8bd-2633-5850-a712-1666359217cb",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "procedure",
+                "display": "Procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Cumulative air kerma"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 833,
+          "unit": "mGy",
+          "system": "http://unitsofmeasure.org",
+          "code": "mGy"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a188a067-9980-5fc1-a938-6cc55a09c456",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a188a067-9980-5fc1-a938-6cc55a09c456",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "procedure",
+                "display": "Procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Dose-area product"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 63.7,
+          "unit": "Gy.cm2",
+          "system": "http://unitsofmeasure.org",
+          "code": "Gy.cm2"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:60331377-9abd-589f-ab1d-faa257fa777a",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "60331377-9abd-589f-ab1d-faa257fa777a",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "3184-9",
+              "display": "Activated clotting time (ACT) of Blood by Coagulation assay"
+            }
+          ],
+          "text": "Activated clotting time"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:45:00+00:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+            "display": "Dr Arjun Reddy"
+          }
+        ],
+        "valueQuantity": {
+          "value": 276,
+          "unit": "s",
+          "system": "http://unitsofmeasure.org",
+          "code": "s"
+        },
+        "partOf": [
+          {
+            "reference": "urn:uuid:74500563-04fe-422d-909c-97d229c67774",
+            "display": "Unfractionated heparin"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c89840be-c8f5-43d5-8273-20c1fde0f9cc",
+      "resource": {
+        "resourceType": "MedicationAdministration",
+        "id": "c89840be-c8f5-43d5-8273-20c1fde0f9cc",
+        "status": "completed",
+        "medicationCodeableConcept": {
+          "text": "Ticagrelor"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "context": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T03:00:00+00:00",
+        "reasonCode": [
+          {
+            "text": "Loading dose"
+          }
+        ],
+        "dosage": {
+          "route": {
+            "text": "Oral"
+          },
+          "dose": {
+            "value": 180,
+            "unit": "mg",
+            "system": "http://unitsofmeasure.org",
+            "code": "mg"
+          }
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c7d681e3-8da7-4db2-8eb3-de5455025d73",
+      "resource": {
+        "resourceType": "MedicationAdministration",
+        "id": "c7d681e3-8da7-4db2-8eb3-de5455025d73",
+        "status": "completed",
+        "medicationCodeableConcept": {
+          "text": "Aspirin"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "context": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-02T03:00:00+00:00",
+        "reasonCode": [
+          {
+            "text": "Loading dose"
+          }
+        ],
+        "dosage": {
+          "route": {
+            "text": "Oral"
+          },
+          "dose": {
+            "value": 300,
+            "unit": "mg",
+            "system": "http://unitsofmeasure.org",
+            "code": "mg"
+          }
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:74500563-04fe-422d-909c-97d229c67774",
+      "resource": {
+        "resourceType": "MedicationAdministration",
+        "id": "74500563-04fe-422d-909c-97d229c67774",
+        "status": "completed",
+        "medicationCodeableConcept": {
+          "text": "Unfractionated heparin"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "context": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:40:00+00:00",
+        "dosage": {
+          "route": {
+            "text": "Intravenous"
+          },
+          "dose": {
+            "value": 70,
+            "unit": "units/kg",
+            "system": "http://unitsofmeasure.org",
+            "code": "[iU]/kg"
+          }
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4faaef58-d1c8-4817-94ea-1c6a22cad587",
+      "resource": {
+        "resourceType": "MedicationAdministration",
+        "id": "4faaef58-d1c8-4817-94ea-1c6a22cad587",
+        "status": "completed",
+        "medicationCodeableConcept": {
+          "text": "Midazolam"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "context": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "reasonCode": [
+          {
+            "text": "Sedation"
+          }
+        ],
+        "dosage": {
+          "route": {
+            "text": "Intravenous"
+          },
+          "dose": {
+            "value": 1,
+            "unit": "mg",
+            "system": "http://unitsofmeasure.org",
+            "code": "mg"
+          }
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:85927bdc-b9ed-499a-81e0-4d1fafae559e",
+      "resource": {
+        "resourceType": "MedicationAdministration",
+        "id": "85927bdc-b9ed-499a-81e0-4d1fafae559e",
+        "status": "completed",
+        "medicationCodeableConcept": {
+          "text": "Lidocaine 2%"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "context": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "effectiveDateTime": "2026-09-03T04:30:00+00:00",
+        "reasonCode": [
+          {
+            "text": "Local anaesthetic"
+          }
+        ],
+        "dosage": {
+          "route": {
+            "text": "Subcutaneous"
+          },
+          "dose": {
+            "value": 5,
+            "unit": "mL",
+            "system": "http://unitsofmeasure.org",
+            "code": "mL"
+          }
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:1045fa23-c999-4bb9-92a1-6c8c0024c282",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "1045fa23-c999-4bb9-92a1-6c8c0024c282",
+        "extension": [
+          {
+            "url": "https://hrudaya.dev/fhir/StructureDefinition/dapt-plan",
+            "extension": [
+              {
+                "url": "plannedMonths",
+                "valueInteger": 12
+              }
+            ]
+          }
+        ],
+        "status": "active",
+        "intent": "order",
+        "category": [
+          {
+            "text": "DAPT"
+          }
+        ],
+        "medicationCodeableConcept": {
+          "text": "Aspirin"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "authoredOn": "2026-09-04T04:30:00+00:00",
+        "requester": {
+          "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+          "display": "Dr Arjun Reddy"
+        },
+        "dosageInstruction": [
+          {
+            "timing": {
+              "code": {
+                "text": "once daily"
+              }
+            },
+            "route": {
+              "text": "Oral"
+            },
+            "doseAndRate": [
+              {
+                "doseQuantity": {
+                  "value": 75,
+                  "unit": "mg",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "mg"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:88b0b022-0f55-42ce-9762-ebfab1ebafa1",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "88b0b022-0f55-42ce-9762-ebfab1ebafa1",
+        "extension": [
+          {
+            "url": "https://hrudaya.dev/fhir/StructureDefinition/dapt-plan",
+            "extension": [
+              {
+                "url": "plannedMonths",
+                "valueInteger": 12
+              }
+            ]
+          }
+        ],
+        "status": "active",
+        "intent": "order",
+        "category": [
+          {
+            "text": "DAPT"
+          }
+        ],
+        "medicationCodeableConcept": {
+          "text": "Ticagrelor"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "authoredOn": "2026-09-04T04:30:00+00:00",
+        "requester": {
+          "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+          "display": "Dr Arjun Reddy"
+        },
+        "dosageInstruction": [
+          {
+            "timing": {
+              "code": {
+                "text": "twice daily"
+              }
+            },
+            "route": {
+              "text": "Oral"
+            },
+            "doseAndRate": [
+              {
+                "doseQuantity": {
+                  "value": 90,
+                  "unit": "mg",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "mg"
+                }
+              }
+            ]
+          }
+        ],
+        "dispenseRequest": {
+          "expectedSupplyDuration": {
+            "value": 12,
+            "unit": "months",
+            "system": "http://unitsofmeasure.org",
+            "code": "mo"
+          }
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4a30a840-922f-4d62-a6e0-9083ffb6a07b",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "4a30a840-922f-4d62-a6e0-9083ffb6a07b",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Atorvastatin"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "authoredOn": "2026-09-04T04:30:00+00:00",
+        "requester": {
+          "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+          "display": "Dr Arjun Reddy"
+        },
+        "dosageInstruction": [
+          {
+            "timing": {
+              "code": {
+                "text": "once daily"
+              }
+            },
+            "route": {
+              "text": "Oral"
+            },
+            "doseAndRate": [
+              {
+                "doseQuantity": {
+                  "value": 80,
+                  "unit": "mg",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "mg"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:088024ba-f0ac-4c24-8a54-46754626d667",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "088024ba-f0ac-4c24-8a54-46754626d667",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Ramipril"
+        },
+        "subject": {
+          "reference": "urn:uuid:3cd1e14d-45ea-40a7-b682-ba4cfcede75a"
+        },
+        "encounter": {
+          "reference": "urn:uuid:0e6cf4f7-f34e-50b0-a726-afc6e8906eb5"
+        },
+        "authoredOn": "2026-09-04T04:30:00+00:00",
+        "requester": {
+          "reference": "urn:uuid:91f200b5-b581-4148-8975-3e1fa4bd3610",
+          "display": "Dr Arjun Reddy"
+        },
+        "dosageInstruction": [
+          {
+            "timing": {
+              "code": {
+                "text": "once daily"
+              }
+            },
+            "route": {
+              "text": "Oral"
+            },
+            "doseAndRate": [
+              {
+                "doseQuantity": {
+                  "value": 2.5,
+                  "unit": "mg",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "mg"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

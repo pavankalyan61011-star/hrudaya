@@ -104,6 +104,8 @@ MedicationAdministration and MedicationRequest — from the **Export FHIR** butt
 `GET /api/fhir/procedures/<id>` (signed in; drafts are refused). Field-by-field mapping, every
 code with how it was verified, and the known validator warnings: [docs/fhir-mapping.md](docs/fhir-mapping.md).
 
+- **Sample Bundle (synthetic, unamended):** [docs/samples/PCI-2026-002.bundle.json](docs/samples/PCI-2026-002.bundle.json) — case PCI-2026-002, exported 18 Oct 2026; HL7 validator 7.0.1: 0 errors.
+
 - **Validated:** all 21 reviewed cases (the 20 seeded cases plus PCI-2026-021, entered in the app)
   pass the official HL7 FHIR validator 7.0.1 with **0 errors**:
 
