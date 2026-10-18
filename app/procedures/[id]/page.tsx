@@ -58,6 +58,8 @@ async function loadSummaryCard(db: ReturnType<typeof createClient>, p: Procedure
       lvefStatus: p.lvef_status,
       complicationsWithoutOutcome: p.complications.filter((c) => !(c.outcome ?? "").trim()).length,
       inputHash: inputHash(input),
+      // Rows from prompts v1–v7 are checked against the input they were generated from.
+      v7InputHash: inputHash(buildSummaryInput(p, "v7")),
     },
     configured: summaryConfigured(),
     generatedToday: today.error ? null : today.count,

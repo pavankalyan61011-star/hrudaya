@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildSummaryInput, inputHash } from "./input.ts";
+import { buildSummaryInput, inputHash, inputHashFor } from "./input.ts";
 import { fixture } from "../fhir/test-fixture.ts";
 
 /** Every value in a JSON tree, as strings, for leak checks. */
@@ -139,4 +139,34 @@ test("v7: physiology, imaging and in-hospital events are sent; STEMI times, BARC
   ]);
   const json = JSON.stringify(input);
   for (const leaked of ["212", "BARC", "140 µg", "free text never sent", "6.4", "2.9", "74"]) assert.ok(!json.includes(leaked), `leaked: ${leaked}`);
+});
+
+// ─── v8 ───────────────────────────────────────────────────────────────────────
+
+test("v8: no sheath size and no guidewire or catheter is sent; the v7 builder keeps them for old rows' hashes", () => {
+  const p = fixture();
+  assert.ok(p.sheath_size_fr, "the fixture has a sheath size (guards a vacuous check)");
+  const i0 = p.interventions[0];
+  p.interventions[0] = {
+    ...i0,
+    devices_used: [...i0.devices_used, { ...i0.devices_used[0], id: "00000000-0000-4000-8000-0000000008a1", category: "guidewire", product_name: "Synthetic workhorse wire" }],
+  };
+  const now = buildSummaryInput(p);
+  assert.equal(now.access && "sheath_size_fr" in now.access, false);
+  assert.ok(!JSON.stringify(now).includes("Synthetic workhorse wire"));
+  const old = buildSummaryInput(p, "v7");
+  assert.equal(old.access?.sheath_size_fr, p.sheath_size_fr);
+  assert.ok(JSON.stringify(old).includes("Synthetic workhorse wire"));
+  assert.equal(inputHashFor(p, "v7"), inputHash(old));
+  assert.equal(inputHashFor(p, "v1"), inputHash(old));
+  assert.equal(inputHashFor(p, "v8"), inputHash(now));
+  assert.notEqual(inputHash(old), inputHash(now));
+});
+
+test("v8: a lesion inside an earlier stent says so; the v7 builder does not", () => {
+  const p = fixture();
+  p.vessel_findings[0] = { ...p.vessel_findings[0], in_stent_restenosis: true, isr_pattern: "focal" };
+  assert.equal(buildSummaryInput(p).findings[0].inside_earlier_stent, true);
+  assert.equal("inside_earlier_stent" in buildSummaryInput(p, "v7").findings[0], false);
+  assert.equal("inside_earlier_stent" in buildSummaryInput(fixture()).findings[0], false);
 });

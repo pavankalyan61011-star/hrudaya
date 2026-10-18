@@ -1,4 +1,4 @@
-# AI discharge summary (Week 4; prompt v7 in Week 7)
+# AI discharge summary (Week 4; prompts v7 and v8 in Week 7)
 
 Hrudaya drafts a patient-facing discharge summary in English, Telugu, Hindi, Tamil, Kannada or
 Malayalam from a reviewed procedure record. **The model drafts, the code audits, the clinician
@@ -11,7 +11,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 
 1. **The model sees structured fields only.** [`lib/summary/input.ts`](../lib/summary/input.ts)
    builds the input from the same rows that feed the FHIR Bundle: age, sex, indication, access,
-   findings, interventions, device sizes, LVEF (only when recorded), complications, discharge
+   findings, interventions, stent and balloon sizes, LVEF (only when recorded), complications, discharge
    advice, red flags and medicines. It contains no name, date of birth, MRN, ABHA, phone, device
    lot, expiry or UDI. There is one exception to "no free text" (owner, 2026-10-15): a
    complication's management and outcome text, at most 300 characters each, and only for a
@@ -45,7 +45,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 | Step | File |
 |---|---|
 | Record → PHI-minimal input + sha256 | `lib/summary/input.ts` |
-| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v7"`) |
+| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v8"`) |
 | Claude API call, server-only | `lib/summary/generate.ts` |
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
@@ -211,7 +211,7 @@ before the run was about $3.30, at most $8.74.
   does not limit blood flow enough to need treatment, so it was not stented." In Telugu: "అందుకే
   దీనికి స్టెంట్ లేదా బెలూన్ వేయలేదు."
 
-**Two findings for the next prompt or input change** (not applied: one run only):
+**Two findings, fixed in [v8](#prompt-v8-18-oct-2026)** (not applied to v7: one run only):
 - **The English 019 draft also writes "The decision was to defer."** The record's word leaks
   through as jargon just before the plain explanation. None of the five Indian-language drafts uses
   it.
@@ -237,6 +237,97 @@ before the run was about $3.30, at most $8.74.
 Input rose by about 700 tokens per summary compared with v6, from the longer prompt; the record
 JSON grows only for Week 7 cases. All six languages for one case average $0.158.
 
+## Prompt v8 (18 Oct 2026)
+
+Three changes from the v7 eval (owner, 18 Oct 2026). The exact text is in
+[`lib/summary/prompt.ts`](../lib/summary/prompt.ts).
+
+1. **No decision word.** The decision is said only in plain words: the test showed the narrowing
+   is not limiting blood flow enough to need treatment, so it was not stented. "defer",
+   "deferred", "decision" and "The decision was to …" are never written. The audit enforces this
+   in every language: `forbidden_phrase` **errors** for "defer" and "decision was/is to". The
+   English `decision_mismatch` check no longer accepts "defer" as evidence; it needs "not", "no
+   stent/balloon" or "without".
+2. **An earlier stent is named.** A finding with `in_stent_restenosis` now carries
+   `inside_earlier_stent: true`. The prompt says there is a stent from an earlier procedure in
+   that artery, that the treatment was inside it, and that an imaging stent result after treatment
+   describes "the earlier stent" unless a new one was placed.
+3. **No sheath, catheter or French size.** The input no longer sends `sheath_size_fr`, and it sends
+   only stents and balloons, never a guidewire or an "other" device such as a catheter. The prompt
+   describes access by site and side only. "Fr" (as a word: "5 Fr", "6Fr", but not "From") and
+   "French" are `forbidden_phrase` **errors** in every language. The word "sheath" can still reach
+   the model inside a clinician's complication text ("after sheath removal" in PCI-2026-005 and
+   -024), without a size.
+
+**Never sent (v8)** = the v7 list plus the sheath size, guidewires and any device that is not a
+stent or balloon.
+
+**Approved summaries and the hash.** Dropping the sheath size changes every case's input. So a
+summary row is now compared with the input **its own prompt version** was generated from:
+- rows from prompts v1–v7 use the v7 builder (`buildSummaryInput(p, "v7")`, never sent to the
+  model);
+- v8 rows use the current builder;
+- the comparison is `inputHashFor(p, prompt_version)`, applied in the report card, the print page
+  and the approve route.
+
+Checked on production, read-only, before the push: 17 summary rows, and **0 change state**.
+
+| Approved summary | Before v8 | After v8 | Why |
+|---|---|---|---|
+| PCI-2026-001 Malayalam v2 | current | current | — |
+| PCI-2026-008 Telugu v2 | current | current | — |
+| PCI-2026-001 Telugu v4 (and v1–v3) | record changed | record changed | approved 15 Oct; amendment 1 to the record closed 16 Oct (Week 6), so it is correctly superseded |
+
+### v8 eval (18 Oct 2026)
+
+One run against the local database: **132/132 generated, 0 failed, 0 audit flags, $3.54.** The
+free token-count estimate was rate-limited, so the run went ahead on the v7 figure (about $3.50
+expected, $8.74 at most).
+
+| Check | en | te | hi | ta | kn | ml | Total |
+|---|---|---|---|---|---|---|---|
+| `physiology_missing` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `decision_mismatch` (English only) | 0 | — | — | — | — | — | 0 |
+| `decision_unclear` (Indian languages) | — | 0 | 0 | 0 | 0 | 0 | 0 |
+| `number_unknown` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `forbidden_phrase` (incl. Fr, French, defer, decision was to, and the three LVEF words) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `drug_missing` / `drug_extra` / `dose_mismatch` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Warnings | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+**v7 → v8, drafts containing** (of 132):
+
+| | v7 | v8 |
+|---|---|---|
+| "Fr" as a word (sheath size, e.g. "5 Fr sheath") | 8 | **0** |
+| "defer" / "deferred" | 1 | **0** |
+| "The decision was to …" | 1 | **0** |
+| "French", "heart failure", "weak heart", "damaged" | 0 | 0 |
+
+The v7 audit did not yet block "Fr". The 8 v7 drafts with it are why it now does.
+
+**The two v7 findings:**
+- **CAG-2026-019, English:** "It showed this narrowing is not limiting blood flow enough to need
+  treatment, so it was not stented and no balloon was used for it." Telugu: "…చికిత్స
+  అవసరమయ్యేంతగా అడ్డుకోవడం లేదని తేలింది. అందువల్ల దీనికి స్టెంట్ వేయలేదు." Its Telugu access line no longer
+  has "5 Fr sheath".
+- **PCI-2026-015:** all six languages now give the 88% as the **earlier** stent's result. English:
+  "After treatment, the earlier stent was 88% expanded…". Hindi says the narrowing was inside the
+  stent placed earlier, the treatment was done inside that old stent, no new stent was placed, and
+  IVUS then showed the old stent's expansion was 88%.
+
+**Unchanged from v7:**
+- the LVEF sentence matches the value in 5 of 5 English drafts;
+- nothing about pumping without an LVEF (17 of 17);
+- every in-hospital event is mentioned (8 of 8);
+- the imaging test is named, with the expansion %, in 12 of 12 drafts (v7: 7 of 12).
+
+**For the Hindi native reader:** PCI-2026-015's access line says "radial की नस". नस usually means a
+vein, and the artery is धमनी (the v7 draft said "रेडियल धमनी").
+
+**Cost under v8:** English $0.0160, Telugu $0.0254, Hindi $0.0212, Tamil $0.0271, Kannada
+$0.0406 (longest draft 4,533 of 6,000 tokens), Malayalam $0.0304 per summary. Input is about 3,460
+tokens, 280 more than v7, from the longer prompt. Total API spend is about $21.43 with this run.
+
 ## Audit rules
 
 | Code | Rule | Severity |
@@ -248,9 +339,10 @@ JSON grows only for Week 7 cases. All six languages for one case average $0.158.
 | `section_missing` / `section_extra` | Not the expected number of `##` headings: 9, less one each when the input has no LVEF, no advice or no red flags. | warning |
 | `script_check` | Not English, and under 70% of the non-Latin letters are in the language's Unicode block (Telugu, Devanagari, Tamil, Kannada, Malayalam). The medicines table and Latin tokens are ignored. | warning |
 | `forbidden_phrase` | "not recorded", "unknown", "N/A", "as an AI", "I cannot". | warning |
+| `forbidden_phrase` (v8) | "Fr" as a word ("5 Fr", "6Fr"; not "From"), "French", "defer", "decision was/is to" — in every language, whatever the record holds. | **error** |
 | `forbidden_phrase` (v7) | "heart failure", "weak heart", "damaged" — unless the record's own text contains the phrase (owner, 18 Oct 2026). Checked as written in English, which is also how a medical term in brackets appears in the other languages. | **error** |
 | `physiology_missing` (v7) | A physiology result with a decision (e.g. FFR 0.86, defer): no sentence in the draft has both the test name and the value. All languages. | **error** |
-| `decision_mismatch` (v7) | English: a deferred result is not followed, within three sentences, by "not", "no stent/balloon", "defer" or "without"; or a treated result is followed, within two, by "deferred", "not stented/treated" or "did not need". | **error** |
+| `decision_mismatch` (v7) | English: a deferred result is not followed, within three sentences, by "not", "no stent/balloon" or "without" (v8 dropped "defer"); or a treated result is followed, within two, by "deferred", "not stented/treated" or "did not need". | **error** |
 | `decision_unclear` (v7) | Indian languages: a deferred result has no negation word nearby (e.g. లేదు, नहीं, இல்லை, ಇಲ್ಲ, ഇല്ല). Negation is often a verb ending, so a correct sentence can be missed; the native reader decides. | warning |
 | `too_long` | Over 700 words. | warning |
 
@@ -398,7 +490,7 @@ The prose itself awaits the native-reader check.
 All six languages for one case average $0.144. Five Kannada drafts are over 3,500 tokens; the limit
 is 6,000. Time averages 6 s in English and 10–18 s in the Indian languages, 22 s at most. The
 whole v6 run cost $2.73. Total API spend across all runs is about $14.41, and $17.89 with
-the v7 run ($3.48; figures under [Prompt v7](#prompt-v7-week-7-structured-reporting)).
+the v7 run ($3.48), and $21.43 with the v8 run ($3.54; see [Prompt v8](#prompt-v8-18-oct-2026)).
 
 Earlier versions, for comparison:
 

@@ -464,6 +464,14 @@ would look for it, with its source. The report doesn't turn into a 40-field form
 
   STEMI times are never sent. Eval: 132/132 drafts, 0 audit flags, $3.48
   ([docs/ai-summary.md](docs/ai-summary.md#prompt-v7-week-7-structured-reporting)).
+- **AI summary, prompt v8:**
+  - no decision word ("defer");
+  - an in-stent restenosis names "the earlier stent";
+  - no sheath size, French gauge or catheter. The sheath size is no longer sent, and "Fr"/"French"
+    block approval.
+
+  Approved summaries keep their status: each row is compared with the input its own prompt version
+  saw. Eval: 132/132, 0 flags, $3.54 ([docs/ai-summary.md](docs/ai-summary.md#prompt-v8-18-oct-2026)).
 
 | Lesion sheet (phone) |
 |---|

@@ -39,8 +39,20 @@ export const SUMMARY_MODEL = "claude-sonnet-5-5";
  *      41–49 mildly reduced, ≤40 reduced), never writing the band limits or "heart failure",
  *      "weak heart" or "damaged" (owner, 2026-10-18).
  *      STEMI times are never sent. Cases without Week 7 data send exactly the v6 input.
+ * v8 — from the v7 eval (owner, 2026-10-18):
+ *      - the decision word is never written ("The decision was to defer" in the English
+ *        CAG-2026-019 draft); the decision is said in plain words only;
+ *      - a lesion inside an earlier stent says so (`inside_earlier_stent`), so "no new stent" and
+ *        an IVUS result for that stent read as the same old stent (PCI-2026-015, Hindi);
+ *      - no sheath or catheter size, French gauge, or sheath/catheter/guidewire name: the sheath
+ *        size is no longer sent (the Telugu CAG-2026-019 draft wrote "5 Fr sheath"), only stents
+ *        and balloons are, and "Fr"/"French" block approval.
  */
-export const PROMPT_VERSION = "v7";
+export const PROMPT_VERSION = "v8";
+
+/** Rows from these prompts were generated (and hashed) from the v7 input builder. */
+const V7_INPUT_PROMPTS = new Set(["v1", "v2", "v3", "v4", "v5", "v6", "v7"]);
+export const usesV7Input = (promptVersion: string) => V7_INPUT_PROMPTS.has(promptVersion);
 
 export const LANGUAGES = {
   en: "English",
@@ -63,7 +75,9 @@ Write the body in ${L}. Keep these exactly as given, in Latin script and Western
 
 FACTS
 Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". A complication is described only together with its outcome, in one or two plain sentences, using only that complication's name, management and outcome from the record. When that text names a specific finding or test result (for example "ultrasound excluded pseudoaneurysm"), keep it specific — name the test and what it excluded or showed, in plain words with the medical term in brackets — rather than generalising it to "no further problem". A complication without an outcome is not mentioned at all.
-A lesion's physiology test (FFR, iFR, RFR, DFR or Pd/Pa) measures whether a narrowing limits blood flow. Its decision means: "defer" — the test showed this narrowing does not limit blood flow enough to need treatment, so no stent or balloon was used for it; "treat" — the test showed it limits blood flow, so it was treated. Give the test name and value exactly as given. Write no cut-off or threshold value, and do not compare the value with one.
+A lesion's physiology test (FFR, iFR, RFR, DFR or Pd/Pa) measures whether a narrowing limits blood flow. Its decision means: "defer" — the test showed this narrowing is not limiting blood flow enough to need treatment, so it was not stented and no balloon was used for it; "treat" — the test showed it limits blood flow, so it was treated. Say the decision only in those plain words: never write the words "defer", "deferred" or "decision", and never a sentence such as "The decision was to defer" or "The decision was to treat". Give the test name and value exactly as given. Write no cut-off or threshold value, and do not compare the value with one.
+A finding with inside_earlier_stent means there is a stent from an earlier procedure in that artery and this narrowing is inside it (in-stent restenosis): any treatment of it was done inside that earlier stent. Call it "the earlier stent". If no new stent was placed in that artery, say clearly that no new stent was put in and that the treatment was inside the earlier stent; a stent result from imaging after treatment (expansion, how it sits against the wall, its edge) then describes the earlier stent, and must be written as being about the earlier stent.
+Never write a sheath or catheter size, a French size ("Fr", "French"), or the name of a sheath, catheter or guidewire. Describe the access only by its site and side.
 
 SECTIONS
 Use these sections, in this order, each as a Markdown "## " heading written in ${L}. Do not number the headings and add no other headings. Sections 4 and 7 are left out entirely when the record has nothing for them. Never write a section to say that something does not apply, is not listed or is not in the record.

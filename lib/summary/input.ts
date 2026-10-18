@@ -12,11 +12,17 @@
  * times, BARC grade, creatinine, the other Week 7 detail. These keys appear only when the record
  * has the data, so a case without Week 7 data keeps its Week 6 input and hash.
  *
+ * v8: no sheath size (French gauge) and no device other than stents and balloons (a guidewire or
+ * catheter is never sent); a lesion inside an earlier stent says so. A row generated with an
+ * earlier prompt keeps the hash of the input it was generated from (`inputHashFor`), so this
+ * change alone never marks an approved summary "record changed".
+ *
  * Type-only imports plus relative `.ts` imports, so it runs unchanged in Next and under Node.
  */
 import { createHash } from "node:crypto";
 import type { FhirSource } from "../fhir/load.ts";
 import { lesionName } from "../report-format.ts";
+import { usesV7Input } from "./prompt.ts";
 
 type P = FhirSource;
 
@@ -45,11 +51,14 @@ export type SummaryInput = {
     cath_lab_name?: string;
   };
   risk_factors: string[];
+  /** `sheath_size_fr` only in the v7 builder (rows from prompts v1–v7), for their hash. */
   access?: { site: string; side?: string; sheath_size_fr?: number };
   findings: {
     vessel: string;
     stenosis_pct: number;
     timi_flow: number;
+    /** v8: the narrowing is inside a stent from an earlier procedure (in-stent restenosis). */
+    inside_earlier_stent?: true;
     /** Week 7: pressure-wire or angiography-derived index; `decision` exactly as recorded. */
     physiology?: SummaryPhysiology[];
     /** Week 7: IVUS/OCT; the stent result only after treatment. */
@@ -168,7 +177,7 @@ function clip(s: string | null | undefined): string | undefined {
   return t.length > COMPLICATION_TEXT_MAX ? `${t.slice(0, COMPLICATION_TEXT_MAX - 1)}…` : t;
 }
 
-function access(site: string | null, sheath: number | null): SummaryInput["access"] {
+function access(site: string | null, sheath: number | null | undefined): SummaryInput["access"] {
   if (!site) return undefined;
   const [side, ...rest] = site.split("_");
   const known = side === "right" || side === "left";
@@ -213,7 +222,15 @@ function inHospitalEvents(p: P): string[] | undefined {
   return events.length ? events : undefined;
 }
 
-export function buildSummaryInput(p: P): SummaryInput {
+/** Sent from v8: stents and balloons only — a guidewire or "other" device (e.g. a catheter) never is. */
+const PATIENT_DEVICES = new Set(["stent", "balloon_sc", "balloon_nc", "balloon_dcb", "balloon_scoring"]);
+
+/**
+ * `builder: "v7"` rebuilds the input exactly as prompts v1–v7 received it (sheath size, every
+ * device, no in-stent flag) — only to check those rows' hashes. Never sent to the model.
+ */
+export function buildSummaryInput(p: P, builder: "current" | "v7" = "current"): SummaryInput {
+  const v7 = builder === "v7";
   const vessels = new Map(p.vessel_findings.map((v) => [v.id, v]));
   const onDate = p.procedure_date ?? p.patient.date_of_birth;
   const d = p.discharge;
@@ -230,9 +247,16 @@ export function buildSummaryInput(p: P): SummaryInput {
       cath_lab_name: p.facility?.cath_lab_name,
     }),
     risk_factors: p.patient.risk_factors.map((r) => RISK[r.factor] ?? r.factor),
-    access: access(p.access_site, p.sheath_size_fr),
+    access: access(p.access_site, v7 ? p.sheath_size_fr : undefined),
     findings: p.vessel_findings.map((v) =>
-      compact({ vessel: lesionName(v.vessel, v.segment), stenosis_pct: v.stenosis_pct, timi_flow: v.timi_flow, physiology: physiology(v), imaging: imaging(v) }),
+      compact({
+        vessel: lesionName(v.vessel, v.segment),
+        stenosis_pct: v.stenosis_pct,
+        timi_flow: v.timi_flow,
+        inside_earlier_stent: !v7 && v.in_stent_restenosis ? (true as const) : undefined,
+        physiology: physiology(v),
+        imaging: imaging(v),
+      }),
     ),
     interventions: p.interventions.map((i) => {
       const v = vessels.get(i.vessel_finding_id);
@@ -244,7 +268,7 @@ export function buildSummaryInput(p: P): SummaryInput {
       };
     }),
     devices: p.interventions.flatMap((i) =>
-      i.devices_used.map((dev) => ({ category: DEVICE[dev.category] ?? dev.category, name: dev.product_name, size: sizeText(dev.diameter_mm, dev.length_mm) })),
+      i.devices_used.filter((dev) => v7 || PATIENT_DEVICES.has(dev.category)).map((dev) => ({ category: DEVICE[dev.category] ?? dev.category, name: dev.product_name, size: sizeText(dev.diameter_mm, dev.length_mm) })),
     ),
     measurements: compact({
       // Three-state rule: only a recorded LVEF is sent; otherwise the key is absent.
@@ -293,4 +317,9 @@ export function buildSummaryInput(p: P): SummaryInput {
 /** sha256 of the canonical JSON — stored on every row; a changed record changes the hash. */
 export function inputHash(input: SummaryInput): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
+/** The hash a row generated with `promptVersion` must carry while its record is unchanged. */
+export function inputHashFor(p: P, promptVersion: string): string {
+  return inputHash(buildSummaryInput(p, usesV7Input(promptVersion) ? "v7" : "current"));
 }

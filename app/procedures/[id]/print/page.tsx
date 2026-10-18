@@ -11,7 +11,7 @@ import { SummaryMarkdown } from "@/components/report/summary-markdown";
 import { PrintButton } from "@/components/report/print-button";
 import { LANGUAGES } from "@/lib/summary/prompt";
 import { SUMMARY_FONT_VARIABLES } from "@/lib/summary/fonts";
-import { buildSummaryInput, inputHash } from "@/lib/summary/input";
+import { inputHashFor } from "@/lib/summary/input";
 import { listAmendments } from "@/lib/queries/amendments";
 
 export const dynamic = "force-dynamic";
@@ -56,12 +56,12 @@ export default async function PrintPage({ params, searchParams }: { params: { id
   ]);
   const operatorName = (id: string | null) => ops.operators.find((o) => o.id === id)?.full_name ?? NOT_RECORDED;
   // Week 6: a summary approved before an amendment changed the record is superseded — not printed.
-  const currentHash = inputHash(buildSummaryInput(p));
+  const currentHash = (s: { prompt_version: string }) => inputHashFor(p, s.prompt_version);
   const closed = amendmentRows.amendments.filter((a) => a.status === "closed" && a.closed_at);
   const chosen = (summaries.data ?? []).filter((s) => !searchParams.summary || s.id === searchParams.summary);
-  const approved = chosen.filter((s) => s.input_hash === currentHash);
+  const approved = chosen.filter((s) => s.input_hash === currentHash(s));
   const superseded = chosen
-    .filter((s) => s.input_hash !== currentHash)
+    .filter((s) => s.input_hash !== currentHash(s))
     .map((s) => ({ s, by: closed.filter((a) => !s.approved_at || a.closed_at! > s.approved_at).sort((a, b) => a.closed_at!.localeCompare(b.closed_at!))[0] ?? null }));
 
   return (

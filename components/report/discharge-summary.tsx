@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { LANGUAGES, type SummaryLanguage } from "@/lib/summary/prompt";
+import { LANGUAGES, usesV7Input, type SummaryLanguage } from "@/lib/summary/prompt";
 import { auditDraft, hasErrors, type AuditFlag } from "@/lib/summary/audit";
 import type { SummaryInput } from "@/lib/summary/input";
 import type { ClientSummary as SummaryRow } from "@/lib/summary/api";
@@ -31,7 +31,7 @@ type Props = {
   operators: { id: string; full_name: string }[];
   defaultClinicianId: string | null;
   /** For the Compare-with-record panel: what the input cannot say by itself. */
-  record: { lvefStatus: RecordContext["lvefStatus"]; complicationsWithoutOutcome: number; inputHash: string } | null;
+  record: { lvefStatus: RecordContext["lvefStatus"]; complicationsWithoutOutcome: number; inputHash: string; v7InputHash: string } | null;
   /** Week 6: closed amendments (number, when), to say which one superseded an approved summary. */
   amendmentClosures?: { no: number; closed_at: string }[];
 };
@@ -72,10 +72,12 @@ export function DischargeSummaryCard(props: Props) {
     () => (input && props.record ? { input, lvefStatus: props.record.lvefStatus, complicationsWithoutOutcome: props.record.complicationsWithoutOutcome } : null),
     [input, props.record],
   );
-  const recordChanged = !!(current && props.record && current.input_hash !== props.record.inputHash);
+  // A row is compared with the input its prompt version was generated from (v8 dropped fields).
+  const hashFor = (row: SummaryRow) => (props.record ? (usesV7Input(row.prompt_version) ? props.record.v7InputHash : props.record.inputHash) : null);
+  const recordChanged = !!(current && props.record && current.input_hash !== hashFor(current));
   // Week 6: an approved summary written from a record that has since been amended is superseded —
   // shown, never printed, with a new version one tap away.
-  const isSuperseded = (row: SummaryRow) => row.status === "approved" && !!props.record && row.input_hash !== props.record.inputHash;
+  const isSuperseded = (row: SummaryRow) => row.status === "approved" && !!props.record && row.input_hash !== hashFor(row);
   const supersededBy = (row: SummaryRow) =>
     (props.amendmentClosures ?? []).filter((a) => !row.approved_at || a.closed_at > row.approved_at).sort((a, b) => a.closed_at.localeCompare(b.closed_at))[0] ?? null;
 

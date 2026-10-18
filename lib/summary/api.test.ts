@@ -183,7 +183,7 @@ test("409 when the insert trigger refuses or another version won the race", asyn
 function summaryRow(over: Partial<SummaryRow> = {}): SummaryRow {
   return {
     id: SID, procedure_id: PID, language: "en", version: 1, status: "draft", model: "claude-sonnet-5-5",
-    prompt_version: "v1", input_hash: inputHash(buildSummaryInput(fixture())), draft_text: CLEAN, audit_flags: [],
+    prompt_version: PROMPT_VERSION, input_hash: inputHash(buildSummaryInput(fixture())), draft_text: CLEAN, audit_flags: [],
     approved_text: null, approving_clinician_id: null, approved_by: null, approved_at: null,
     tokens_in: 1400, tokens_out: 700, generated_by: "user-1", generated_at: "2026-10-15T09:00:00Z", ...over,
   };

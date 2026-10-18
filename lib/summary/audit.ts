@@ -36,7 +36,7 @@ export const SCRIPT_RANGES: Partial<Record<SummaryLanguage, [number, number, str
  * (error); for the Indian languages, the sentence must carry a negation (warning — negation is
  * often a verb suffix, so a substring check can miss a correct sentence; the native reader decides).
  */
-const DEFER_EN = /\bnot\b|\bno (stent|balloon)|\bdefer|\bwithout\b|n't\b/i;
+const DEFER_EN = /\bnot\b|\bno (stent|balloon)|\bwithout\b|n't\b/i;
 const TREAT_CONTRADICTION_EN = /\bdefer|\bnot (stented|treated)\b|\bno stent was\b|\b(did not|didn't|does not|doesn't) need\b/i;
 const NEGATION: Partial<Record<SummaryLanguage, string[]>> = {
   hi: ["नहीं", "बिना"],
@@ -57,6 +57,16 @@ const FORBIDDEN = ["not recorded", "unknown", "n/a", "as an ai", "i cannot"];
  * brackets appears in the other languages.
  */
 const FORBIDDEN_CLINICAL = ["heart failure", "weak heart", "damaged"];
+/**
+ * v8 (owner, 2026-10-18): never in a patient summary, whatever the record holds — an error in every
+ * language. "Fr" is matched as a word ("5 Fr", "6Fr"), not inside "From" or "Friday".
+ */
+const FORBIDDEN_STRICT: [string, RegExp][] = [
+  ["Fr", /(?<![A-Za-z])Fr(?![a-z])/],
+  ["French", /french/i],
+  ["defer", /defer/i],
+  ["decision was to", /decision (was|is) to/i],
+];
 const MAX_WORDS = 700;
 const SCRIPT_THRESHOLD = 0.7;
 
@@ -193,6 +203,9 @@ export function auditDraft(input: SummaryInput, draft: string, language: Summary
     if (lower.includes(phrase) && !inputText.includes(phrase)) {
       flags.push({ code: "forbidden_phrase", severity: "error", detail: `contains "${phrase}"` });
     }
+  }
+  for (const [label, re] of FORBIDDEN_STRICT) {
+    if (re.test(draft)) flags.push({ code: "forbidden_phrase", severity: "error", detail: `contains "${label}"` });
   }
 
   // too_long

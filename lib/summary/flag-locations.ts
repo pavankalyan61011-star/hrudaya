@@ -45,6 +45,7 @@ function containsToken(haystack: string, flag: UiFlag, token: string): boolean {
     // A whole number: "5" must not match inside "15" or "5.5"; digits in any script.
     return new RegExp(`(?<![\\p{Nd}.])${escapeRe(token)}(?![\\p{Nd}]|\\.\\p{Nd})`, "u").test(haystack);
   }
+  if (flag.code === "forbidden_phrase" && token === "Fr") return /(?<![A-Za-z])Fr(?![a-z])/.test(haystack);
   if (flag.code === "drug_extra") {
     return new RegExp(`(^|[^a-z])${escapeRe(token)}([^a-z]|$)`, "i").test(haystack);
   }

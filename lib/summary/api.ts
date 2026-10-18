@@ -17,7 +17,7 @@
 import { z } from "zod";
 import type { FhirSource } from "../fhir/load.ts";
 import type { DbError } from "../queries/errors.ts";
-import { buildSummaryInput, inputHash } from "./input.ts";
+import { buildSummaryInput, inputHash, inputHashFor } from "./input.ts";
 import { isSummaryLanguage, PROMPT_VERSION, type SummaryLanguage } from "./prompt.ts";
 import { auditDraft, hasErrors, type AuditFlag } from "./audit.ts";
 import { draftSummary, SummaryModelError, type Draft, type ModelCall, type SummaryRow } from "./generate.ts";
@@ -186,7 +186,7 @@ export async function saveSummary(procedureId: string, summaryId: string, body: 
   if (loaded.error) return fail(500, "Could not load the procedure.");
   if (!loaded.procedure) return fail(404, "Procedure not found.");
   const input = buildSummaryInput(loaded.procedure);
-  if (inputHash(input) !== summary.input_hash) {
+  if (inputHashFor(loaded.procedure, summary.prompt_version) !== summary.input_hash) {
     return fail(409, "The record has changed since this draft was generated. Regenerate before approving.");
   }
 

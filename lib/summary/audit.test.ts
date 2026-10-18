@@ -299,3 +299,17 @@ test("v7: an LVEF band limit in the draft is an invented number", () => {
   const draft = EN.replace("is 45%.", "is 45%. Your heart is pumping slightly less strongly than normal (normal is 50% or more).");
   assert.deepEqual(codes(auditDraft(input, draft, "en")), ["number_unknown"]);
 });
+
+// ─── v8: forbidden in every language ─────────────────────────────────────────
+
+test("v8: 'Fr', 'French', 'defer' and 'The decision was to …' block approval; 'From' and 'Friday' do not", () => {
+  const add = (s: string) => EN.replace("Please stop smoking.", `Please stop smoking. ${s}`);
+  const one = (s: string) => codes(auditDraft(input, add(s), "en"));
+  assert.deepEqual(one("A 6Fr sheath was used."), ["forbidden_phrase", "number_unknown"]);
+  assert.deepEqual(one("A French-size tube was used."), ["forbidden_phrase"]);
+  assert.deepEqual(one("The decision was to treat."), ["forbidden_phrase"]);
+  assert.deepEqual(one("Treatment was deferred."), ["forbidden_phrase"]);
+  assert.deepEqual(one("From Friday, walk a little more each day."), []);
+  const te = TE.replace("దయచేసి పొగ తాగడం మానేయండి.", "దయచేసి పొగ తాగడం మానేయండి. సన్నని గొట్టం (Fr) వాడారు.");
+  assert.ok(auditDraft(input, te, "te").some((f) => f.code === "forbidden_phrase" && f.severity === "error"));
+});
