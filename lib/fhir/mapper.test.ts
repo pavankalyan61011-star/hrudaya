@@ -220,3 +220,116 @@ test("amendments: Provenance ids are stable across exports", () => {
   assert.deepEqual(ids(), ids());
   assert.equal(new Set(ids()).size, 2);
 });
+
+// ─── Week 7 (spec §4) ──────────────────────────────────────────────────────────
+
+const W7_ID = "a7000000-0000-4000-8000-0000000000";
+/** The fixture with one of everything Week 7 adds. */
+function week7(overrides: Record<string, unknown> = {}) {
+  const base = fixture() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const graft = { id: `${W7_ID}01`, procedure_id: base.id, graft_type: "svg", target_vessel: "om1", sequential: false, patency: "stenosed", stenosis_pct: 85, lesion_location: "body", cabg_year: 2014, source: "typed", recorded_by: null, recorded_at: NOW, notes: null };
+  return fixture({
+    grafts: [graft],
+    haemodynamics: { id: `${W7_ID}02`, procedure_id: base.id, left_status: "recorded", ao_systolic: 120, ao_diastolic: 70, ao_mean: 90, lv_systolic: 125, lv_edp: 18, heart_rate_at_measurement: 72, rhythm: "sinus", source: "typed", recorded_by: null, recorded_at: NOW, notes: null },
+    lv_wall_motion: [{ id: `${W7_ID}03`, procedure_id: base.id, segment: 7, motion: "hypokinetic", source: "picked", recorded_by: null, recorded_at: NOW, notes: null }],
+    mitral_regurgitation_grade: 1,
+    in_hospital_outcomes: {
+      id: `${W7_ID}04`, procedure_id: base.id, mi: "no", stroke: "not_recorded", death: "no", death_cause: null, bleeding: "yes", bleeding_barc: 3, bleeding_barc_sub: "a",
+      transfusion: "yes", vascular_status: "yes", vascular_complications: ["haematoma", "pseudoaneurysm"], aki: "not_recorded", creatinine_post_umol_l: null,
+      new_dialysis: "not_recorded", emergency_cabg: "no", cardiac_tamponade: "no", unplanned_repeat_pci: "not_recorded", disposition: "home", event_links: [],
+      source: "picked", recorded_by: null, recorded_at: NOW, notes: null,
+    },
+    vessel_findings: [
+      ...base.vessel_findings.map((v: Record<string, unknown>) =>
+        v.vessel === "lad"
+          ? {
+              ...v, lesion_class: "b2", bifurcation: true, bifurcation_medina: "1,1,0", collaterals_rentrop: 1,
+              lesion_physiology: [{ id: `${W7_ID}05`, vessel_finding_id: v.id, phase: "pre", index: "ffr", value: 0.86, hyperaemic_agent: "adenosine_iv", agent_dose: "140 µg/kg/min", decision: "defer", method: "pressure_wire", image_study_uid: null, image_series_uid: null, source: "typed", recorded_by: null, recorded_at: NOW, notes: null }],
+              intravascular_imaging: [{ id: `${W7_ID}06`, vessel_finding_id: v.id, modality: "ivus", phase: "post", mla_mm2: null, eem_area_mm2: null, plaque_burden_pct: null, calcium_arc_deg: null, calcium_thickness_mm: null, lipid_arc_deg: null, max_lcbi_4mm: null, msa_mm2: 6.4, stent_expansion_pct: 88, malapposition: false, edge_dissection: null, pullback_length_mm: null, image_study_uid: null, image_series_uid: null, image_instance_uid: null, mla_frame: null, method: "manual", source: "typed", recorded_by: null, recorded_at: NOW, notes: null }],
+            }
+          : v,
+      ),
+      { ...base.vessel_findings[0], id: `${W7_ID}07`, vessel: "graft", segment: null, stenosis_pct: 85, graft_id: graft.id },
+    ],
+    interventions: base.interventions.map((i: Record<string, any>) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+      ...i,
+      techniques: ["predilation", "pot"],
+      wires: ["Test wire", "Second wire"],
+      devices_used: i.devices_used.map((d: Record<string, unknown>) =>
+        d.category === "stent" ? { ...d, device_inflations: [{ id: `${W7_ID}08`, device_id: d.id, sequence: 1, pressure_atm: 14, duration_s: 20, source: "typed", recorded_by: null, recorded_at: NOW, notes: null }] } : d,
+      ),
+    })),
+    ...overrides,
+  });
+}
+
+test("Week 7: every reference still resolves with all the new resources", () => {
+  const b = procedureToBundle(week7(), NOW);
+  const fullUrls = new Set(b.entry!.map((e) => e.fullUrl));
+  for (const r of allRefs(b)) assert.ok(fullUrls.has(r), `dangling reference ${r}`);
+  assert.equal(fullUrls.size, b.entry!.length, "fullUrls unique");
+});
+
+test("Week 7: physiology and imaging are Observations on the lesion, text-coded (no LOINC exists)", () => {
+  const b = procedureToBundle(week7(), NOW);
+  const ffr = obsByText(b, "Fractional flow reserve (FFR) — pre — Proximal LAD")[0];
+  assert.ok(ffr, "FFR Observation");
+  assert.equal(ffr.code.coding, undefined);
+  assert.deepEqual(ffr.valueQuantity, { value: 0.86, unit: "1", system: "http://unitsofmeasure.org", code: "1" });
+  assert.equal(ffr.bodySite?.text, "Proximal LAD");
+  assert.deepEqual(ffr.component?.map((c) => [c.code.text, c.valueString]), [["Hyperaemic agent", "Adenosine IV 140 µg/kg/min"], ["Decision", "defer"]]);
+  const ivus = obsByText(b, "Intravascular imaging (IVUS) — post — Proximal LAD")[0];
+  assert.deepEqual(ivus.component?.map((c) => c.code.text), ["Minimum stent area", "Stent expansion", "Malapposition"]);
+});
+
+test("Week 7: graft lesion sited at its graft; graft as an Observation with bodySite text (spec §4)", () => {
+  const b = procedureToBundle(week7(), NOW);
+  assert.ok(obsByText(b, "Coronary artery stenosis — SVG to OM1")[0], "graft lesion uses the graft name");
+  const graft = obsByText(b, "Bypass graft patency — SVG to OM1")[0];
+  assert.equal(graft.bodySite?.text, "SVG to OM1");
+  assert.equal(graft.valueString, "Stenosed 85%");
+  const lad = obsByText(b, "Coronary artery stenosis — Proximal LAD")[0];
+  assert.deepEqual(
+    lad.component?.filter((c) => ["Lesion class (ACC/AHA)", "Medina classification", "Collaterals (Rentrop grade)"].includes(c.code.text!)).map((c) => c.valueString ?? c.valueInteger),
+    ["B2", "1,1,0", 1],
+  );
+});
+
+test("Week 7: haemodynamics from the table (mean, LV systolic); left block not performed → dataAbsentReason", () => {
+  const b = procedureToBundle(week7(), NOW);
+  const ao = obsByText(b, "Aortic pressure (invasive)")[0];
+  assert.deepEqual(ao.component?.map((c) => c.valueQuantity?.value), [120, 70, 90]);
+  assert.equal(obsByText(b, "Left ventricular systolic pressure (invasive)")[0].valueQuantity?.value, 125);
+  const notPerformed = procedureToBundle(week7({ haemodynamics: { ...(week7() as any).haemodynamics, left_status: "not_performed", ao_systolic: null, ao_diastolic: null, ao_mean: null, lv_systolic: null, lv_edp: null } }), NOW); // eslint-disable-line @typescript-eslint/no-explicit-any
+  assert.equal(obsByText(notPerformed, "Aortic pressure (invasive)").length, 0);
+  assert.equal(obsByText(notPerformed, "Left-heart pressures (invasive)")[0].dataAbsentReason?.coding?.[0].code, "not-performed");
+});
+
+test("Week 7: one Observation per outcome recorded yes, coded where verified; disposition on the Encounter", () => {
+  const b = procedureToBundle(week7(), NOW);
+  const yes = resources<Observation>(b, "Observation").filter((o) => o.valueBoolean === true);
+  assert.deepEqual(yes.map((o) => o.code.text).sort(), ["Bleeding", "Transfusion", "Vascular access complication — Haematoma", "Vascular access complication — Pseudoaneurysm"]);
+  assert.equal(yes.find((o) => o.code.text === "Bleeding")?.code.coding?.[0].code, "131148009");
+  assert.equal(yes.find((o) => o.code.text === "Bleeding")?.component?.[0].valueString, "3a");
+  assert.equal(yes.find((o) => o.code.text === "Vascular access complication — Pseudoaneurysm")?.code.coding, undefined, "pseudoaneurysm is text only");
+  const enc = resources<Encounter>(b, "Encounter")[0];
+  assert.equal(enc.hospitalization?.dischargeDisposition?.coding?.[0].code, "home");
+  const section = resources<Composition>(b, "Composition")[0].section!.find((s) => s.title === "In-hospital outcomes")!;
+  assert.match(section.text!.div, /Periprocedural myocardial infarction: no\./);
+  assert.match(section.text!.div, /Stroke: not recorded\./);
+});
+
+test("Week 7: no outcomes row → the section says not asked, no outcome Observations", () => {
+  const b = procedureToBundle(fixture(), NOW);
+  const section = resources<Composition>(b, "Composition")[0].section!.find((s) => s.title === "In-hospital outcomes")!;
+  assert.equal(section.emptyReason?.coding?.[0].code, "notasked");
+  assert.equal(resources<Observation>(b, "Observation").filter((o) => o.valueBoolean === true).length, 0);
+});
+
+test("Week 7: techniques and wires as Procedure.usedCode (text); inflation log as Device properties", () => {
+  const b = procedureToBundle(week7(), NOW);
+  const proc = resources<Procedure>(b, "Procedure")[0];
+  assert.deepEqual(proc.usedCode?.map((c) => c.text), ["Proximal LAD: Predilation", "Proximal LAD: POT", "Proximal LAD: Guidewire Test wire", "Proximal LAD: Guidewire Second wire"]);
+  const stent = resources<Device>(b, "Device").find((d) => d.deviceName?.[0].name === "Test DES")!;
+  assert.deepEqual(stent.property?.find((x) => x.type.text?.startsWith("Inflation 1"))?.valueQuantity?.[0].value, 14);
+});

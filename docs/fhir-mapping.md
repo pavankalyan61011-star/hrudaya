@@ -22,7 +22,9 @@ Bundle  type=document · identifier https://hrudaya.dev/case-code|<case_code> ·
  ├─ Procedure (the cath / PCI)  ├─ Device × every devices_used row
  ├─ Observation × n             ├─ MedicationAdministration × procedure_medications
  ├─ MedicationRequest × discharge_medications (none until discharged)
- └─ Provenance × signed amendments (Week 6; only on an amended record)
+ ├─ Provenance × signed amendments (Week 6; only on an amended record)
+ └─ Week 7: Observation × physiology rows, imaging pullbacks, grafts, MR grade, wall motion,
+    LV systolic pressure, and each in-hospital outcome recorded "yes" (see §7)
 ```
 
 - **Ids** are stable: the database row id, or for resources with no row of their own (Encounter,
@@ -316,7 +318,76 @@ additionally checked against the FHIR vital-signs profiles (and pass).
 Public HAPI is a shared test server that anyone can read and that is periodically wiped. Synthetic
 data only — the script refuses a non-synthetic patient, and the Bundle's tag says so.
 
-## 7. Backlog
+## 7. Week 7 — structured reporting fields
+
+Spec: `docs/week7-structured-reporting-spec.md` §4. The Week 2 shape is kept: no BodyStructure, lesion
+and graft sites stay in `Observation.bodySite`, and everything without a verified code is text.
+
+### Mapping
+
+| Hrudaya (0011) | FHIR |
+|---|---|
+| `vessel_findings` lesion detail | components on the existing stenosis Observation, text-coded: lesion class (ACC/AHA), ostial, Medina (`valueString` "1,1,0"), tortuosity, CTO (+ duration `mo`), in-stent restenosis (pattern), Rentrop grade (`valueInteger`), corrected TIMI frame count |
+| graft lesion (`vessel = graft`) | stenosis / TIMI Observations with `bodySite.text` = the graft, e.g. "SVG to OM1" |
+| `grafts` | Observation "Bypass graft patency — SVG to OM1", `bodySite.text` the graft, `valueString` "Stenosed 85%" / "Patent"…, components sequential, CABG year, lesion location |
+| `lesion_physiology` | one Observation per row: text code "Fractional flow reserve (FFR) — pre — Proximal LAD", `valueQuantity` UCUM `1`, `bodySite` the lesion, `method.text` pressure wire, components hyperaemic agent (+ dose) and decision |
+| `intravascular_imaging` | one Observation per pullback, `method.text` IVUS / OCT / NIRS-IVUS (+ tracing method), components MLA / EEM / MSA (`mm2`), plaque burden and expansion (`%`), calcium and lipid arcs (`deg`), calcium thickness (`mm`), maxLCBI (`1`), malapposition and edge dissection (boolean); post rows effective at `ended_at` |
+| `haemodynamics` (left block) | aortic pressure Observation now from the table, with a mean component; "LV systolic pressure (invasive)"; heart rate at measurement as LOINC 8867-4 (rhythm in a note); `left_status = not_performed` → "Left-heart pressures (invasive)" with `dataAbsentReason = not-performed`. LVEDP keeps its own three-state Observation (§3). With no haemodynamics row the old procedure columns are used. |
+| `procedures.mitral_regurgitation_grade`, `lv_wall_motion` | "Mitral regurgitation grade (0–4)" `valueInteger`; "Left ventricular regional wall motion (AHA 17-segment)" with one component per abnormal segment ("Segment 7 (mid anterior)" → "hypokinetic") |
+| `interventions` techniques, bifurcation strategy, guide, wires | `Procedure.usedCode`, text only, prefixed by the lesion ("Proximal LAD: POT", "…: Guidewire Sion Blue") |
+| `complications` grade, treatments, resolution | appended to `Procedure.complication` text ("Perforation Ellis II (major) — treated with covered stent, pericardiocentesis — resolved") |
+| `device_inflations` | `Device.property` per inflation: "Inflation 1 (20 s)" → `atm` |
+| `in_hospital_outcomes` | one Observation per outcome recorded **yes** (`valueBoolean` true, no category, effective at discharge or procedure end), coded where verified; BARC class and post-procedure creatinine as components; each vascular complication its own Observation. A Composition section "In-hospital outcomes" lists every outcome (yes / no / not recorded) in its narrative; `emptyReason` `notasked` when nothing is recorded |
+| `in_hospital_outcomes.disposition` | `Encounter.hospitalization.dischargeDisposition` (HL7 discharge-disposition: home, other-hcf, exp, aadvice); ward / CCU / ICU are not a discharge and stay text |
+
+Not mapped this week (backlog): indication detail (CCS, NYHA, stress test, shock, arrest, previous PCI/CABG), STEMI times and the derived door-to-device.
+
+### Codes added (checked with tx.fhir.org `$lookup` on 2026-10-18; `npm run fhir:verify-codes`: 41 of 41 OK)
+
+| Concept | System | Code | Display |
+|---|---|---|---|
+| Periprocedural MI | SNOMED | 22298006 | Myocardial infarction |
+| Stroke | SNOMED | 230690007 | Cerebrovascular accident |
+| Death in hospital | SNOMED | 419620001 | Death |
+| Bleeding | SNOMED | 131148009 | Bleeding |
+| Transfusion | SNOMED | 116859006 | Transfusion of blood product |
+| Acute kidney injury | SNOMED | 14669001 | Acute kidney injury |
+| New dialysis | SNOMED | 108241001 | Dialysis procedure |
+| Emergency CABG | SNOMED | 232717009 | Coronary artery bypass graft |
+| Cardiac tamponade | SNOMED | 35304003 | Cardiac tamponade |
+| Retroperitoneal bleed (vascular) | SNOMED | 95549001 | Retroperitoneal hemorrhage |
+| Haematoma (vascular) | SNOMED | 385494008 | Hematoma (already used for the complication) |
+| Discharge home / transferred / deceased / left against advice | HL7 discharge-disposition | home / other-hcf / exp / aadvice | Home / Other healthcare facility / Expired / Left against advice |
+| No outcomes recorded | HL7 list-empty-reason | notasked | Not Asked |
+
+### Unverified — text only
+
+Searched on tx.fhir.org (LOINC and SNOMED implicit value sets) and not found, so these ship as
+`code.text` only, as the spec allows:
+
+- **FFR, iFR, RFR, dPR, resting Pd/Pa values:** LOINC has only "Fractional flow reserve performed" (80997-0), which says the test was done, not its value. SNOMED's 371842003 "Fractional flow reserve" is a procedure, not an observable, so it isn't used as an Observation code.
+- **Invasive aortic pressure (systolic / diastolic / mean), LV systolic pressure, LVEDP:** no LOINC code (as in Week 2).
+- **BARC bleeding class, Rentrop collateral grade, ACC/AHA lesion class, Medina:** no code in either system. Medina is a text component, as the spec allows.
+- **Mitral regurgitation grade and regional wall motion:** no verified code for the grade or for hypo-, a- and dyskinesis.
+- **Techniques:** SNOMED's codes are procedures, e.g. 29843007 "Coronary atherectomy by laser" and 763725002 "…using drug eluting balloon catheter". They don't belong in `Procedure.usedCode` (a device-kind slot), so they stay text.
+- **Unplanned repeat PCI; vascular pseudoaneurysm, AV fistula, limb ischaemia, radial occlusion, access-vessel dissection:** pseudoaneurysm and AV fistula codes are site-specific (femoral) and the site isn't recorded; the others have no code.
+
+### Results — 18 Oct 2026 (validator 7.0.1)
+
+- **Local copy, 20 seeded cases** with Week 7 rows added for the check:
+  - physiology (3 rows), imaging (pre and post), two grafts and a graft lesion;
+  - MR grade, wall motion, techniques and wires, an inflation log, event treatments;
+  - an outcomes row with five "yes" outcomes (bleeding BARC 3a, transfusion, AKI, two vascular complications) and disposition home;
+  - one case with the left block not performed.
+
+  Result: **0 errors in every case.** The bundles were opened to confirm each new resource is present.
+- **Production, 21 cases** after 0011 (no Week 7 data yet, haemodynamics copied): **0 errors in
+  every case**, warning counts unchanged from the Week 6 table above.
+- **Warnings:** no new kinds. The added resources carry the existing dom-6 best-practice warning (no
+  narrative of their own); PCI-2026-001 locally rises from 47 to 57 for that reason.
+- HAPI round-trip: not re-run. It posts a Bundle to the public test server, so it waits for the owner's go.
+
+## 8. Backlog
 
 - Code drug names (SNOMED / RxNorm or India's CDSCO list) instead of text.
 - Publish StructureDefinitions for the four Hrudaya extensions and a CodeSystem for the tag.

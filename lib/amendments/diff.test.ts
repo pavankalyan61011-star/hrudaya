@@ -13,6 +13,8 @@ type Any = Record<string, any>; // eslint-disable-line @typescript-eslint/no-exp
 const COMPLICATION = {
   id: "c0000000-0000-4000-8000-000000000001", procedure_id: "10000000-0000-4000-8000-000000000001", complication: "access_site_haematoma",
   severity: "minor", management: "Compression and observation", onset: "inpatient", onset_at: "2026-10-01T09:40:00+00:00", outcome: "Resolved",
+  // Week 7 (0011) columns, as every real row has them
+  grade: null, treatments: [], treatment_other: null, resolution: null,
 };
 const base = (): Any => ({ ...(fixture({ complications: [{ ...COMPLICATION }] }) as unknown as Any) });
 const snap = (p: Any) => snapshotProcedure(p as never);

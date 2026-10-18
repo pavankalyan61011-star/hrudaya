@@ -30,6 +30,7 @@ export const SYSTEM = {
   attestationMode: "http://hl7.org/fhir/composition-attestation-mode",
   dataOperation: "http://terminology.hl7.org/CodeSystem/v3-DataOperation",
   conditionCategory: "http://terminology.hl7.org/CodeSystem/condition-category",
+  dischargeDisposition: "http://terminology.hl7.org/CodeSystem/discharge-disposition",
 } as const;
 
 export type CodeEntry = {
@@ -206,6 +207,55 @@ export const DATA_OPERATION = {
 export const EMPTY_REASON = {
   nilKnown: hl7(SYSTEM.listEmptyReason, "nilknown", "Nil Known", "https://hl7.org/fhir/R4/codesystem-list-empty-reason.html"),
   notStarted: hl7(SYSTEM.listEmptyReason, "notstarted", "Not Started", "https://hl7.org/fhir/R4/codesystem-list-empty-reason.html"),
+  // Week 7: in-hospital outcomes not recorded yet (checked with tx.fhir.org $lookup 2026-10-18).
+  notAsked: hl7(SYSTEM.listEmptyReason, "notasked", "Not Asked", "https://hl7.org/fhir/R4/codesystem-list-empty-reason.html"),
+};
+
+// ─── Week 7 (spec §4): in-hospital outcomes and discharge disposition ──────────
+// Verified 2026-10-18 with tx.fhir.org $lookup (active; display is a designation). Everything else in
+// Week 7 ships as text: no LOINC code exists for an FFR / iFR value or for invasive aortic / LV
+// pressures, and none for BARC class, Rentrop grade, ACC/AHA lesion class or Medina (searched
+// tx.fhir.org; see docs/fhir-mapping.md "Unverified — text only").
+
+/** One Observation per outcome recorded "yes" (spec §4). null = text only. */
+export const OUTCOME: Record<
+  "mi" | "stroke" | "death" | "bleeding" | "transfusion" | "aki" | "new_dialysis" | "emergency_cabg" | "cardiac_tamponade" | "unplanned_repeat_pci",
+  CodeEntry | null
+> = {
+  mi: sct("22298006", "Myocardial infarction"),
+  stroke: sct("230690007", "Cerebrovascular accident"),
+  death: sct("419620001", "Death"),
+  bleeding: sct("131148009", "Bleeding"),
+  transfusion: sct("116859006", "Transfusion of blood product"),
+  aki: sct("14669001", "Acute kidney injury"),
+  new_dialysis: sct("108241001", "Dialysis procedure"),
+  emergency_cabg: sct("232717009", "Coronary artery bypass graft"),
+  cardiac_tamponade: sct("35304003", "Cardiac tamponade"),
+  unplanned_repeat_pci: null,
+};
+
+/** Vascular complications, one Observation each; site in the text. */
+export const VASCULAR: Record<Enums["vascular_complication"], CodeEntry | null> = {
+  haematoma: sct("385494008", "Hematoma", `${SNOMED_VERSION}; general hematoma — site in text`),
+  retroperitoneal_bleed: sct("95549001", "Retroperitoneal hemorrhage"),
+  pseudoaneurysm: null, // SNOMED's codes are femoral-specific; the site is not recorded
+  av_fistula: null,
+  limb_ischaemia: null,
+  radial_occlusion: null,
+  dissection_access_vessel: null,
+  other: null,
+};
+
+/** Encounter.hospitalization.dischargeDisposition. Ward / CCU / ICU are not a discharge: text only. */
+const DD_SOURCE = "https://terminology.hl7.org/CodeSystem-discharge-disposition.html";
+export const DISCHARGE_DISPOSITION: Record<Enums["disposition"], CodeEntry | null> = {
+  home: hl7(SYSTEM.dischargeDisposition, "home", "Home", DD_SOURCE),
+  transferred: hl7(SYSTEM.dischargeDisposition, "other-hcf", "Other healthcare facility", DD_SOURCE),
+  deceased: hl7(SYSTEM.dischargeDisposition, "exp", "Expired", DD_SOURCE),
+  left_against_advice: hl7(SYSTEM.dischargeDisposition, "aadvice", "Left against advice", DD_SOURCE),
+  ward: null,
+  ccu: null,
+  icu: null,
 };
 
 // ─── Units (UCUM) ──────────────────────────────────────────────────────────────
@@ -226,6 +276,10 @@ export const UCUM = {
   mm: "mm",
   atm: "atm",
   month: "mo",
+  // Week 7
+  mm2: "mm2",
+  degree: "deg",
+  ratio: "1",
 } as const;
 
 /** Medication dose units → UCUM. Heparin "units" are International Units. */

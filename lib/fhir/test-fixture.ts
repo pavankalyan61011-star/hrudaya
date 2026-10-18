@@ -8,6 +8,26 @@ const OP = { id: "00000000-0000-4000-8000-000000000001", full_name: "Dr Test Ope
 const REVIEWER = { id: "00000000-0000-4000-8000-000000000002", full_name: "Dr Test Reviewer", role: "interventional_cardiologist" };
 const FACILITY = { id: "00000000-0000-4000-8000-000000000003", name: "Synthetic Test Hospital", cath_lab_name: "Lab 1", city: "Testpur" };
 
+/** Week 7 (0011) columns as an untouched pre-Week-7 record has them (database defaults). */
+const W7_PROCEDURE = {
+  mitral_regurgitation_grade: null, lv_gram_performed: null, ccs_class: null, nyha_class: null, stress_test_type: null,
+  stress_test_result: null, cardiogenic_shock: false, cardiac_arrest_pre_procedure: false, symptom_onset_at: null,
+  first_medical_contact_at: null, door_at: null, device_time_at: null, thrombolysis_given: false, prior_pci: null, prior_cabg: null,
+  grafts: [], haemodynamics: null, lv_wall_motion: [], in_hospital_outcomes: null,
+};
+const W7_VESSEL = {
+  lesion_class: null, ostial: false, bifurcation_medina: null, tortuosity: null, cto: false, cto_duration_months: null,
+  in_stent_restenosis: false, isr_pattern: null, collaterals_rentrop: null, timi_frame_count: null, graft_id: null,
+  stenosis_source: "typed", mld_mm: null, rvd_mm: null, measurement_method: null, image_study_uid: null, image_series_uid: null,
+  image_instance_uid: null, image_frame: null, image_view: null, lesion_physiology: [], intravascular_imaging: [],
+};
+const W7_INTERVENTION = {
+  techniques: [], technique_other: null, bifurcation_strategy: null, bifurcation_strategy_other: null, guiding_catheter: null,
+  wires: [], dissection_grade: null, perforation_class: null, no_reflow: false, failure_reason: null, stent_overlap: false,
+  total_stent_length_mm: null,
+};
+const W7_COMPLICATION = { grade: null, treatments: [], treatment_other: null, resolution: null };
+
 export function fixture(overrides: Record<string, unknown> = {}): FhirSource {
   const base = {
     id: "10000000-0000-4000-8000-000000000001",
@@ -108,5 +128,15 @@ export function fixture(overrides: Record<string, unknown> = {}): FhirSource {
       ],
     },
   };
-  return { ...base, ...overrides } as unknown as FhirSource;
+  // Week 7 defaults under every row, so the fixture has the loader's shape; overrides still win.
+  const merged: Record<string, unknown> = { ...W7_PROCEDURE, ...base, ...overrides };
+  type Row = Record<string, unknown>;
+  merged.vessel_findings = (merged.vessel_findings as Row[]).map((v) => ({ ...W7_VESSEL, ...v }));
+  merged.interventions = (merged.interventions as Row[]).map((i) => ({
+    ...W7_INTERVENTION,
+    ...i,
+    devices_used: ((i.devices_used as Row[]) ?? []).map((d) => ({ device_inflations: [], ...d })),
+  }));
+  merged.complications = (merged.complications as Row[]).map((c) => ({ ...W7_COMPLICATION, ...c }));
+  return merged as unknown as FhirSource;
 }

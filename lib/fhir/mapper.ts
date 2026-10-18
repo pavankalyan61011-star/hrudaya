@@ -39,6 +39,7 @@ import {
   CONDITION_CATEGORY,
   DATA_ABSENT_NOT_PERFORMED,
   DATA_OPERATION,
+  DISCHARGE_DISPOSITION,
   DOSE_UNIT_UCUM,
   EMPTY_REASON,
   ENCOUNTER_CLASS,
@@ -46,11 +47,13 @@ import {
   INDICATION,
   LOINC,
   OBSERVATION_CATEGORY,
+  OUTCOME,
   PROCEDURE,
   RISK_FACTOR,
   SYNTHETIC_TAG,
   SYSTEM,
   UCUM,
+  VASCULAR,
   VESSEL_SITE,
   coding,
   concept,
@@ -125,6 +128,26 @@ const narrative = (lines: string[]) => ({
 });
 
 const vesselText = (v: Pick<Vessel, "vessel" | "segment">) => lesionName(v.vessel, v.segment);
+
+// Week 7: clinical shorthand that humanize() would get wrong ("Pot", "Adenosine iv").
+const TECHNIQUE_TEXT: Record<string, string> = {
+  poba: "POBA", pot: "POT", re_pot: "Re-POT", direct_stent: "Direct stenting", bailout_stent: "Bail-out stent",
+  intravascular_lithotripsy: "Intravascular lithotripsy", drug_coated_balloon: "Drug-coated balloon", cto_antegrade: "CTO antegrade",
+  cto_retrograde: "CTO retrograde", t_tap: "T-TAP", dk_crush: "DK-crush", mini_crush: "Mini-crush", simultaneous_kissing_stents: "Simultaneous kissing stents",
+};
+const techniqueText = (t: string) => TECHNIQUE_TEXT[t] ?? humanize(t);
+const AGENT_TEXT: Record<string, string> = { adenosine_iv: "Adenosine IV", adenosine_ic: "Adenosine IC" };
+
+// Week 7: a graft lesion's site is its graft ("SVG to OM1"), as text — spec §4 keeps the Week 2 shape.
+const graftText = (g: { graft_type: string; target_vessel: string }) =>
+  `${g.graft_type === "svg" ? "SVG" : g.graft_type === "lima" ? "LIMA" : g.graft_type === "rima" ? "RIMA" : humanize(g.graft_type)} to ${lesionName(g.target_vessel as Vessel["vessel"], null)}`;
+/** The lesion's name and body site: its graft for a graft lesion, otherwise the vessel. */
+function lesionSite(p: P, v: Vessel): { name: string; site: CodeableConcept } {
+  const g = v.graft_id ? p.grafts.find((x) => x.id === v.graft_id) : undefined;
+  if (g) return { name: graftText(g), site: { text: graftText(g) } };
+  const name = vesselText(v);
+  return { name, site: concept(VESSEL_SITE[v.vessel], name) };
+}
 
 /** The operator for performer/requester; reviewer only where the spec says so. */
 const operatorRef = (p: P) => (p.operator ? ref(p.operator.id, p.operator.full_name) : undefined);
@@ -253,6 +276,10 @@ export function encounterResource(p: P): Encounter {
     ...(p.indication ? { reasonReference: [ref(ids(p).indication)] } : {}),
     ...(loc ? { location: [{ location: ref(loc, p.facility?.cath_lab_name) }] } : {}),
     ...(p.facility ? { serviceProvider: ref(p.facility.id, p.facility.name) } : {}),
+    // Week 7 §4: the in-hospital outcome's disposition. Ward / CCU / ICU are not a discharge: text only.
+    ...(p.in_hospital_outcomes?.disposition
+      ? { hospitalization: { dischargeDisposition: concept(DISCHARGE_DISPOSITION[p.in_hospital_outcomes.disposition], humanize(p.in_hospital_outcomes.disposition)) } }
+      : {}),
   };
 }
 
@@ -283,6 +310,34 @@ export function procedureResource(p: P): Procedure {
   if (p.access_site) extension.push({ url: HRUDAYA.extAccessSite, valueCodeableConcept: { text: humanize(p.access_site) } });
   if (p.dominance) extension.push({ url: HRUDAYA.extDominance, valueCode: p.dominance });
 
+  // Week 7 §4: techniques (and the guide and wires actually used) as Procedure.usedCode, text only —
+  // SNOMED's codes for these are procedures, which don't belong in a "device kind" slot.
+  const usedCode: CodeableConcept[] = p.interventions.flatMap((i) => {
+    const v = vessels.get(i.vessel_finding_id);
+    const at = v ? `${lesionSite(p, v).name}: ` : "";
+    return [
+      ...i.techniques.filter((t) => t !== "other").map((t) => ({ text: `${at}${techniqueText(t)}` })),
+      ...(i.technique_other ? [{ text: `${at}${i.technique_other}` }] : []),
+      ...(i.stent_overlap ? [{ text: `${at}Stent overlap` }] : []),
+      ...(i.bifurcation_strategy
+        ? [{ text: `${at}Bifurcation strategy — ${i.bifurcation_strategy === "other" ? i.bifurcation_strategy_other : techniqueText(i.bifurcation_strategy)}` }]
+        : []),
+      ...(i.guiding_catheter ? [{ text: `${at}Guide catheter ${i.guiding_catheter}` }] : []),
+      ...i.wires.map((w) => ({ text: `${at}Guidewire ${w}` })),
+    ];
+  });
+  const complicationText = (c: P["complications"][number]) => {
+    const treatments = [...c.treatments.filter((t) => t !== "other").map(humanize), ...(c.treatment_other ? [c.treatment_other] : [])];
+    return [
+      `${humanize(c.complication)}${c.grade ? ` ${c.grade}` : ""} (${c.severity})`,
+      treatments.length ? `treated with ${treatments.join(", ").toLowerCase()}` : null,
+      c.resolution ? humanize(c.resolution).toLowerCase() : null,
+      c.outcome,
+    ]
+      .filter(Boolean)
+      .join(" — ");
+  };
+
   const loc = ids(p).location;
   return {
     resourceType: "Procedure",
@@ -298,12 +353,11 @@ export function procedureResource(p: P): Procedure {
     ...(treated.length ? { bodySite: treated.map((v) => concept(VESSEL_SITE[v.vessel], vesselText(v))) } : {}),
     ...(p.complications.length
       ? {
-          complication: p.complications.map((c) =>
-            concept(COMPLICATION[c.complication], `${humanize(c.complication)} (${c.severity})${c.outcome ? ` — ${c.outcome}` : ""}`),
-          ),
+          complication: p.complications.map((c) => concept(COMPLICATION[c.complication], complicationText(c))),
         }
       : {}),
     ...(focal.length ? { focalDevice: focal } : {}),
+    ...(usedCode.length ? { usedCode } : {}),
     ...(p.outcome_summary ? { note: [{ text: p.outcome_summary }] } : {}),
   };
 }
@@ -319,6 +373,10 @@ export function deviceResources(p: P): Device[] {
       ];
       if (d.inflation_atm !== null) property.push({ type: { text: "Inflation pressure" }, valueQuantity: [qty(d.inflation_atm, UCUM.atm)] });
       if (d.quantity > 1) property.push({ type: { text: "Quantity used" }, valueQuantity: [{ value: d.quantity }] });
+      // Week 7 §2.9: the inflation log, one property per inflation in order.
+      for (const f of [...d.device_inflations].sort((a, b) => a.sequence - b.sequence)) {
+        property.push({ type: { text: `Inflation ${f.sequence}${f.duration_s !== null ? ` (${f.duration_s} s)` : ""}` }, valueQuantity: [qty(f.pressure_atm, UCUM.atm)] });
+      }
       return {
         resourceType: "Device",
         id: d.id,
@@ -355,13 +413,24 @@ function obsBase(p: P, id: string, category: CodeEntry, code: CodeableConcept, e
 export function vesselObservations(p: P): Observation[] {
   const out: Observation[] = [];
   for (const v of p.vessel_findings) {
-    const name = vesselText(v);
-    const site = concept(VESSEL_SITE[v.vessel], name);
+    const { name, site } = lesionSite(p, v);
     const component: ObservationComponent[] = [{ code: { text: "Culprit lesion" }, valueBoolean: v.is_culprit }];
     if (v.lesion_length_mm !== null) component.push({ code: { text: "Lesion length" }, valueQuantity: qty(v.lesion_length_mm, UCUM.mm) });
     if (v.calcification) component.push({ code: { text: "Calcification" }, valueString: v.calcification });
     component.push({ code: { text: "Thrombus" }, valueBoolean: v.thrombus });
     component.push({ code: { text: "Bifurcation" }, valueBoolean: v.bifurcation });
+    // Week 7 §2.2 / §4: text-coded components (no verifiable code for class, Medina or Rentrop).
+    if (v.lesion_class) component.push({ code: { text: "Lesion class (ACC/AHA)" }, valueString: v.lesion_class.toUpperCase() });
+    if (v.ostial) component.push({ code: { text: "Ostial" }, valueBoolean: true });
+    if (v.bifurcation_medina) component.push({ code: { text: "Medina classification" }, valueString: v.bifurcation_medina });
+    if (v.tortuosity) component.push({ code: { text: "Tortuosity" }, valueString: v.tortuosity });
+    if (v.cto) {
+      component.push({ code: { text: "Chronic total occlusion" }, valueBoolean: true });
+      if (v.cto_duration_months !== null) component.push({ code: { text: "CTO duration" }, valueQuantity: qty(v.cto_duration_months, UCUM.month) });
+    }
+    if (v.in_stent_restenosis) component.push({ code: { text: "In-stent restenosis" }, valueString: v.isr_pattern ?? "present" });
+    if (v.collaterals_rentrop !== null) component.push({ code: { text: "Collaterals (Rentrop grade)" }, valueInteger: v.collaterals_rentrop });
+    if (v.timi_frame_count !== null) component.push({ code: { text: "Corrected TIMI frame count" }, valueInteger: v.timi_frame_count });
     out.push({
       ...obsBase(p, v.id, OBSERVATION_CATEGORY.imaging, { text: `Coronary artery stenosis — ${name}` }, p.started_at),
       bodySite: site,
@@ -382,8 +451,8 @@ export function interventionObservations(p: P): Observation[] {
   const vessels = new Map(p.vessel_findings.map((v) => [v.id, v]));
   return p.interventions.flatMap((i) => {
     const v = vessels.get(i.vessel_finding_id);
-    const name = v ? vesselText(v) : "treated lesion";
-    const site = v ? concept(VESSEL_SITE[v.vessel], name) : undefined;
+    const name = v ? lesionSite(p, v).name : "treated lesion";
+    const site = v ? lesionSite(p, v).site : undefined;
     return [
       {
         ...obsBase(p, stableId(i.id, "residual"), OBSERVATION_CATEGORY.imaging, { text: `Residual stenosis post-intervention — ${name}` }, p.ended_at),
@@ -425,15 +494,43 @@ export function baselineObservations(p: P): Observation[] {
   return out;
 }
 
-/** Aortic pressure and LVEDP (angiography section). LVEDP follows the three-state rule. */
+/**
+ * Left-heart haemodynamics (angiography section). Week 7: read from the haemodynamics table (the old
+ * procedure columns only when no row exists); the left block "not performed" is one Observation with
+ * dataAbsentReason = not-performed (spec §4). LVEDP keeps its own three-state rule.
+ */
 export function haemodynamicObservations(p: P): Observation[] {
   const out: Observation[] = [];
   const id = ids(p);
-  if (p.aortic_pressure_systolic !== null || p.aortic_pressure_diastolic !== null) {
+  const h = p.haemodynamics;
+  if (h?.left_status === "not_performed") {
+    out.push({
+      ...obsBase(p, id.aortic, OBSERVATION_CATEGORY.procedure, { text: "Left-heart pressures (invasive)" }, p.started_at),
+      dataAbsentReason: { coding: [coding(DATA_ABSENT_NOT_PERFORMED)] },
+    });
+  }
+  const sys = h ? h.ao_systolic : p.aortic_pressure_systolic;
+  const dia = h ? h.ao_diastolic : p.aortic_pressure_diastolic;
+  const mean = h ? h.ao_mean : null;
+  if (h?.left_status !== "not_performed" && (sys !== null || dia !== null || mean !== null)) {
     const component: ObservationComponent[] = [];
-    if (p.aortic_pressure_systolic !== null) component.push({ code: { text: "Aortic systolic pressure" }, valueQuantity: qty(p.aortic_pressure_systolic, UCUM.mmHg) });
-    if (p.aortic_pressure_diastolic !== null) component.push({ code: { text: "Aortic diastolic pressure" }, valueQuantity: qty(p.aortic_pressure_diastolic, UCUM.mmHg) });
+    if (sys !== null) component.push({ code: { text: "Aortic systolic pressure" }, valueQuantity: qty(sys, UCUM.mmHg) });
+    if (dia !== null) component.push({ code: { text: "Aortic diastolic pressure" }, valueQuantity: qty(dia, UCUM.mmHg) });
+    if (mean !== null) component.push({ code: { text: "Aortic mean pressure" }, valueQuantity: qty(mean, UCUM.mmHg) });
     out.push({ ...obsBase(p, id.aortic, OBSERVATION_CATEGORY.procedure, { text: "Aortic pressure (invasive)" }, p.started_at), component });
+  }
+  if (h?.lv_systolic !== null && h?.lv_systolic !== undefined) {
+    out.push({
+      ...obsBase(p, stableId(p.id, "lv-systolic"), OBSERVATION_CATEGORY.procedure, { text: "Left ventricular systolic pressure (invasive)" }, p.started_at),
+      valueQuantity: qty(h.lv_systolic, UCUM.mmHg),
+    });
+  }
+  if (h?.heart_rate_at_measurement !== null && h?.heart_rate_at_measurement !== undefined) {
+    out.push({
+      ...obsBase(p, stableId(p.id, "hr-haemo"), OBSERVATION_CATEGORY.vitalSigns, concept(LOINC.heartRate, "Heart rate at haemodynamic measurement"), p.started_at),
+      valueQuantity: qty(h.heart_rate_at_measurement, UCUM.perMin),
+      ...(h.rhythm ? { note: [{ text: `Rhythm: ${h.rhythm === "af" ? "AF" : humanize(h.rhythm)}` }] } : {}),
+    });
   }
   const lvedp = threeState(p, p.lvedp_status, id.lvedp, OBSERVATION_CATEGORY.procedure, { text: "Left ventricular end-diastolic pressure" }, p.started_at);
   if (lvedp) out.push(p.lvedp_status === "recorded" && p.lvedp_mmhg !== null ? { ...lvedp, valueQuantity: qty(p.lvedp_mmhg, UCUM.mmHg) } : lvedp);
@@ -455,6 +552,144 @@ function threeState(
   if (status === "not_recorded") return null;
   const base = obsBase(p, id, category, code, effective);
   return status === "not_performed" ? { ...base, dataAbsentReason: { coding: [coding(DATA_ABSENT_NOT_PERFORMED)] } } : base;
+}
+
+// ─── Week 7 (spec §4): physiology, imaging, grafts, LV detail, outcomes ──────────
+
+const INDEX_TEXT: Record<string, string> = { ffr: "Fractional flow reserve (FFR)", ifr: "Instantaneous wave-free ratio (iFR)", rfr: "Resting full-cycle ratio (RFR)", dfr: "Diastolic pressure ratio (dPR)", pd_pa_rest: "Resting Pd/Pa" };
+
+/** One Observation per pressure-wire measurement, on the lesion's site (text code: no LOINC exists). */
+export function physiologyObservations(p: P): Observation[] {
+  return p.vessel_findings.flatMap((v) => {
+    const { name, site } = lesionSite(p, v);
+    return v.lesion_physiology.map((x): Observation => {
+      const component: ObservationComponent[] = [];
+      if (x.hyperaemic_agent) component.push({ code: { text: "Hyperaemic agent" }, valueString: `${AGENT_TEXT[x.hyperaemic_agent] ?? humanize(x.hyperaemic_agent)}${x.agent_dose ? ` ${x.agent_dose}` : ""}` });
+      if (x.decision) component.push({ code: { text: "Decision" }, valueString: x.decision });
+      return {
+        ...obsBase(p, x.id, OBSERVATION_CATEGORY.procedure, { text: `${INDEX_TEXT[x.index]} — ${x.phase} — ${name}` }, x.phase === "post" ? p.ended_at : p.started_at),
+        bodySite: site,
+        valueQuantity: qty(Number(x.value), UCUM.ratio),
+        ...(x.method ? { method: { text: x.method === "pressure_wire" ? "Pressure wire" : "Angiography-derived" } } : {}),
+        ...(component.length ? { component } : {}),
+        ...(x.notes ? { note: [{ text: x.notes }] } : {}),
+      };
+    });
+  });
+}
+
+const MODALITY_TEXT: Record<string, string> = { ivus: "IVUS", oct: "OCT", nirs_ivus: "NIRS-IVUS" };
+
+/** One Observation per pullback; each measured value a component (text codes). */
+export function imagingObservations(p: P): Observation[] {
+  return p.vessel_findings.flatMap((v) => {
+    const { name, site } = lesionSite(p, v);
+    return v.intravascular_imaging.map((x): Observation => {
+      const component: ObservationComponent[] = [];
+      const add = (text: string, value: number | null, unit: string) => {
+        if (value !== null) component.push({ code: { text }, valueQuantity: qty(Number(value), unit) });
+      };
+      add("Minimum lumen area", x.mla_mm2, UCUM.mm2);
+      add("EEM area at MLA", x.eem_area_mm2, UCUM.mm2);
+      add("Plaque burden", x.plaque_burden_pct, UCUM.percent);
+      add("Calcium arc", x.calcium_arc_deg, UCUM.degree);
+      add("Calcium thickness", x.calcium_thickness_mm, UCUM.mm);
+      add("Lipid arc", x.lipid_arc_deg, UCUM.degree);
+      add("maxLCBI 4 mm", x.max_lcbi_4mm, UCUM.ratio);
+      add("Minimum stent area", x.msa_mm2, UCUM.mm2);
+      add("Stent expansion", x.stent_expansion_pct, UCUM.percent);
+      add("Pullback length", x.pullback_length_mm, UCUM.mm);
+      if (x.malapposition !== null) component.push({ code: { text: "Malapposition" }, valueBoolean: x.malapposition });
+      if (x.edge_dissection !== null) component.push({ code: { text: "Edge dissection" }, valueBoolean: x.edge_dissection });
+      const base = obsBase(p, x.id, OBSERVATION_CATEGORY.imaging, { text: `Intravascular imaging (${MODALITY_TEXT[x.modality]}) — ${x.phase} — ${name}` }, x.phase === "post" ? p.ended_at : p.started_at);
+      return {
+        ...base,
+        bodySite: site,
+        method: { text: `${MODALITY_TEXT[x.modality]}${x.method ? `, ${x.method === "manual" ? "manual tracing" : "vendor automatic tracing"}` : ""}` },
+        ...(component.length ? { component } : { dataAbsentReason: { text: "No values recorded for this pullback" } }),
+        ...(x.notes ? { note: [{ text: x.notes }] } : {}),
+      };
+    });
+  });
+}
+
+/** Grafts as Observations with bodySite.text = "SVG to OM1" (spec §4: keep the Week 2 shape). */
+export function graftObservations(p: P): Observation[] {
+  return p.grafts.map((g): Observation => {
+    const component: ObservationComponent[] = [{ code: { text: "Sequential graft" }, valueBoolean: g.sequential }];
+    if (g.cabg_year !== null) component.push({ code: { text: "CABG year" }, valueInteger: g.cabg_year });
+    if (g.lesion_location) component.push({ code: { text: "Lesion location" }, valueString: humanize(g.lesion_location) });
+    const value = g.patency === "stenosed" && g.stenosis_pct !== null ? `Stenosed ${g.stenosis_pct}%` : humanize(g.patency);
+    return {
+      ...obsBase(p, g.id, OBSERVATION_CATEGORY.imaging, { text: `Bypass graft patency — ${graftText(g)}` }, p.started_at),
+      bodySite: { text: graftText(g) },
+      valueString: value,
+      component,
+      ...(g.notes ? { note: [{ text: g.notes }] } : {}),
+    };
+  });
+}
+
+const SEGMENT_TEXT = ["", "basal anterior", "basal anteroseptal", "basal inferoseptal", "basal inferior", "basal inferolateral", "basal anterolateral", "mid anterior", "mid anteroseptal", "mid inferoseptal", "mid inferior", "mid inferolateral", "mid anterolateral", "apical anterior", "apical septal", "apical inferior", "apical lateral", "apex"];
+
+/** Mitral regurgitation grade and the 17-segment wall motion (abnormal segments as components). */
+export function lvDetailObservations(p: P): Observation[] {
+  const out: Observation[] = [];
+  if (p.mitral_regurgitation_grade !== null) {
+    out.push({
+      ...obsBase(p, stableId(p.id, "mr-grade"), OBSERVATION_CATEGORY.imaging, { text: "Mitral regurgitation grade (0–4)" }, p.started_at),
+      valueInteger: p.mitral_regurgitation_grade,
+    });
+  }
+  if (p.lv_wall_motion.length) {
+    out.push({
+      ...obsBase(p, stableId(p.id, "wall-motion"), OBSERVATION_CATEGORY.imaging, { text: "Left ventricular regional wall motion (AHA 17-segment)" }, p.started_at),
+      valueString: `${p.lv_wall_motion.length} abnormal segment(s); others normal`,
+      component: [...p.lv_wall_motion]
+        .sort((a, b) => a.segment - b.segment)
+        .map((w) => ({ code: { text: `Segment ${w.segment} (${SEGMENT_TEXT[w.segment]})` }, valueString: w.motion })),
+    });
+  }
+  return out;
+}
+
+const OUTCOME_TEXT: Record<keyof typeof OUTCOME, string> = {
+  mi: "Periprocedural myocardial infarction", stroke: "Stroke", death: "Death in hospital", bleeding: "Bleeding", transfusion: "Transfusion",
+  aki: "Acute kidney injury", new_dialysis: "New dialysis", emergency_cabg: "Emergency CABG", cardiac_tamponade: "Cardiac tamponade",
+  unplanned_repeat_pci: "Unplanned repeat PCI",
+};
+
+/**
+ * Spec §4: one Observation per in-hospital outcome recorded "yes" (valueBoolean true), coded where a
+ * verified code exists. "No" and "not recorded" are in the section narrative, not as resources.
+ */
+export function outcomeObservations(p: P): Observation[] {
+  const o = p.in_hospital_outcomes;
+  if (!o) return [];
+  const when = p.discharge?.discharged_at ?? p.ended_at;
+  const base = (key: string, code: CodeableConcept): Observation => {
+    const { category: _category, ...rest } = obsBase(p, stableId(o.id, key), OBSERVATION_CATEGORY.procedure, code, when);
+    return rest;
+  };
+  const out: Observation[] = [];
+  for (const key of Object.keys(OUTCOME_TEXT) as (keyof typeof OUTCOME)[]) {
+    if (o[key] !== "yes") continue;
+    const obs: Observation = { ...base(key, concept(OUTCOME[key], OUTCOME_TEXT[key])), valueBoolean: true };
+    if (key === "death" && o.death_cause) obs.note = [{ text: `Cause: ${o.death_cause}` }];
+    if (key === "bleeding" && o.bleeding_barc !== null) {
+      obs.component = [{ code: { text: "BARC class" }, valueString: `${o.bleeding_barc}${o.bleeding_barc_sub ?? ""}` }];
+    }
+    if (key === "aki" && o.creatinine_post_umol_l !== null) {
+      obs.component = [{ code: concept(LOINC.creatinine, "Creatinine after the procedure"), valueQuantity: qty(Number(o.creatinine_post_umol_l), UCUM.umolPerL) }];
+    }
+    out.push(obs);
+  }
+  if (o.vascular_status === "yes") {
+    for (const x of o.vascular_complications) {
+      out.push({ ...base(`vascular-${x}`, concept(VASCULAR[x], `Vascular access complication — ${humanize(x)}`)), valueBoolean: true });
+    }
+  }
+  return out;
 }
 
 export function lvefObservation(p: P): Observation | null {
@@ -604,6 +839,11 @@ type Built = {
   lvef: Observation | null;
   detailObs: Observation[];
   actObs: Observation[];
+  physiologyObs: Observation[];
+  imagingObs: Observation[];
+  graftObs: Observation[];
+  lvDetailObs: Observation[];
+  outcomeObs: Observation[];
   administrations: MedicationAdministration[];
   requests: MedicationRequest[];
   provenances: Provenance[];
@@ -617,6 +857,21 @@ function section(title: string, lines: string[], entries: Reference[], emptyReas
     text: narrative(lines),
     ...(entries.length ? { entry: entries } : emptyReason ? { emptyReason: { coding: [coding(emptyReason)] } } : {}),
   };
+}
+
+/** Week 7 §4: every outcome in the narrative (yes / no / not recorded); "yes" ones as entries. */
+function outcomesSection(p: P, b: Built): CompositionSection {
+  const o = p.in_hospital_outcomes;
+  if (!o) return section("In-hospital outcomes", ["Not recorded."], [], EMPTY_REASON.notAsked);
+  const word = (v: string) => (v === "not_recorded" ? "not recorded" : v);
+  const lines = [
+    ...(Object.keys(OUTCOME_TEXT) as (keyof typeof OUTCOME)[]).map((k) => `${OUTCOME_TEXT[k]}: ${word(o[k])}.`),
+    `Vascular complications: ${o.vascular_status === "yes" ? o.vascular_complications.map(humanize).join(", ") : word(o.vascular_status)}.`,
+    `Disposition: ${o.disposition ? humanize(o.disposition) : "not recorded"}.`,
+  ];
+  const entries = [...refsTo(b.outcomeObs), ...(o.disposition ? [ref(b.encounter.id as string)] : [])];
+  const anyRecorded = [...Object.keys(OUTCOME_TEXT), "vascular_status"].some((k) => o[k as keyof typeof o] !== "not_recorded");
+  return section("In-hospital outcomes", lines, entries, anyRecorded ? EMPTY_REASON.nilKnown : EMPTY_REASON.notAsked);
 }
 
 export function compositionResource(p: P, b: Built, now: string): Composition {
@@ -644,8 +899,14 @@ export function compositionResource(p: P, b: Built, now: string): Composition {
     ),
     section(
       "Angiography",
-      [`${p.vessel_findings.length} vessel(s) assessed.`, culprits.length ? `Culprit: ${culprits.join(", ")}.` : "No culprit lesion marked."],
-      [...refsTo(b.vesselObs), ...refsTo(b.haemoObs)],
+      [
+        `${p.vessel_findings.length} vessel(s) assessed.`,
+        culprits.length ? `Culprit: ${culprits.join(", ")}.` : "No culprit lesion marked.",
+        ...(b.graftObs.length ? [`${b.graftObs.length} bypass graft(s) recorded.`] : []),
+        ...(b.physiologyObs.length ? [`${b.physiologyObs.length} pressure-wire measurement(s).`] : []),
+        ...(b.imagingObs.length ? [`${b.imagingObs.length} intravascular imaging pullback(s).`] : []),
+      ],
+      [...refsTo(b.vesselObs), ...refsTo(b.graftObs), ...refsTo(b.physiologyObs), ...refsTo(b.imagingObs), ...refsTo(b.haemoObs), ...refsTo(b.lvDetailObs)],
     ),
     section(
       "Intervention & devices",
@@ -680,6 +941,7 @@ export function compositionResource(p: P, b: Built, now: string): Composition {
       ],
       [ref(b.encounter.id as string), ...(b.lvef ? [ref(b.lvef.id as string)] : [])],
     ),
+    outcomesSection(p, b),
     section(
       "Discharge",
       d ? [`Discharged ${istDate(d.discharged_at)}; follow-up ${d.follow_up_date} (${d.follow_up_clinic}).`] : ["Not yet discharged."],
@@ -743,6 +1005,11 @@ export function procedureToBundle(p: P, now: string): Bundle {
     lvef: lvefObservation(p),
     detailObs: procedureDetailObservations(p),
     actObs: actObservations(p),
+    physiologyObs: physiologyObservations(p),
+    imagingObs: imagingObservations(p),
+    graftObs: graftObservations(p),
+    lvDetailObs: lvDetailObservations(p),
+    outcomeObs: outcomeObservations(p),
     administrations: medicationAdministrations(p),
     requests: medicationRequests(p),
     provenances: provenanceResources(p),
@@ -761,11 +1028,16 @@ export function procedureToBundle(p: P, now: string): Bundle {
     ...b.devices,
     ...b.baselineObs,
     ...b.vesselObs,
+    ...b.graftObs,
+    ...b.physiologyObs,
+    ...b.imagingObs,
     ...b.haemoObs,
+    ...b.lvDetailObs,
     ...b.interventionObs,
     ...b.detailObs,
     ...(b.lvef ? [b.lvef] : []),
     ...b.actObs,
+    ...b.outcomeObs,
     ...b.administrations,
     ...b.requests,
     ...b.provenances,
