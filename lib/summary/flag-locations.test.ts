@@ -165,3 +165,9 @@ test("v6 drafts, every language: an invented number planted in 'What we found' i
 function presenceOf(f: string): Presence {
   return pres[f.split(".")[0]];
 }
+
+test("v9: a blocked word is placed by its own pattern ('Fr' not inside 'From')", () => {
+  const draft = CLEAN.replace("You had a heart attack (STEMI).", "From the record: you had a heart attack (STEMI).").replace("we placed one stent", "through a 6 Fr tube we placed one stent");
+  const placed = locateFlags(parseDraft(draft, presence), [{ code: "forbidden_phrase", severity: "error", detail: 'contains "Fr"' }]);
+  assert.equal([...placed.keys()][0], "done");
+});

@@ -472,6 +472,10 @@ would look for it, with its source. The report doesn't turn into a 40-field form
 
   Approved summaries keep their status: each row is compared with the input its own prompt version
   saw. Eval: 132/132, 0 flags, $3.54 ([docs/ai-summary.md](docs/ai-summary.md#prompt-v8-18-oct-2026)).
+- **AI summary, prompt v9:** a per-language glossary for "artery" (धमनी / ధమని / தமனி / ಅಪಧಮನಿ /
+  ധമനി), and "नस" (vein) blocks approval in Hindi. Hindi-only eval: 22/22, no artery called नस,
+  one correct "vein" (IV fluids) blocked for the clinician to reword, $0.48
+  ([docs/ai-summary.md](docs/ai-summary.md#prompt-v9-18-oct-2026)).
 
 | Lesion sheet (phone) |
 |---|
@@ -494,6 +498,8 @@ From [docs/week7-structured-reporting-spec.md §6](docs/week7-structured-reporti
 - [x] AI summary v7: audit clean on all 22 discharged local cases × 6 languages (132 drafts); the
   FFR-deferred case (CAG-2026-019) says the lesion was not stented and why, in all six languages
 - [x] `docs/structured-reporting.md`; this section with a screenshot
+- [x] Live reviewed report checked by the owner (PCI-2026-021: registry 26 of 42 with the
+  disclaimer, read-only, Week 7 fields rendering; 18 Oct 2026)
 - [ ] Owner: phone-test the sheets; enter a post-CABG and a STEMI case by hand
 
 ## Roadmap

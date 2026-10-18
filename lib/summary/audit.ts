@@ -67,6 +67,16 @@ const FORBIDDEN_STRICT: [string, RegExp][] = [
   ["defer", /defer/i],
   ["decision was to", /decision (was|is) to/i],
 ];
+/**
+ * v9: blocked in one language only. Hindi "नस" (vein) for an artery — matched as a word with its
+ * plural forms (नसें, नसों), not inside a longer word such as "जनसंख्या".
+ */
+const FORBIDDEN_BY_LANGUAGE: Partial<Record<SummaryLanguage, [string, RegExp][]>> = {
+  hi: [["नस", /(?<![\p{L}\p{M}])नस(?:ें|ों|े)?(?![\p{L}\p{M}])/u]],
+};
+/** The pattern behind a blocked word, for placing its flag in the draft (flag-locations.ts). */
+export const forbiddenPattern = (label: string): RegExp | undefined =>
+  [...FORBIDDEN_STRICT, ...Object.values(FORBIDDEN_BY_LANGUAGE).flat()].find(([l]) => l === label)?.[1];
 const MAX_WORDS = 700;
 const SCRIPT_THRESHOLD = 0.7;
 
@@ -204,7 +214,7 @@ export function auditDraft(input: SummaryInput, draft: string, language: Summary
       flags.push({ code: "forbidden_phrase", severity: "error", detail: `contains "${phrase}"` });
     }
   }
-  for (const [label, re] of FORBIDDEN_STRICT) {
+  for (const [label, re] of [...FORBIDDEN_STRICT, ...(FORBIDDEN_BY_LANGUAGE[language] ?? [])]) {
     if (re.test(draft)) flags.push({ code: "forbidden_phrase", severity: "error", detail: `contains "${label}"` });
   }
 

@@ -13,7 +13,7 @@
  * straight to medicines (spec §8: "a dose error lands on medicines") rather than to the first
  * mention of the drug, which could be the prose of an earlier section.
  */
-import type { AuditCode, AuditFlag } from "./audit.ts";
+import { forbiddenPattern, type AuditCode, type AuditFlag } from "./audit.ts";
 import type { ParsedDraft, SectionKey } from "./sections.ts";
 
 /** UI-only flag (spec §3): a draft medicines-table row that matches no medicine in the record. */
@@ -45,7 +45,8 @@ function containsToken(haystack: string, flag: UiFlag, token: string): boolean {
     // A whole number: "5" must not match inside "15" or "5.5"; digits in any script.
     return new RegExp(`(?<![\\p{Nd}.])${escapeRe(token)}(?![\\p{Nd}]|\\.\\p{Nd})`, "u").test(haystack);
   }
-  if (flag.code === "forbidden_phrase" && token === "Fr") return /(?<![A-Za-z])Fr(?![a-z])/.test(haystack);
+  const strict = flag.code === "forbidden_phrase" ? forbiddenPattern(token) : undefined;
+  if (strict) return strict.test(haystack);
   if (flag.code === "drug_extra") {
     return new RegExp(`(^|[^a-z])${escapeRe(token)}([^a-z]|$)`, "i").test(haystack);
   }

@@ -1,4 +1,4 @@
-# AI discharge summary (Week 4; prompts v7 and v8 in Week 7)
+# AI discharge summary (Week 4; prompts v7–v9 in Week 7)
 
 Hrudaya drafts a patient-facing discharge summary in English, Telugu, Hindi, Tamil, Kannada or
 Malayalam from a reviewed procedure record. **The model drafts, the code audits, the clinician
@@ -45,7 +45,7 @@ spec, it is listed under [Decisions](#decisions-that-differ-from-the-spec).
 | Step | File |
 |---|---|
 | Record → PHI-minimal input + sha256 | `lib/summary/input.ts` |
-| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v8"`) |
+| System prompt + one user message (the input JSON) | `lib/summary/prompt.ts` (`PROMPT_VERSION = "v9"`) |
 | Claude API call, server-only | `lib/summary/generate.ts` |
 | Audit | `lib/summary/audit.ts`, `lib/summary/drug-list.ts` |
 | Generate / approve | `POST /api/procedures/[id]/summary`, `PUT …/summary/[summaryId]` (`lib/summary/api.ts`) |
@@ -328,6 +328,53 @@ vein, and the artery is धमनी (the v7 draft said "रेडियल ध�
 $0.0406 (longest draft 4,533 of 6,000 tokens), Malayalam $0.0304 per summary. Input is about 3,460
 tokens, 280 more than v7, from the longer prompt. Total API spend is about $21.43 with this run.
 
+## Prompt v9 (18 Oct 2026)
+
+From the v8 eval (owner, 18 Oct 2026): the Hindi PCI-2026-015 draft wrote "radial की नस", and नस
+means a vein. The owner's rule is that the artery is **धमनी** everywhere, and a vein word is never
+used for a coronary or radial artery.
+
+**Glossary in the prompt** (one line, for the draft's language only):
+
+| Language | Artery | Vein words never used for an artery |
+|---|---|---|
+| Hindi | धमनी | नस, शिरा |
+| Telugu | ధమని | సిర |
+| Tamil | தமனி | சிரை, நரம்பு |
+| Kannada | ಅಪಧಮನಿ | ಅಭಿಧಮನಿ, ಸಿರೆ, ನರ |
+| Malayalam | ധമനി | സിര, ഞരമ്പ് |
+| English | — | "The coronary, radial and femoral vessels are arteries: never call them veins." |
+
+The artery words are the owner's. The vein words are listed only so the prompt can name what not
+to write. Only Hindi was re-run, so the other languages' glossary lines are untested by an eval;
+they await their native readers.
+
+**Audit:** "नस" in a Hindi summary is a `forbidden_phrase` **error**. It is matched as a word,
+including नसें and नसों, but not inside a longer word such as जनसंख्या. Hindi only. A blocked word's
+flag is placed by its own pattern, so "Fr" is not found inside "From".
+
+**How common it was.** Hindi drafts containing नस, all of them meaning an artery (wrist, groin,
+"दिल की नसें", "दाहिनी मुख्य नस (RCA)"):
+- v7: 13 of 22
+- v8: 17 of 22
+
+### v9 eval — Hindi only (18 Oct 2026)
+
+**22/22 generated, $0.48.**
+- **"नस" for an artery:** 0 drafts. All 22 drafts use धमनी, for example "कलाई की रेडियल धमनी".
+- **One draft blocked: PCI-2026-024**, `forbidden_phrase` "नस". The sentence is "नसों से तरल दिया
+  गया", meaning fluids given **through the veins** (IV fluids for the kidney injury). There it is a
+  correct use of vein. The block stands as the owner set it. The clinician rewords it, e.g. "ड्रिप
+  (IV) से तरल दिया गया", before approving. A false alarm costs one edit; a missed one leaves "vein"
+  for an artery in a patient's letter.
+- **Every other check:** 0 flags in the other 21 drafts.
+- **PCI-2026-015:** "कलाई की रेडियल धमनी"; the narrowing was inside the stent placed earlier; no new
+  stent; the old stent's expansion was 88%.
+- **CAG-2026-019:** FFR 0.86. The narrowing is not limiting blood flow enough to need treatment, so
+  no stent and no balloon were used. No decision word.
+
+Cost: $0.0216 per Hindi summary (3,526 tokens in, 1,459 out). Total API spend is about $21.91.
+
 ## Audit rules
 
 | Code | Rule | Severity |
@@ -339,6 +386,7 @@ tokens, 280 more than v7, from the longer prompt. Total API spend is about $21.4
 | `section_missing` / `section_extra` | Not the expected number of `##` headings: 9, less one each when the input has no LVEF, no advice or no red flags. | warning |
 | `script_check` | Not English, and under 70% of the non-Latin letters are in the language's Unicode block (Telugu, Devanagari, Tamil, Kannada, Malayalam). The medicines table and Latin tokens are ignored. | warning |
 | `forbidden_phrase` | "not recorded", "unknown", "N/A", "as an AI", "I cannot". | warning |
+| `forbidden_phrase` (v9) | Hindi only: "नस" (vein) as a word, incl. नसें/नसों. | **error** |
 | `forbidden_phrase` (v8) | "Fr" as a word ("5 Fr", "6Fr"; not "From"), "French", "defer", "decision was/is to" — in every language, whatever the record holds. | **error** |
 | `forbidden_phrase` (v7) | "heart failure", "weak heart", "damaged" — unless the record's own text contains the phrase (owner, 18 Oct 2026). Checked as written in English, which is also how a medical term in brackets appears in the other languages. | **error** |
 | `physiology_missing` (v7) | A physiology result with a decision (e.g. FFR 0.86, defer): no sentence in the draft has both the test name and the value. All languages. | **error** |
@@ -490,7 +538,8 @@ The prose itself awaits the native-reader check.
 All six languages for one case average $0.144. Five Kannada drafts are over 3,500 tokens; the limit
 is 6,000. Time averages 6 s in English and 10–18 s in the Indian languages, 22 s at most. The
 whole v6 run cost $2.73. Total API spend across all runs is about $14.41, and $17.89 with
-the v7 run ($3.48), and $21.43 with the v8 run ($3.54; see [Prompt v8](#prompt-v8-18-oct-2026)).
+the v7 run ($3.48), $21.43 with the v8 run ($3.54; see [Prompt v8](#prompt-v8-18-oct-2026)), and $21.91 with the
+Hindi-only v9 run ($0.48; see [Prompt v9](#prompt-v9-18-oct-2026)).
 
 Earlier versions, for comparison:
 

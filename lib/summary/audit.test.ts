@@ -313,3 +313,15 @@ test("v8: 'Fr', 'French', 'defer' and 'The decision was to …' block approval; 
   const te = TE.replace("దయచేసి పొగ తాగడం మానేయండి.", "దయచేసి పొగ తాగడం మానేయండి. సన్నని గొట్టం (Fr) వాడారు.");
   assert.ok(auditDraft(input, te, "te").some((f) => f.code === "forbidden_phrase" && f.severity === "error"));
 });
+
+// ─── v9: Hindi "नस" ───────────────────────────────────────────────────────────
+
+test("v9: Hindi 'नस' (vein) for an artery blocks approval; 'धमनी' and longer words do not", () => {
+  const HI = SCRIPT_SAMPLES.hi;
+  const flags = (body: string) => auditDraft(input, body, "hi").filter((f) => f.code === "forbidden_phrase");
+  assert.equal(flags(`${HI} कलाई की नस से एंजियोग्राम किया गया।`)[0]?.severity, "error");
+  assert.equal(flags(`${HI} नसों में कोई समस्या नहीं।`).length, 1);
+  assert.deepEqual(flags(`${HI} कलाई की धमनी से एंजियोग्राम किया गया। जनसंख्या।`), []);
+  // Hindi only: the same letters in an English draft are not checked.
+  assert.equal(auditDraft(input, EN.replace("Please stop smoking.", "Please stop smoking. नस"), "en").some((f) => f.code === "forbidden_phrase"), false);
+});

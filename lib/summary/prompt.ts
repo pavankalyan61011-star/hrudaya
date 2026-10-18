@@ -47,8 +47,11 @@ export const SUMMARY_MODEL = "claude-sonnet-5-5";
  *      - no sheath or catheter size, French gauge, or sheath/catheter/guidewire name: the sheath
  *        size is no longer sent (the Telugu CAG-2026-019 draft wrote "5 Fr sheath"), only stents
  *        and balloons are, and "Fr"/"French" block approval.
+ * v9 — from the v8 eval (owner, 2026-10-18): the Hindi PCI-2026-015 draft wrote "radial की नस"
+ *      (नस = vein) for the radial artery. A per-language glossary gives the word for artery, and
+ *      a vein word is never used for a coronary or radial artery; "नस" blocks approval in Hindi.
  */
-export const PROMPT_VERSION = "v8";
+export const PROMPT_VERSION = "v9";
 
 /** Rows from these prompts were generated (and hashed) from the v7 input builder. */
 const V7_INPUT_PROMPTS = new Set(["v1", "v2", "v3", "v4", "v5", "v6", "v7"]);
@@ -63,6 +66,26 @@ export const LANGUAGES = {
   ml: "Malayalam",
 } as const;
 export type SummaryLanguage = keyof typeof LANGUAGES;
+/**
+ * v9: anatomical words that get mistranslated (owner, 2026-10-18). The artery word is the owner's;
+ * the vein words name what must not be used for a coronary or radial artery.
+ */
+export const GLOSSARY: Partial<Record<SummaryLanguage, { artery: string; vein: string[] }>> = {
+  hi: { artery: "धमनी", vein: ["नस", "शिरा"] },
+  te: { artery: "ధమని", vein: ["సిర"] },
+  ta: { artery: "தமனி", vein: ["சிரை", "நரம்பு"] },
+  kn: { artery: "ಅಪಧಮನಿ", vein: ["ಅಭಿಧಮನಿ", "ಸಿರೆ", "ನರ"] },
+  ml: { artery: "ധമനി", vein: ["സിര", "ഞരമ്പ്"] },
+};
+
+function glossaryLine(language: SummaryLanguage): string {
+  const g = GLOSSARY[language];
+  const veins = g ? g.vein.map((w) => `"${w}"`).join(", ") : "";
+  return g
+    ? `\nWhen you write "artery" in ${LANGUAGES[language]} (the coronary arteries, the radial or femoral artery), use "${g.artery}". Never use a word for a vein (${veins}) for an artery.`
+    : `\nThe coronary, radial and femoral vessels are arteries: never call them veins.`;
+}
+
 export const isSummaryLanguage = (v: unknown): v is SummaryLanguage => typeof v === "string" && v in LANGUAGES;
 
 /** The fixed system prompt, in English for every language (spec §5.1, items 1–7 in order). */
@@ -71,7 +94,7 @@ export function systemPrompt(language: SummaryLanguage): string {
   return `You write a discharge summary for the patient and their family, from a cardiac catheterisation (cath lab) record, for a hospital in India.
 
 LANGUAGE
-Write the body in ${L}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages, vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA) and test names (FFR, iFR, RFR, DFR, Pd/Pa, IVUS, OCT, NIRS-IVUS) with their values. The first time you use a vessel abbreviation, explain it once in brackets in ${L}. Write how often a medicine is taken in ${L}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in ${L} too: translate the words of the duration and keep the figure in Western digits, for example "12 months" becomes "12" followed by the word for months in ${L}. Never leave a duration in English unless ${L} is English.
+Write the body in ${L}. Keep these exactly as given, in Latin script and Western digits: drug names, doses, units, the case code, dates, percentages, vessel abbreviations (LMCA, LAD, LCX, RCA, and branch names such as D1, OM1, PDA) and test names (FFR, iFR, RFR, DFR, Pd/Pa, IVUS, OCT, NIRS-IVUS) with their values. The first time you use a vessel abbreviation, explain it once in brackets in ${L}. Write how often a medicine is taken in ${L}, in words without digits, followed by the record's abbreviation in brackets: for example "once a day (OD)", "twice a day (BD)", "only when needed (PRN)". Write for how long in ${L} too: translate the words of the duration and keep the figure in Western digits, for example "12 months" becomes "12" followed by the word for months in ${L}. Never leave a duration in English unless ${L} is English.${glossaryLine(language)}
 
 FACTS
 Use only the JSON record in the user message. Never add a drug, dose, finding, number, diagnosis, advice or risk that is not in it. Do not calculate, round or estimate new numbers. Anything absent from the record was not recorded: say nothing about it, and never write that something is "not recorded" or "unknown". A complication is described only together with its outcome, in one or two plain sentences, using only that complication's name, management and outcome from the record. When that text names a specific finding or test result (for example "ultrasound excluded pseudoaneurysm"), keep it specific — name the test and what it excluded or showed, in plain words with the medical term in brackets — rather than generalising it to "no further problem". A complication without an outcome is not mentioned at all.
